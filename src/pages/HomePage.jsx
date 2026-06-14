@@ -1,6 +1,7 @@
-﻿import React from 'react';
+﻿﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Shield, Code2, Cloud } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 const stats = [
   { value: '99.9%', label: 'Uptime Guaranteed' },
@@ -136,7 +137,7 @@ export default function HomePage() {
 
           {/* Detail rows */}
           {disciplines.map(({ icon: Icon, title, items, body, href }, i) => (
-            <div key={title} className={lex flex-col md:flex-row gap-10 py-12 border-t border-ink-700 }>
+            <div key={title} className={cn('flex gap-10 py-12 border-t border-ink-700', i % 2 === 1 ? 'flex-col md:flex-row-reverse' : 'flex-col md:flex-row')}>
               <div className="md:w-1/3">
                 <Icon size={18} className="text-teal-400 mb-4" />
                 <h3 className="text-2xl font-black text-white tracking-tight mb-3">{title}</h3>
