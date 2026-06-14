@@ -24,10 +24,10 @@ export function formatDateTime(isoString) {
 }
 
 export const statusConfig = {
-  pending: { label: 'Pending Review', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
-  in_review: { label: 'In Review', color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
-  proposal_sent: { label: 'Proposal Sent', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-  in_progress: { label: 'Assessment In Progress', color: 'text-accent-400 bg-accent-400/10 border-accent-400/20' },
-  completed: { label: 'Completed', color: 'text-green-400 bg-green-400/10 border-green-400/20' },
-  closed: { label: 'Closed', color: 'text-gray-400 bg-gray-400/10 border-gray-400/20' },
+  pending:       { label: 'Pending Review',          color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
+  in_review:     { label: 'In Review',               color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
+  proposal_sent: { label: 'Proposal Sent',           color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
+  in_progress:   { label: 'In Progress',             color: 'text-teal-400 bg-teal-400/10 border-teal-400/20' },
+  completed:     { label: 'Completed',               color: 'text-green-400 bg-green-400/10 border-green-400/20' },
+  closed:        { label: 'Closed',                  color: 'text-slate-400 bg-slate-400/10 border-slate-400/20' },
 };

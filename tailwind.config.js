@@ -4,55 +4,54 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50:  '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+        ink: {
+          950: '#050505',
+          900: '#0a0a0a',
+          800: '#111111',
+          700: '#1a1a1a',
+          600: '#242424',
+          500: '#2e2e2e',
+          400: '#3a3a3a',
+          300: '#505050',
         },
-        accent: {
-          400: '#22d3ee',
-          500: '#06b6d4',
-          600: '#0891b2',
+        teal: {
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
         },
-        dark: {
-          900: '#0a0a0f',
-          800: '#0f0f1a',
-          700: '#13131f',
-          600: '#1a1a2e',
-          500: '#1e1e35',
-          400: '#252540',
+        slate: {
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
         },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+      },
+      fontSize: {
+        '8xl':  ['6rem',   { lineHeight: '1' }],
+        '9xl':  ['8rem',   { lineHeight: '1' }],
+        '10xl': ['10rem',  { lineHeight: '1' }],
+      },
+      letterSpacing: {
+        tighter: '-0.04em',
+        tight:   '-0.02em',
       },
       animation: {
-        'gradient-x': 'gradient-x 8s ease infinite',
-        'float': 'float 6s ease-in-out infinite',
+        'fade-up': 'fadeUp 0.6s ease forwards',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'spin-slow': 'spin 20s linear infinite',
       },
       keyframes: {
-        'gradient-x': {
-          '0%, 100%': { 'background-position': '0% 50%' },
-          '50%': { 'background-position': '100% 50%' },
+        fadeUp: {
+          '0%':   { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-20px)' },
-        },
-      },
-      backgroundSize: {
-        '300%': '300%',
       },
     },
   },
