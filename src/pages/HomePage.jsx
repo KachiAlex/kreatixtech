@@ -100,7 +100,7 @@ export default function HomePage() {
                 We architect software and secure infrastructure for organizations that demand both
                 rigorous engineering and inventive design.
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 mb-6">
                 <Link to="/portal/vapt-request" className="btn-primary">
                   Request a VAPT Assessment
                 </Link>
@@ -108,11 +108,40 @@ export default function HomePage() {
                   View Our Work
                 </Link>
               </div>
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-2">
+                  {[
+                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=face',
+                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=64&h=64&fit=crop&crop=face',
+                    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop&crop=face',
+                  ].map((src, i) => (
+                    <img key={i} src={src} alt="" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
+                  ))}
+                </div>
+                <div className="leading-none">
+                  <p className="text-ink-900 text-xs font-semibold tracking-wider uppercase">Trusted Experts</p>
+                  <p className="text-ink-400 text-[10px] tracking-wide">50+ Happy Clients Worldwide</p>
+                </div>
+              </div>
             </div>
             <div className="hidden lg:block">
               <GlassSculpture />
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="border-t border-surface-300 overflow-hidden py-8 bg-surface-50">
+        <div className="flex animate-marquee">
+          {[...Array(2)].map((_, set) => (
+            <div key={set} className="flex gap-4 px-2 flex-shrink-0">
+              {['Cloud Native Dev', 'Threat Intelligence', 'API Security', 'Custom Software', 'Zero-Trust', 'Vulnerability Assessment', 'Penetration Testing', 'Active Dev'].map((label) => (
+                <span key={`${set}-${label}`} className="inline-flex items-center whitespace-nowrap px-6 py-3 border border-dashed border-surface-400 rounded-full text-xs font-medium text-ink-500 tracking-wide uppercase">
+                  {label}
+                </span>
+              ))}
+            </div>
+          ))}
         </div>
       </section>
 
