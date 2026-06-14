@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Navbar from './components/layout/Navbar';
@@ -27,7 +27,6 @@ function AppRoutes() {
         <Route path="/about"                 element={<AboutPage />} />
         <Route path="/contact"               element={<ContactPage />} />
         <Route path="/admin"                 element={<AdminPage />} />
-        {/* Legacy redirects */}
         <Route path="/cybersecurity"         element={<CybersecurityPage />} />
         <Route path="/vapt"                  element={<VaptPage />} />
         <Route path="*"                      element={<NotFoundPage />} />

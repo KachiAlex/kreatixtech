@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Shield, Lock, Cpu, Globe } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 
 const services = [
   {
@@ -27,33 +27,30 @@ const services = [
 
 export default function CybersecurityPage() {
   return (
-    <div className="bg-ink-950 text-white min-h-screen">
-      {/* Hero */}
-      <section className="pt-32 pb-24 border-b border-ink-700">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <p className="text-teal-400 text-xs font-mono uppercase tracking-widest mb-6">Cybersecurity</p>
-          <h1 className="text-6xl md:text-7xl font-black tracking-tighter leading-none mb-8 text-white">
+    <div className="bg-surface-50 text-ink-900 min-h-screen">
+      <section className="pt-32 pb-24 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-6">Cybersecurity</p>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-8">
             Uncompromising<br />Security.
           </h1>
-          <p className="text-slate-400 text-lg max-w-xl leading-relaxed">
+          <p className="text-ink-500 text-lg max-w-xl leading-relaxed">
             We protect your digital assets with rigorous, proactive defense strategies,
             ensuring your operations remain resilient against evolving threats.
           </p>
         </div>
       </section>
-
-      {/* Services grid */}
       <section className="py-24">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-px bg-ink-700">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="grid md:grid-cols-2 gap-px bg-surface-300">
             {services.map(({ title, body, items }) => (
-              <div key={title} className="bg-ink-950 p-10 hover:bg-ink-900 transition-colors">
-                <h3 className="text-xl font-bold text-white mb-4">{title}</h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-6">{body}</p>
+              <div key={title} className="bg-surface-50 p-10 hover:bg-surface-100 transition-colors">
+                <h3 className="text-xl font-bold text-ink-900 mb-4">{title}</h3>
+                <p className="text-ink-500 text-sm leading-relaxed mb-6">{body}</p>
                 <ul className="space-y-2.5">
                   {items.map(item => (
-                    <li key={item} className="flex items-center gap-3 text-sm text-slate-300">
-                      <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                    <li key={item} className="flex items-center gap-3 text-sm text-ink-600">
+                      <span className="w-1.5 h-1.5 rounded-full bg-coral-500 flex-shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -63,19 +60,17 @@ export default function CybersecurityPage() {
           </div>
         </div>
       </section>
-
-      {/* CTA */}
-      <section className="py-24 border-t border-ink-700 bg-ink-900">
-        <div className="max-w-6xl mx-auto px-6 lg:px-8">
+      <section className="py-24 border-t border-surface-300 bg-surface-100">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="max-w-2xl">
-            <h2 className="text-4xl font-black tracking-tight text-white mb-4">
+            <h2 className="text-3xl font-black tracking-tight text-ink-900 mb-4">
               Secure Your Infrastructure Today
             </h2>
-            <p className="text-slate-400 text-sm leading-relaxed mb-8">
+            <p className="text-ink-500 text-sm leading-relaxed mb-8">
               Identify vulnerabilities before they are exploited. Partner with Kreatix Technologies
               for a comprehensive security assessment.
             </p>
-            <Link to="/portal/vapt-request" className="btn-teal">
+            <Link to="/portal/vapt-request" className="btn-primary">
               Request a VAPT Assessment <ArrowUpRight size={15} />
             </Link>
           </div>
