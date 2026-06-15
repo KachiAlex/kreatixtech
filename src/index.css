@@ -110,7 +110,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-float, .animate-scroll-left {
+  .animate-float {
     animation: none;
   }
   .fade-in-up, .fade-in-left, .fade-in-right, .scale-in {
