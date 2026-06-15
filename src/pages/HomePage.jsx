@@ -265,6 +265,10 @@ export default function HomePage() {
             'Endpoint detection & response', 'Extended detection & response',
             'Managed detection & response', 'API security', 'Cloud native security',
             'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
+            'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
+            'Endpoint detection & response', 'Extended detection & response',
+            'Managed detection & response', 'API security', 'Cloud native security',
+            'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
           ].map((label, i) => (
             <div key={i} className="marquee-item">{label}</div>
           ))}
