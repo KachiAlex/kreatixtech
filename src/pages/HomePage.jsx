@@ -81,6 +81,91 @@ function GlassSculpture() {
   );
 }
 
+function DevIllustration() {
+  return (
+    <div className="relative w-full h-[320px] md:h-[380px]">
+      <div className="absolute top-6 left-6 right-6 h-48 rounded-2xl bg-white border border-surface-300 shadow-lg shadow-surface-200/50 overflow-hidden">
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-surface-200">
+          <span className="w-2.5 h-2.5 rounded-full bg-coral-400/60" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
+          <span className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
+        </div>
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-coral-500 text-xs font-mono font-bold">&lt;App /&gt;</span>
+            <span className="text-ink-300 text-xs font-mono">=</span>
+            <span className="text-amber-500 text-xs font-mono">{'{...}'}</span>
+          </div>
+          <div className="w-3/4 h-2 rounded-full bg-surface-200" />
+          <div className="w-1/2 h-2 rounded-full bg-surface-200" />
+          <div className="w-5/6 h-2 rounded-full bg-surface-200" />
+          <div className="w-2/3 h-2 rounded-full bg-surface-200" />
+        </div>
+      </div>
+      <div className="absolute bottom-6 left-4 bg-white border border-surface-300 rounded-xl p-3 shadow-lg shadow-surface-200/40 w-36">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-coral-500/20 to-amber-400/20 flex items-center justify-center">
+            <span className="text-coral-600 font-bold text-[8px]">S</span>
+          </span>
+          <span className="text-ink-700 text-[10px] font-semibold">SaaS</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-surface-200 mb-1" />
+        <div className="w-2/3 h-1.5 rounded-full bg-surface-200" />
+      </div>
+      <div className="absolute bottom-10 right-4 bg-white border border-surface-300 rounded-xl p-3 shadow-lg shadow-surface-200/40 w-36">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400/20 to-coral-500/20 flex items-center justify-center">
+            <span className="text-amber-600 font-bold text-[8px]">M</span>
+          </span>
+          <span className="text-ink-700 text-[10px] font-semibold">Mobile</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-surface-200 mb-1" />
+        <div className="w-3/4 h-1.5 rounded-full bg-surface-200" />
+      </div>
+      <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-gradient-to-bl from-coral-500/8 to-amber-300/8 blur-2xl pointer-events-none" />
+    </div>
+  );
+}
+
+function SecurityIllustration() {
+  return (
+    <div className="relative w-full h-[320px] md:h-[380px]">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-coral-500/10 via-rose-400/10 to-amber-300/10 border border-coral-500/20 flex items-center justify-center shadow-lg shadow-coral-500/5">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-coral-500 to-amber-400 flex items-center justify-center">
+            <Shield size={28} className="text-white" />
+          </div>
+        </div>
+      </div>
+      <div className="absolute top-8 left-8 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
+        <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center">
+          <span className="text-rose-600 font-bold text-[9px]">W</span>
+        </div>
+        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">Web</p>
+      </div>
+      <div className="absolute top-6 right-10 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
+        <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+          <span className="text-amber-600 font-bold text-[9px]">N</span>
+        </div>
+        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">Net</p>
+      </div>
+      <div className="absolute bottom-12 left-6 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
+        <div className="w-7 h-7 rounded-lg bg-coral-500/10 flex items-center justify-center">
+          <span className="text-coral-600 font-bold text-[9px]">A</span>
+        </div>
+        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">API</p>
+      </div>
+      <div className="absolute bottom-10 right-6 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
+        <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
+          <span className="text-orange-600 font-bold text-[9px]">Z</span>
+        </div>
+        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">Zero</p>
+      </div>
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-32 rounded-full bg-gradient-to-t from-coral-500/5 to-transparent blur-2xl pointer-events-none" />
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
     <div className="bg-surface-50 text-ink-900 min-h-screen">
@@ -91,7 +176,7 @@ export default function HomePage() {
               <p className="text-coral-500 text-xs font-semibold tracking-widest uppercase mb-6">
                 Innovation meets Creativity
               </p>
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-[0.95] mb-8">
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-[1.08] mb-8">
                 Dynamic solutions<br />
                 through innovation<br />
                 <span className="text-ink-300">with creativity.</span>
@@ -185,11 +270,13 @@ export default function HomePage() {
             ))}
           </div>
 
-          {disciplines.map(({ icon: Icon, title, items, body, href }, i) => (
-            <div key={title} className={'flex flex-col gap-10 py-16 border-t border-surface-300 relative ' + (i % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row')}>
+          {disciplines.map(({ icon: Icon, title, items, body, href }, i) => {
+            const hasIllustration = i < 2;
+            return (
+              <div key={title} className={'flex flex-col gap-10 py-16 border-t border-surface-300 relative ' + (i % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row')}>
               {/* Decorative floating shape */}
               <div className={'absolute top-8 ' + (i % 2 === 1 ? 'left-0' : 'right-0') + ' w-32 h-32 rounded-full bg-gradient-to-br from-coral-500/8 to-amber-300/8 blur-2xl pointer-events-none hidden lg:block'} />
-              <div className="md:w-1/3">
+              <div className={hasIllustration ? 'md:w-5/12' : 'md:w-1/3'}>
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-coral-500/10 to-amber-400/10 border border-coral-500/15 flex items-center justify-center mb-5">
                   <Icon size={18} className="text-coral-500" />
                 </div>
@@ -199,18 +286,26 @@ export default function HomePage() {
                   Learn More <ArrowUpRight size={13} />
                 </Link>
               </div>
-              <ul className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {items.map(item => (
-                  <li key={item} className="group flex items-start gap-3 bg-white border border-surface-300 rounded-xl p-4 hover:border-coral-500/30 hover:shadow-sm transition-all duration-200">
-                    <span className="w-5 h-5 rounded-lg bg-coral-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-coral-500" />
-                    </span>
-                    <span className="text-ink-600 text-sm font-medium">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                {hasIllustration ? (
+                  <div className="md:w-7/12">
+                    {i === 0 && <DevIllustration />}
+                    {i === 1 && <SecurityIllustration />}
+                  </div>
+                ) : (
+                  <ul className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {items.map(item => (
+                      <li key={item} className="group flex items-start gap-3 bg-white border border-surface-300 rounded-xl p-4 hover:border-coral-500/30 hover:shadow-sm transition-all duration-200">
+                        <span className="w-5 h-5 rounded-lg bg-coral-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-coral-500" />
+                        </span>
+                        <span className="text-ink-600 text-sm font-medium">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
