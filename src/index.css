@@ -54,7 +54,9 @@
     animation: float 6s ease-in-out infinite;
   }
   .animate-scroll-left {
-    animation: scroll-left 40s linear infinite;
+    animation: scroll-left 30s linear infinite;
+    display: flex;
+    width: max-content;
   }
   .animate-scroll-left:hover {
     animation-play-state: paused;
@@ -103,8 +105,8 @@
 }
 
 @keyframes scroll-left {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
