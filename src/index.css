@@ -107,7 +107,7 @@
 
 @keyframes scroll-left {
   0% { transform: translateX(0); }
-  100% { transform: translateX(-33.33%); }
+  100% { transform: translateX(-66.67%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
