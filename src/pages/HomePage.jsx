@@ -166,267 +166,266 @@ function SecurityIllustration() {
   );
 }
 
+function HeroBlobs() {
+  return (
+    <div className="absolute top-0 -right-[6%] w-[780px] h-[780px] z-0 pointer-events-none">
+      <svg viewBox="0 0 780 780" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FCE3CF" />
+            <stop offset="100%" stopColor="#F8C9A8" />
+          </linearGradient>
+          <linearGradient id="g2" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#FDEFE3" />
+            <stop offset="100%" stopColor="#F6D6BC" />
+          </linearGradient>
+          <linearGradient id="g3" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#FBE8DA" />
+            <stop offset="100%" stopColor="#F2C8AC" />
+          </linearGradient>
+        </defs>
+        <path d="M520 60 C660 40 760 170 740 320 C720 470 600 540 480 530 C360 520 300 420 320 300 C340 180 400 80 520 60 Z" fill="url(#g1)" />
+        <path d="M300 320 C420 300 520 380 510 500 C500 620 380 690 270 660 C160 630 110 510 150 410 C190 310 230 335 300 320 Z" fill="url(#g2)" opacity="0.9" />
+        <path d="M430 480 C540 470 620 560 600 660 C580 750 460 780 380 740 C300 700 280 600 320 540 C360 480 360 488 430 480 Z" fill="url(#g3)" opacity="0.85" />
+      </svg>
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
-    <div className="bg-surface-50 text-ink-900 min-h-screen">
-      <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-16 w-full">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="max-w-xl">
-              <p className="text-coral-500 text-xs font-semibold tracking-widest uppercase mb-6">
-                Innovation meets Creativity
-              </p>
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tighter leading-[1.08] mb-8">
-                Dynamic solutions<br />
-                through innovation<br />
-                <span className="text-ink-300">with creativity.</span>
-              </h1>
-              <p className="text-ink-500 text-base max-w-md leading-relaxed mb-10">
-                We architect software and secure infrastructure for organizations that demand both
-                rigorous engineering and inventive design.
-              </p>
-              <div className="flex flex-wrap gap-3 mb-6">
-                <Link to="/portal/vapt-request" className="btn-primary">
-                  Request a VAPT Assessment
-                </Link>
-                <Link to="/portfolio" className="btn-outline">
-                  View Our Work
-                </Link>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-2">
-                  {[
-                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=face',
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=64&h=64&fit=crop&crop=face',
-                    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&h=64&fit=crop&crop=face',
-                  ].map((src, i) => (
-                    <img key={i} src={src} alt="" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
-                  ))}
-                </div>
-                <div className="leading-none">
-                  <p className="text-ink-900 text-xs font-semibold tracking-wider uppercase">Trusted Experts</p>
-                  <p className="text-ink-400 text-[10px] tracking-wide">50+ Happy Clients Worldwide</p>
-                </div>
-              </div>
-            </div>
-            <div className="hidden lg:block">
-              <GlassSculpture />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-surface-300 overflow-hidden py-8 bg-surface-50">
-        <div className="flex animate-marquee">
-          {[...Array(2)].map((_, set) => (
-            <div key={set} className="flex gap-4 px-2 flex-shrink-0">
-              {['Cloud Native Dev', 'Threat Intelligence', 'API Security', 'Custom Software', 'Zero-Trust', 'Vulnerability Assessment', 'Penetration Testing', 'Active Dev'].map((label) => (
-                <span key={`${set}-${label}`} className="inline-flex items-center whitespace-nowrap px-6 py-3 border border-dashed border-surface-400 rounded-full text-xs font-medium text-ink-500 tracking-wide uppercase">
-                  {label}
-                </span>
-              ))}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Stats — with decorative coral glow */}
-      <section className="border-y border-surface-300 bg-surface-50 relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-80 h-80 rounded-full bg-gradient-to-br from-coral-500/5 via-amber-300/5 to-rose-300/5 blur-3xl pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 relative">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
-            {stats.map(({ value, label }, i) => (
-              <div key={label} className="text-center md:text-left group">
-                <p className="text-4xl md:text-5xl font-black tracking-tighter mb-2 group-hover:text-coral-500 transition-colors duration-300">{value}</p>
-                <div className="h-0.5 w-8 bg-gradient-to-r from-coral-500 to-amber-300 rounded-full mb-3 mx-auto md:mx-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <p className="text-ink-400 text-sm font-medium">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Disciplines — with coral card accents and icon circles */}
-      <section className="py-28 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-coral-500/3 via-amber-300/3 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 relative">
-          <div className="mb-16">
-            <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4">What we do</p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Our Disciplines.</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-5 mb-20">
-            {disciplines.map(({ icon: Icon, title, body, href }) => (
-              <div key={title} className="group card p-8 bg-white relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-coral-500 via-amber-400 to-coral-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-coral-500/10 to-amber-400/10 border border-coral-500/15 flex items-center justify-center mb-6">
-                  <Icon size={20} className="text-coral-500" />
-                </div>
-                <h3 className="text-ink-900 font-bold text-lg mb-3 group-hover:text-coral-500 transition-colors">{title}</h3>
-                <p className="text-ink-500 text-sm leading-relaxed mb-5">{body}</p>
-                <Link to={href} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-400 group-hover:text-coral-500 transition-colors">
-                  Learn More <ArrowUpRight size={13} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </Link>
-              </div>
-            ))}
-          </div>
-
-          {disciplines.map(({ icon: Icon, title, items, body, href }, i) => {
-            const hasIllustration = i < 2;
-            return (
-              <div key={title} className={'flex flex-col gap-10 py-16 border-t border-surface-300 relative ' + (i % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row')}>
-              {/* Decorative floating shape */}
-              <div className={'absolute top-8 ' + (i % 2 === 1 ? 'left-0' : 'right-0') + ' w-32 h-32 rounded-full bg-gradient-to-br from-coral-500/8 to-amber-300/8 blur-2xl pointer-events-none hidden lg:block'} />
-              <div className={hasIllustration ? 'md:w-5/12' : 'md:w-1/3'}>
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-coral-500/10 to-amber-400/10 border border-coral-500/15 flex items-center justify-center mb-5">
-                  <Icon size={18} className="text-coral-500" />
-                </div>
-                <h3 className="text-2xl font-black text-ink-900 tracking-tight mb-3">{title}</h3>
-                <p className="text-ink-500 text-sm leading-relaxed">{body}</p>
-                <Link to={href} className="inline-flex items-center gap-1.5 mt-5 text-xs font-semibold text-coral-500 hover:text-coral-600 transition-colors">
-                  Learn More <ArrowUpRight size={13} />
-                </Link>
-              </div>
-                {hasIllustration ? (
-                  <div className="md:w-7/12">
-                    {i === 0 && <DevIllustration />}
-                    {i === 1 && <SecurityIllustration />}
-                  </div>
-                ) : (
-                  <ul className="md:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {items.map(item => (
-                      <li key={item} className="group flex items-start gap-3 bg-white border border-surface-300 rounded-xl p-4 hover:border-coral-500/30 hover:shadow-sm transition-all duration-200">
-                        <span className="w-5 h-5 rounded-lg bg-coral-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-coral-500" />
-                        </span>
-                        <span className="text-ink-600 text-sm font-medium">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Portfolio — with image headers and gradient hover cards */}
-      <section className="py-28 border-t border-surface-300 bg-surface-100 relative overflow-hidden">
-        <div className="absolute bottom-0 left-0 w-[600px] h-[400px] rounded-full bg-gradient-to-tr from-amber-300/5 via-coral-500/5 to-transparent blur-3xl pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 relative">
-          <div className="flex items-end justify-between mb-16 gap-6 flex-wrap">
-            <div>
-              <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4">Portfolio</p>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight">Selected Work</h2>
-              <p className="text-ink-500 mt-3 max-w-md text-sm leading-relaxed">
-                Real results driven by deep technical expertise and inventive problem-solving.
-              </p>
-            </div>
-            <Link to="/portfolio" className="btn-outline text-xs px-5 py-2.5 flex-shrink-0">
-              View All Projects <ArrowUpRight size={13} />
+    <div className="bg-paper text-ink min-h-screen">
+      <header className="relative grid grid-cols-[1.1fr_0.9fr] gap-10 items-center py-[200px] px-14 overflow-hidden">
+        <HeroBlobs />
+        <div className="relative z-2">
+          <span className="inline-flex items-center gap-2 text-[13px] font-bold text-orange tracking-[0.12em] uppercase mb-6">
+            <span className="w-2 h-2 rounded-full bg-orange" />
+            Innovation meets creativity
+          </span>
+          <h1 className="text-[clamp(48px,7vw,84px)] font-extrabold leading-[1.04] mb-7 tracking-tight">
+            Dynamic solutions through innovation, built with <span className="text-grey">creativity.</span>
+          </h1>
+          <p className="text-[18px] text-grey-dark max-w-[46ch] mb-10 font-normal">
+            Kreatix Technologies architects software and secures infrastructure for organizations that demand both rigorous engineering and inventive design — across software development, cybersecurity and cloud services.
+          </p>
+          <div className="flex gap-3.5 flex-wrap mb-14">
+            <Link to="/portal/vapt-request" className="btn-primary">
+              Request a VAPT assessment →
+            </Link>
+            <Link to="/portfolio" className="btn-outline">
+              View our work
             </Link>
           </div>
-          <div className="grid md:grid-cols-3 gap-5">
-            {work.map(({ title, desc, tags, href, external }, i) => (
-              <div key={title} className="group card p-0 flex flex-col overflow-hidden bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                {/* Card header gradient */}
-                <div className={'h-32 relative overflow-hidden ' + (i === 0 ? 'bg-gradient-to-br from-coral-500/20 via-rose-400/20 to-amber-300/20' : i === 1 ? 'bg-gradient-to-br from-amber-300/20 via-orange-300/20 to-coral-500/20' : 'bg-gradient-to-br from-rose-300/20 via-coral-500/20 to-amber-300/20')}>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-14 h-14 rounded-2xl bg-white/80 backdrop-blur-sm border border-white/50 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300">
-                      <Code2 size={22} className="text-coral-500" />
-                    </div>
-                  </div>
-                  {external ? (
-                    <a href={href} target="_blank" rel="noopener noreferrer"
-                      className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/80 backdrop-blur-sm text-ink-400 hover:text-coral-500 transition-colors shadow-sm">
-                      <ArrowUpRight size={13} />
-                    </a>
-                  ) : (
-                    <Link to={href} className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/80 backdrop-blur-sm text-ink-400 hover:text-coral-500 transition-colors shadow-sm">
-                      <ArrowUpRight size={13} />
-                    </Link>
-                  )}
-                </div>
-                <div className="p-7 flex-1 flex flex-col">
-                  <h3 className="text-ink-900 font-bold text-lg mb-2 group-hover:text-coral-500 transition-colors">{title}</h3>
-                  <p className="text-ink-500 text-sm leading-relaxed flex-1 mb-5">{desc}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map(t => <span key={t} className="tag text-[11px]">{t}</span>)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonial / Trust Quote */}
-      <section className="py-28 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-surface-100 via-white to-surface-50" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] rounded-full bg-gradient-to-r from-coral-500/5 via-amber-300/5 to-rose-300/5 blur-3xl pointer-events-none" />
-        <div className="max-w-5xl mx-auto px-6 lg:px-10 relative text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-coral-500 to-amber-400 flex items-center justify-center mx-auto mb-8 shadow-lg shadow-coral-500/10">
-            <Shield size={28} className="text-white" />
-          </div>
-          <blockquote className="text-3xl md:text-4xl font-black tracking-tight text-ink-900 leading-snug mb-8">
-            &ldquo;Kreatix Technologies transformed our security posture. Their VAPT assessment uncovered critical vulnerabilities we never knew existed.&rdquo;
-          </blockquote>
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-coral-500/20 to-amber-400/20 border border-coral-500/20 flex items-center justify-center">
-              <span className="text-coral-600 font-bold text-xs">CT</span>
-            </div>
-            <div className="text-left">
-              <p className="text-ink-900 font-semibold text-sm">Caremaster Technologies</p>
-              <p className="text-ink-400 text-xs">Healthcare SaaS Platform</p>
-            </div>
-          </div>
-          {/* Trust badges */}
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-6">
-            {['SOC 2 Compliant', 'ISO 27001 Ready', 'NIST Aligned'].map(badge => (
-              <span key={badge} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-surface-300 text-xs font-medium text-ink-500 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-coral-500" />
-                {badge}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA — bold coral gradient section */}
-      <section className="py-28 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-ink-900 via-ink-950 to-ink-900" />
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-coral-500/15 via-amber-400/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-amber-400/10 via-rose-400/8 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 relative">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="flex gap-12 pt-8 border-t border-border">
             <div>
-              <p className="text-coral-400 text-xs font-semibold uppercase tracking-widest mb-5">Ready to secure your business?</p>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight leading-tight mb-6 text-white">
-                Let&apos;s build something secure and exceptional.
-              </h2>
-              <p className="text-ink-400 text-sm leading-relaxed mb-8 max-w-md">
-                Trusted by organizations that take security seriously. Start with a free VAPT assessment or tell us about your project.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link to="/portal/vapt-request" className="btn-coral">
-                  Request VAPT Assessment <ArrowUpRight size={15} />
-                </Link>
-                <Link to="/contact" className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border border-ink-600 text-ink-300 font-semibold text-sm rounded-full transition-all duration-200 hover:bg-white hover:text-ink-900 hover:border-white">
-                  Start a Project
-                </Link>
+              <div className="font-display font-extrabold text-[30px] text-ink">120+</div>
+              <div className="text-[13px] text-grey font-semibold mt-1">Projects delivered</div>
+            </div>
+            <div>
+              <div className="font-display font-extrabold text-[30px] text-ink">40+</div>
+              <div className="text-[13px] text-grey font-semibold mt-1">Security assessments</div>
+            </div>
+            <div>
+              <div className="font-display font-extrabold text-[30px] text-ink">99.9%</div>
+              <div className="text-[13px] text-grey font-semibold mt-1">Client uptime SLA</div>
+            </div>
+          </div>
+        </div>
+        <div className="relative z-2 h-[560px]">
+          <div className="pill top-[18%] right-[4%] animate-float" style={{ animationDelay: '0s' }}>
+            <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
+            Zero-trust architecture
+          </div>
+          <div className="pill top-[52%] left-[6%] animate-float" style={{ animationDelay: '1.5s' }}>
+            <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
+            Custom software
+          </div>
+          <div className="pill bottom-[8%] right-[14%] animate-float" style={{ animationDelay: '3s' }}>
+            <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
+            Cloud infrastructure
+          </div>
+        </div>
+      </header>
+
+      <div className="border-t border-b border-border overflow-hidden py-7 bg-paper">
+        <div className="flex gap-5 w-max animate-scroll-left">
+          {[
+            'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
+            'Endpoint detection & response', 'Extended detection & response',
+            'Managed detection & response', 'API security', 'Cloud native security',
+            'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
+            'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
+            'Endpoint detection & response', 'Extended detection & response',
+            'Managed detection & response', 'API security', 'Cloud native security',
+            'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
+          ].map((label, i) => (
+            <div key={i} className="marquee-item">{label}</div>
+          ))}
+        </div>
+      </div>
+
+      <section className="py-[100px] px-14 bg-offwhite">
+        <div className="max-w-[680px] mb-16">
+          <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">What we do</span>
+          <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Three disciplines, one team</h2>
+          <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">From the first line of code to the systems that keep it safe and running — we cover the full lifecycle.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-6">
+          <div className="service-card">
+            <div className="w-11 h-11 rounded-[12px] bg-ink text-white flex items-center justify-center font-extrabold text-[15px] mb-7">01</div>
+            <h3 className="text-[22px] mb-3 font-extrabold">Software development</h3>
+            <p className="text-grey-dark text-[15px] mb-6">Custom web and mobile applications, internal tools and platforms — designed with creativity and built to scale.</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Web apps</span>
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Mobile apps</span>
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">APIs</span>
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Product design</span>
+            </div>
+          </div>
+          <div className="service-card featured shadow-lg">
+            <div className="w-11 h-11 rounded-[12px] bg-orange text-white flex items-center justify-center font-extrabold text-[15px] mb-7">02</div>
+            <h3 className="text-[22px] mb-3 font-extrabold">Cybersecurity</h3>
+            <p className="text-grey-dark text-[15px] mb-6">Assessments, monitoring and protection that find weaknesses before attackers do — and respond fast when it matters.</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">VAPT</span>
+              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">EDR / XDR / MDR</span>
+              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">Endpoint mgmt</span>
+              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">API security</span>
+            </div>
+          </div>
+          <div className="service-card">
+            <div className="w-11 h-11 rounded-[12px] bg-ink text-white flex items-center justify-center font-extrabold text-[15px] mb-7">03</div>
+            <h3 className="text-[22px] mb-3 font-extrabold">Cloud services</h3>
+            <p className="text-grey-dark text-[15px] mb-6">Architecture, migration and managed operations across major cloud platforms — built for cost, performance and uptime.</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Migration</span>
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">IaC</span>
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Managed ops</span>
+              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Cost optimisation</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-[100px] px-14">
+        <div className="max-w-[680px] mb-16">
+          <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">Cybersecurity services</span>
+          <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Find the gaps. Close them. Watch what's left.</h2>
+          <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">A layered set of services covering assessment, detection and ongoing protection — tailored to your environment.</p>
+        </div>
+        <div className="grid grid-cols-4 gap-5">
+          <div className="cyber-card">
+            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">VA</div>
+            <h4 className="text-[17px] mb-2.5 font-extrabold">Vulnerability assessment & pen testing</h4>
+            <p className="text-grey-dark text-[14px]">Scoped, methodical testing of your systems with clear, actionable reporting.</p>
+          </div>
+          <div className="cyber-card">
+            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">TD</div>
+            <h4 className="text-[17px] mb-2.5 font-extrabold">Threat detection & response</h4>
+            <p className="text-grey-dark text-[14px]">EDR, XDR and MDR services that monitor and respond around the clock.</p>
+          </div>
+          <div className="cyber-card">
+            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">EM</div>
+            <h4 className="text-[17px] mb-2.5 font-extrabold">Endpoint management</h4>
+            <p className="text-grey-dark text-[14px]">Centralised visibility and control across laptops, servers and devices.</p>
+          </div>
+          <div className="cyber-card">
+            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">AS</div>
+            <h4 className="text-[17px] mb-2.5 font-extrabold">API security</h4>
+            <p className="text-grey-dark text-[14px]">Discovery, testing and continuous protection for your APIs and integrations.</p>
+          </div>
+        </div>
+
+        <div className="bg-ink rounded-[24px] p-14 grid grid-cols-[1.4fr_1fr] gap-10 items-center mt-8 text-white relative overflow-hidden">
+          <div className="absolute top-[-40%] right-[-15%] w-[380px] h-[380px] rounded-full bg-[radial-gradient(circle,rgba(242,120,46,0.35),transparent_70%)]" />
+          <div className="relative">
+            <h3 className="text-[clamp(24px,3vw,32px)] mb-3.5 font-extrabold relative">Submit your VAPT scope in one guided flow</h3>
+            <p className="text-[#C7C9CC] text-[15px] max-w-[48ch] relative">Tell us what you need assessed and upload supporting documents — network diagrams, IP ranges, NDAs. Our team reviews, scopes and responds, with every update and deliverable shared back through the same thread.</p>
+            <div className="flex gap-3.5 mt-7 mb-0">
+              <Link to="/portal/vapt-request" className="btn-orange">Start a VAPT request →</Link>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 relative">
+            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
+              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">1</span>
+              Submit scope & documents
+            </div>
+            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
+              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">2</span>
+              Team reviews & scopes engagement
+            </div>
+            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
+              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">3</span>
+              Testing & live status updates
+            </div>
+            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
+              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">4</span>
+              Report & remediation guidance delivered
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-[100px] px-14">
+        <div className="max-w-[680px] mb-16">
+          <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">Selected work</span>
+          <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Things we've shipped</h2>
+          <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">A look at recent apps and websites we've built — each with a short walkthrough of how it works.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-6">
+          <div className="work-card">
+            <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
+              <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
+            </div>
+            <div className="p-6">
+              <h4 className="text-[17px] mb-2 font-extrabold">Fintech onboarding app</h4>
+              <p className="text-grey-dark text-[14px] mb-4">A mobile-first KYC and onboarding flow for a digital lender, cutting signup time from 12 minutes to 3.</p>
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">React Native</span>
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Node.js</span>
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">AWS</span>
               </div>
             </div>
-            <div className="hidden lg:block relative">
-              <div className="relative w-full h-[340px]">
-                <div className="absolute top-4 right-12 w-48 h-48 rounded-full bg-gradient-to-br from-coral-500/25 via-rose-400/20 to-amber-300/15 backdrop-blur-2xl" />
-                <div className="absolute top-16 right-4 w-36 h-36 rounded-[40%] bg-gradient-to-tr from-amber-300/20 via-orange-300/15 to-pink-300/10 backdrop-blur-xl rotate-12" />
-                <div className="absolute bottom-4 right-24 w-32 h-32 rounded-full bg-gradient-to-bl from-rose-400/15 via-coral-500/10 to-amber-200/10 backdrop-blur-xl" />
-                <div className="absolute top-1/2 right-0 w-40 h-40 rounded-full bg-gradient-to-t from-coral-500/10 to-rose-300/5 backdrop-blur-2xl -rotate-6" />
+          </div>
+          <div className="work-card">
+            <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
+              <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
+            </div>
+            <div className="p-6">
+              <h4 className="text-[17px] mb-2 font-extrabold">Logistics dashboard</h4>
+              <p className="text-grey-dark text-[14px] mb-4">Real-time fleet tracking and reporting platform used across three regional hubs.</p>
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Next.js</span>
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">PostgreSQL</span>
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Mapbox</span>
+              </div>
+            </div>
+          </div>
+          <div className="work-card">
+            <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
+              <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
+            </div>
+            <div className="p-6">
+              <h4 className="text-[17px] mb-2 font-extrabold">Healthcare booking platform</h4>
+              <p className="text-grey-dark text-[14px] mb-4">Appointment scheduling and patient records system for a multi-branch clinic group.</p>
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Django</span>
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">React</span>
+                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Azure</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      <section className="bg-offwhite text-center rounded-[28px] mx-14 mb-0 py-20 px-10">
+        <h2 className="text-[clamp(28px,5vw,52px)] mb-5 font-extrabold max-w-[18ch] mx-auto">Tell us what you're protecting — or building next.</h2>
+        <p className="text-grey-dark max-w-[50ch] mx-auto mb-9 text-[16px]">Whether it's a new product, a cloud migration, or a security assessment, our team replies within one business day.</p>
+        <div className="flex gap-3.5 justify-center flex-wrap">
+          <Link to="/portal/vapt-request" className="btn-primary">Start a VAPT request →</Link>
+          <Link to="/contact" className="btn-outline">Talk to our team</Link>
+        </div>
+      </section>
     </div>
   );
 }

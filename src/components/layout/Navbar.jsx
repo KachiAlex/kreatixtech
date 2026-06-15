@@ -8,6 +8,7 @@ const navLinks = [
   { label: 'Cybersecurity', href: '/services/cybersecurity' },
   { label: 'Work', href: '/portfolio' },
   { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
 ];
 
 export default function Navbar() {
@@ -26,78 +27,80 @@ export default function Navbar() {
   return (
     <nav className={cn(
       'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-      scrolled ? 'bg-white/90 backdrop-blur-md border-b border-surface-300' : 'bg-transparent'
+      scrolled ? 'bg-paper/85 backdrop-blur-[12px] border-b border-border shadow-sm' : 'bg-paper/85 backdrop-blur-[12px]'
     )}>
-      <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-coral-500 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-black text-sm leading-none">K</span>
-            </div>
-            <div className="leading-none">
-              <span className="font-bold text-ink-900 text-sm tracking-tight">Kreatix</span>
-              <span className="block text-ink-400 text-[10px] tracking-wide -mt-0.5">Technologies</span>
-            </div>
-          </Link>
-
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <NavLink
-                key={link.href}
-                to={link.href}
-                end={link.href === '/'}
-                className={({ isActive }) => cn(
-                  'text-xs font-semibold uppercase tracking-widest transition-colors',
-                  isActive ? 'text-ink-900' : 'text-ink-400 hover:text-ink-900'
-                )}
-              >
-                {link.label}
-              </NavLink>
-            ))}
+      <div className="flex items-center justify-between px-14 py-5">
+        {/* Brand */}
+        <Link to="/" className="flex items-center gap-3">
+          <div className="w-9.5 h-9.5 rounded-[9px] bg-orange flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-display font-extrabold text-lg leading-none">K</span>
           </div>
-
-          {/* CTA */}
-          <div className="hidden md:flex items-center gap-3">
-            <Link to="/contact" className="text-xs font-semibold text-ink-500 hover:text-ink-900 transition-colors">
-              Contact
-            </Link>
-            <Link to="/portal/vapt-request" className="btn-outline py-2 px-5 text-xs">
-              Request Assessment
-            </Link>
+          <div className="flex flex-col leading-[1.15]">
+            <span className="font-display font-extrabold text-base text-ink">Kreatix</span>
+            <span className="text-[11px] text-grey font-medium tracking-[0.01em]">Technologies</span>
           </div>
+        </Link>
 
-          {/* Mobile toggle */}
-          <button
-            onClick={() => setMobileOpen(v => !v)}
-            className="md:hidden p-2 rounded-lg text-ink-500 hover:text-ink-900 hover:bg-surface-200 transition-colors"
-          >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="md:hidden bg-white border-t border-surface-300 px-6 py-4 space-y-1 shadow-xl">
+        {/* Desktop nav */}
+        <div className={cn(
+          'hidden md:flex items-center gap-9 transition-transform duration-300',
+          mobileOpen ? 'translate-x-0' : 'translate-x-0'
+        )}>
           {navLinks.map((link) => (
             <NavLink
               key={link.href}
               to={link.href}
               end={link.href === '/'}
               className={({ isActive }) => cn(
-                'block px-4 py-3 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'text-ink-900 bg-surface-100' : 'text-ink-400 hover:text-ink-900 hover:bg-surface-100'
+                'text-sm font-semibold transition-opacity',
+                isActive ? 'text-ink opacity-100' : 'text-ink opacity-65 hover:opacity-100'
               )}
             >
               {link.label}
             </NavLink>
           ))}
-          <div className="pt-3 flex flex-col gap-2 border-t border-surface-300 mt-3">
-            <Link to="/contact" className="btn-ghost justify-center py-2.5 text-sm">Contact</Link>
-            <Link to="/portal/vapt-request" className="btn-outline justify-center py-2.5 text-sm">Request Assessment</Link>
-          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="hidden md:flex items-center gap-6">
+          <Link to="/contact" className="text-sm font-semibold text-ink opacity-65 hover:opacity-100 transition-opacity">
+            Contact
+          </Link>
+          <Link to="/portal/vapt-request" className="btn-dark">
+            Request Assessment
+          </Link>
+        </div>
+
+        {/* Mobile toggle */}
+        <button
+          onClick={() => setMobileOpen(v => !v)}
+          className="md:hidden text-ink text-2xl bg-transparent border-none cursor-pointer"
+          aria-label="Toggle menu"
+        >
+          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Mobile menu */}
+      {mobileOpen && (
+        <div className={cn(
+          'md:hidden fixed top-0 right-0 h-screen w-60 bg-paper flex flex-col justify-start pt-24 px-8 gap-7 transition-transform duration-300 border-l border-border',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full'
+        )}>
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.href}
+              to={link.href}
+              end={link.href === '/'}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) => cn(
+                'text-sm font-semibold transition-colors',
+                isActive ? 'text-ink' : 'text-ink opacity-65 hover:opacity-100'
+              )}
+            >
+              {link.label}
+            </NavLink>
+          ))}
         </div>
       )}
     </nav>

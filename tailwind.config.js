@@ -4,55 +4,46 @@ export default {
   theme: {
     extend: {
       colors: {
-        surface: {
-          50: '#ffffff',
-          100: '#fafafa',
-          200: '#f5f5f5',
-          300: '#eeeeee',
-          400: '#e0e0e0',
-          500: '#cccccc',
-        },
         ink: {
-          950: '#0a0a0a',
-          900: '#111111',
-          800: '#1a1a1a',
-          700: '#2a2a2a',
-          600: '#333333',
-          500: '#555555',
-          400: '#777777',
-          300: '#999999',
-          200: '#bbbbbb',
+          DEFAULT: '#111213',
+          light: '#2b2d2f',
         },
-        coral: {
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
+        grey: {
+          DEFAULT: '#9CA0A6',
+          dark: '#5C6066',
         },
-        warm: {
-          50: '#fff7ed',
-          100: '#ffedd5',
-          200: '#fed7aa',
-          300: '#fdba74',
+        paper: '#FFFFFF',
+        offwhite: '#FAF9F7',
+        orange: {
+          DEFAULT: '#F2782E',
+          deep: '#E0641C',
+          light: '#FDF1E8',
         },
-        peach: {
-          200: '#fecdd3',
-          300: '#fda4af',
-          400: '#fb7185',
-        },
-        amber: {
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-        },
+        border: '#EAE8E4',
+        line: 'rgba(34,36,38,0.08)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'sans-serif'],
       },
       letterSpacing: {
         tighter: '-0.04em',
-        tight:   '-0.02em',
+        tight: '-0.03em',
+        wide: '0.12em',
+      },
+      animation: {
+        float: 'float 6s ease-in-out infinite',
+        'scroll-left': 'scroll-left 40s linear infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' },
+        },
+        'scroll-left': {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
       },
     },
   },

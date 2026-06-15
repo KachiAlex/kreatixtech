@@ -6,55 +6,73 @@
   *, *::before, *::after { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    @apply bg-surface-50 text-ink-900 font-sans antialiased;
+    @apply bg-paper text-ink font-sans antialiased;
     min-height: 100vh;
   }
-  ::selection { @apply bg-coral-500/20 text-ink-900; }
+  ::selection { @apply bg-orange/20 text-ink; }
+  h1, h2, h3, h4 { @apply font-display tracking-tight; }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink-900 text-white font-semibold text-sm rounded-full transition-all duration-200 hover:bg-ink-800;
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 bg-ink text-white font-bold text-sm rounded-full transition-all duration-200 hover:bg-orange hover:-translate-y-0.5;
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 border border-ink-900 text-ink-900 font-semibold text-sm rounded-full transition-all duration-200 hover:bg-ink-900 hover:text-white;
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 border border-border text-ink font-bold text-sm rounded-full transition-all duration-200 hover:border-ink hover:-translate-y-0.5;
   }
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-ink-500 font-medium text-sm transition-all duration-200 hover:text-ink-900;
+  .btn-orange {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-4 bg-orange text-white font-bold text-sm rounded-full transition-all duration-200 hover:bg-orange-deep;
   }
-  .btn-coral {
-    @apply inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-coral-500 text-white font-semibold text-sm rounded-full transition-all duration-200 hover:bg-coral-600;
+  .btn-dark {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-ink text-white font-bold text-sm rounded-full transition-all duration-200 hover:bg-ink-light hover:-translate-y-0.5;
   }
   .card {
-    @apply bg-surface-100 border border-surface-300 rounded-2xl;
+    @apply bg-paper border border-border rounded-2xl;
   }
-  .card-subtle {
-    @apply bg-surface-50 border border-surface-300 rounded-2xl;
+  .service-card {
+    @apply bg-paper border border-border rounded-[20px] p-9 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg;
   }
-  .input-field {
-    @apply w-full bg-white border border-surface-400 rounded-xl px-4 py-3 text-ink-900 placeholder-ink-300 text-sm focus:outline-none focus:border-coral-500 focus:ring-2 focus:ring-coral-500/20 transition-all;
+  .service-card.featured {
+    @apply shadow-lg;
   }
-  .label {
-    @apply block text-xs font-medium text-ink-400 uppercase tracking-wider mb-2;
+  .cyber-card {
+    @apply bg-paper border border-border rounded-[18px] p-7 transition-all duration-300 hover:border-orange hover:-translate-y-1;
   }
-  .tag {
-    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-surface-200 text-ink-600;
+  .work-card {
+    @apply bg-paper border border-border rounded-[20px] overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lg;
   }
-  .tag-coral {
-    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-coral-500/10 text-coral-600 border border-coral-500/20;
+  .pill {
+    @apply absolute bg-paper border border-border rounded-full px-5 py-3 text-sm font-bold text-ink flex items-center gap-2.5 shadow-lg animate-float;
+  }
+  .marquee-item {
+    @apply border border-dashed border-border rounded-[10px] px-7 py-4 whitespace-nowrap text-sm font-bold tracking-wide uppercase text-ink bg-offwhite;
   }
 }
 
 @layer utilities {
-  .animate-marquee {
-    animation: marquee 30s linear infinite;
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
   }
-  .animate-marquee:hover {
+  .animate-scroll-left {
+    animation: scroll-left 40s linear infinite;
+  }
+  .animate-scroll-left:hover {
     animation-play-state: paused;
   }
 }
 
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes scroll-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float, .animate-scroll-left {
+    animation: none;
+  }
 }
