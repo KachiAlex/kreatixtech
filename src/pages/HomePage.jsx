@@ -1,6 +1,7 @@
-﻿import React from 'react';
+﻿import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Shield, Code2, Cloud } from 'lucide-react';
+import { useScrollAnimation } from '../hooks/useScrollAnimation';
 
 const stats = [
   { value: '99.9%', label: 'Uptime Guaranteed' },
@@ -193,11 +194,17 @@ function HeroBlobs() {
 }
 
 export default function HomePage() {
+  const [heroRef, heroVisible] = useScrollAnimation();
+  const [servicesRef, servicesVisible] = useScrollAnimation();
+  const [cyberRef, cyberVisible] = useScrollAnimation();
+  const [portfolioRef, portfolioVisible] = useScrollAnimation();
+  const [ctaRef, ctaVisible] = useScrollAnimation();
+
   return (
     <div className="bg-paper text-ink min-h-screen">
-      <header className="relative grid grid-cols-[1.1fr_0.9fr] gap-10 items-center py-[200px] px-14 overflow-hidden">
+      <header ref={heroRef} className="relative grid grid-cols-[1.1fr_0.9fr] gap-10 items-center py-[200px] px-14 overflow-hidden">
         <HeroBlobs />
-        <div className="relative z-2">
+        <div className={`relative z-2 ${heroVisible ? 'visible' : ''} fade-in-up`}>
           <span className="inline-flex items-center gap-2 text-[13px] font-bold text-orange tracking-[0.12em] uppercase mb-6">
             <span className="w-2 h-2 rounded-full bg-orange" />
             Innovation meets creativity
@@ -231,7 +238,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-        <div className="relative z-2 h-[560px]">
+        <div className={`relative z-2 h-[560px] ${heroVisible ? 'visible' : ''} scale-in`}>
           <div className="pill top-[18%] right-[4%] animate-float" style={{ animationDelay: '0s' }}>
             <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
             Zero-trust architecture
@@ -264,14 +271,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      <section className="py-[100px] px-14 bg-offwhite">
-        <div className="max-w-[680px] mb-16">
+      <section ref={servicesRef} className="py-[100px] px-14 bg-offwhite">
+        <div className={`max-w-[680px] mb-16 ${servicesVisible ? 'visible' : ''} fade-in-up`}>
           <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">What we do</span>
           <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Three disciplines, one team</h2>
           <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">From the first line of code to the systems that keep it safe and running — we cover the full lifecycle.</p>
         </div>
         <div className="grid grid-cols-3 gap-6">
-          <div className="service-card">
+          <div className={`service-card ${servicesVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.1s' }}>
             <div className="w-11 h-11 rounded-[12px] bg-ink text-white flex items-center justify-center font-extrabold text-[15px] mb-7">01</div>
             <h3 className="text-[22px] mb-3 font-extrabold">Software development</h3>
             <p className="text-grey-dark text-[15px] mb-6">Custom web and mobile applications, internal tools and platforms — designed with creativity and built to scale.</p>
@@ -282,7 +289,7 @@ export default function HomePage() {
               <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Product design</span>
             </div>
           </div>
-          <div className="service-card featured shadow-lg">
+          <div className={`service-card featured shadow-lg ${servicesVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.2s' }}>
             <div className="w-11 h-11 rounded-[12px] bg-orange text-white flex items-center justify-center font-extrabold text-[15px] mb-7">02</div>
             <h3 className="text-[22px] mb-3 font-extrabold">Cybersecurity</h3>
             <p className="text-grey-dark text-[15px] mb-6">Assessments, monitoring and protection that find weaknesses before attackers do — and respond fast when it matters.</p>
@@ -293,7 +300,7 @@ export default function HomePage() {
               <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">API security</span>
             </div>
           </div>
-          <div className="service-card">
+          <div className={`service-card ${servicesVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.3s' }}>
             <div className="w-11 h-11 rounded-[12px] bg-ink text-white flex items-center justify-center font-extrabold text-[15px] mb-7">03</div>
             <h3 className="text-[22px] mb-3 font-extrabold">Cloud services</h3>
             <p className="text-grey-dark text-[15px] mb-6">Architecture, migration and managed operations across major cloud platforms — built for cost, performance and uptime.</p>
@@ -307,36 +314,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-[100px] px-14">
-        <div className="max-w-[680px] mb-16">
+      <section ref={cyberRef} className="py-[100px] px-14">
+        <div className={`max-w-[680px] mb-16 ${cyberVisible ? 'visible' : ''} fade-in-up`}>
           <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">Cybersecurity services</span>
           <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Find the gaps. Close them. Watch what's left.</h2>
           <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">A layered set of services covering assessment, detection and ongoing protection — tailored to your environment.</p>
         </div>
         <div className="grid grid-cols-4 gap-5">
-          <div className="cyber-card">
+          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.1s' }}>
             <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">VA</div>
             <h4 className="text-[17px] mb-2.5 font-extrabold">Vulnerability assessment & pen testing</h4>
             <p className="text-grey-dark text-[14px]">Scoped, methodical testing of your systems with clear, actionable reporting.</p>
           </div>
-          <div className="cyber-card">
+          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.2s' }}>
             <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">TD</div>
             <h4 className="text-[17px] mb-2.5 font-extrabold">Threat detection & response</h4>
             <p className="text-grey-dark text-[14px]">EDR, XDR and MDR services that monitor and respond around the clock.</p>
           </div>
-          <div className="cyber-card">
+          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.3s' }}>
             <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">EM</div>
             <h4 className="text-[17px] mb-2.5 font-extrabold">Endpoint management</h4>
             <p className="text-grey-dark text-[14px]">Centralised visibility and control across laptops, servers and devices.</p>
           </div>
-          <div className="cyber-card">
+          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.4s' }}>
             <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">AS</div>
             <h4 className="text-[17px] mb-2.5 font-extrabold">API security</h4>
             <p className="text-grey-dark text-[14px]">Discovery, testing and continuous protection for your APIs and integrations.</p>
           </div>
         </div>
 
-        <div className="bg-ink rounded-[24px] p-14 grid grid-cols-[1.4fr_1fr] gap-10 items-center mt-8 text-white relative overflow-hidden">
+        <div className={`bg-ink rounded-[24px] p-14 grid grid-cols-[1.4fr_1fr] gap-10 items-center mt-8 text-white relative overflow-hidden ${cyberVisible ? 'visible' : ''} scale-in`} style={{ transitionDelay: '0.5s' }}>
           <div className="absolute top-[-40%] right-[-15%] w-[380px] h-[380px] rounded-full bg-[radial-gradient(circle,rgba(242,120,46,0.35),transparent_70%)]" />
           <div className="relative">
             <h3 className="text-[clamp(24px,3vw,32px)] mb-3.5 font-extrabold relative">Submit your VAPT scope in one guided flow</h3>
@@ -366,14 +373,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-[100px] px-14">
-        <div className="max-w-[680px] mb-16">
+      <section ref={portfolioRef} className="py-[100px] px-14">
+        <div className={`max-w-[680px] mb-16 ${portfolioVisible ? 'visible' : ''} fade-in-up`}>
           <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">Selected work</span>
           <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Things we've shipped</h2>
           <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">A look at recent apps and websites we've built — each with a short walkthrough of how it works.</p>
         </div>
         <div className="grid grid-cols-3 gap-6">
-          <div className="work-card">
+          <div className={`work-card ${portfolioVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.1s' }}>
             <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
               <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
             </div>
@@ -387,7 +394,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div className="work-card">
+          <div className={`work-card ${portfolioVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.2s' }}>
             <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
               <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
             </div>
@@ -401,7 +408,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div className="work-card">
+          <div className={`work-card ${portfolioVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.3s' }}>
             <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
               <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
             </div>
@@ -418,7 +425,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-offwhite text-center rounded-[28px] mx-14 mb-0 py-20 px-10">
+      <section ref={ctaRef} className={`bg-offwhite text-center rounded-[28px] mx-14 mb-0 py-20 px-10 ${ctaVisible ? 'visible' : ''} scale-in`}>
         <h2 className="text-[clamp(28px,5vw,52px)] mb-5 font-extrabold max-w-[18ch] mx-auto">Tell us what you're protecting — or building next.</h2>
         <p className="text-grey-dark max-w-[50ch] mx-auto mb-9 text-[16px]">Whether it's a new product, a cloud migration, or a security assessment, our team replies within one business day.</p>
         <div className="flex gap-3.5 justify-center flex-wrap">
