@@ -255,7 +255,7 @@ export default function HomePage() {
       </header>
 
       <div className="border-t border-b border-border overflow-hidden py-7 bg-paper">
-        <div className="flex gap-5 animate-scroll-left" style={{ width: 'max-content', animation: 'scroll-left 60s linear infinite' }}>
+        <div className="flex gap-5 animate-scroll-left" style={{ width: 'max-content', animation: 'scroll-left 80s linear infinite' }}>
           {[
             'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
             'Endpoint detection & response', 'Extended detection & response',
