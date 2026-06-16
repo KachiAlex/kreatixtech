@@ -105,19 +105,26 @@ enum MessageType {
   INTERNAL_NOTE
 }
 
-model Attachment {
-  id            String          @id @default(uuid())
-  assessmentId  String?
-  messageId     String?
-  fileUrl       String
-  fileName      String
-  fileSize      Int
-  mimeType      String
-  uploadedBy    String
-  createdAt     DateTime        @default(now())
+enum StorageProvider {
+  LOCAL
+  CLOUDINARY
+  S3
+}
 
-  assessment    VaptAssessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  message       Message?        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+model Attachment {
+  id              String          @id @default(uuid())
+  assessmentId    String?
+  messageId       String?
+  fileUrl         String
+  fileName        String
+  fileSize        Int
+  mimeType        String
+  uploadedBy      String
+  storageProvider StorageProvider @default(LOCAL)
+  createdAt       DateTime        @default(now())
+
+  assessment      VaptAssessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  message         Message?        @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@map("attachments")
 }

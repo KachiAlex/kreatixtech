@@ -39,6 +39,14 @@ app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/uploads', authenticateToken, uploadRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
 
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 const connectedUsers = new Map();
 
 io.use((socket, next) => {
@@ -61,28 +69,72 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log(`User ${socket.userId} connected`);
-  connectedUsers.set(socket.userId, socket.id);
+  connectedUsers.set(socket.userId, {
+    socketId: socket.id,
+    userId: socket.userId,
+    orgId: socket.orgId,
+    lastSeen: new Date()
+  });
   
   socket.join(`org:${socket.orgId}`);
+  
+  // Broadcast user online status to organization
+  socket.to(`org:${socket.orgId}`).emit('user-online', {
+    userId: socket.userId,
+    status: 'online'
+  });
   
   socket.on('join-assessment', (assessmentId) => {
     socket.join(`assessment:${assessmentId}`);
     console.log(`User ${socket.userId} joined assessment ${assessmentId}`);
+    
+    // Notify others in the room
+    socket.to(`assessment:${assessmentId}`).emit('user-joined', {
+      userId: socket.userId,
+      timestamp: new Date()
+    });
   });
   
   socket.on('leave-assessment', (assessmentId) => {
     socket.leave(`assessment:${assessmentId}`);
+    socket.to(`assessment:${assessmentId}`).emit('user-left', {
+      userId: socket.userId,
+      timestamp: new Date()
+    });
   });
   
   socket.on('typing', (data) => {
     socket.to(`assessment:${data.assessmentId}`).emit('user-typing', {
       userId: socket.userId,
-      name: data.name
+      name: data.name,
+      timestamp: new Date()
+    });
+  });
+  
+  socket.on('stop-typing', (data) => {
+    socket.to(`assessment:${data.assessmentId}`).emit('user-stop-typing', {
+      userId: socket.userId
+    });
+  });
+  
+  socket.on('message-read', (data) => {
+    socket.to(`assessment:${data.assessmentId}`).emit('message-read-receipt', {
+      messageId: data.messageId,
+      userId: socket.userId,
+      readAt: new Date()
     });
   });
   
   socket.on('disconnect', () => {
     console.log(`User ${socket.userId} disconnected`);
+    
+    // Broadcast user offline status
+    socket.to(`org:${socket.orgId}`).emit('user-offline', {
+      userId: socket.userId,
+      status: 'offline',
+      lastSeen: new Date()
+    });
+    
     connectedUsers.delete(socket.userId);
   });
 });

@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Send, Paperclip, FileText, Download, 
   Clock, User, Building2, Shield, CheckCircle, 
-  AlertCircle, MoreVertical, X, Loader2 
+  AlertCircle, MoreVertical, X, Loader2, Check, CheckCheck,
+  Wifi, WifiOff
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
@@ -39,8 +40,12 @@ export default function AssessmentDetail() {
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [readReceipts, setReadReceipts] = useState({});
+  const [connectionStatus, setConnectionStatus] = useState('connected');
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const fetchAssessment = useCallback(async () => {
     try {
@@ -84,15 +89,58 @@ export default function AssessmentDetail() {
 
       socket.on('user-typing', (data) => {
         setTypingUsers(prev => {
-          if (!prev.find(u => u.userId === data.userId)) {
-            return [...prev, data];
-          }
-          return prev;
+          const filtered = prev.filter(u => u.userId !== data.userId);
+          return [...filtered, { ...data, timestamp: Date.now() }];
         });
         
-        setTimeout(() => {
+        // Clear existing timeout for this user
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        
+        // Auto-remove typing indicator after 3 seconds
+        typingTimeoutRef.current = setTimeout(() => {
           setTypingUsers(prev => prev.filter(u => u.userId !== data.userId));
         }, 3000);
+      });
+      
+      socket.on('user-stop-typing', (data) => {
+        setTypingUsers(prev => prev.filter(u => u.userId !== data.userId));
+      });
+      
+      socket.on('user-online', (data) => {
+        setOnlineUsers(prev => new Set([...prev, data.userId]));
+      });
+      
+      socket.on('user-offline', (data) => {
+        setOnlineUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(data.userId);
+          return newSet;
+        });
+      });
+      
+      socket.on('user-joined', (data) => {
+        // Could show a toast notification
+        console.log('User joined:', data);
+      });
+      
+      socket.on('message-read-receipt', (data) => {
+        setReadReceipts(prev => ({
+          ...prev,
+          [data.messageId]: {
+            userId: data.userId,
+            readAt: data.readAt
+          }
+        }));
+      });
+      
+      socket.on('connect', () => {
+        setConnectionStatus('connected');
+      });
+      
+      socket.on('disconnect', () => {
+        setConnectionStatus('disconnected');
       });
 
       return () => {
@@ -143,6 +191,24 @@ export default function AssessmentDetail() {
       socket.emit('typing', {
         assessmentId: id,
         name: user.name
+      });
+      
+      // Emit stop typing after 2 seconds of no input
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit('stop-typing', { assessmentId: id });
+      }, 2000);
+    }
+  };
+  
+  const handleMessageRead = (messageId) => {
+    if (socket) {
+      socket.emit('message-read', {
+        assessmentId: id,
+        messageId
       });
     }
   };
