@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String   @id @default(uuid())
+  subdomain   String   @unique
+  name        String
+  contactEmail String  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users        User[]
+  assessments  VaptAssessment[]
+
+  @@map("organizations")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          UserRole @default(CLIENT)
+  orgId         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  organization    Organization      @relation(fields: [orgId], references: [id])
+  sentMessages    Message[]         @relation("SentMessages")
+  assessments     VaptAssessment[]  @relation("AssignedAssessments")
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+  ANALYST
+}
+
+model VaptAssessment {
+  id              String            @id @default(uuid())
+  orgId           String
+  title           String
+  scopeDescription String
+  targetUrls      String[]
+  ipRanges        String[]
+  testingType     TestingType
+  specialReqs     String?
+  status          AssessmentStatus  @default(PENDING)
+  assignedAdminId String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization    Organization      @relation(fields: [orgId], references: [id])
+  assignedAdmin   User?             @relation("AssignedAssessments", fields: [assignedAdminId], references: [id])
+  messages        Message[]
+  attachments     Attachment[]
+
+  @@map("vapt_assessments")
+}
+
+enum TestingType {
+  BLACK_BOX
+  GREY_BOX
+  WHITE_BOX
+}
+
+enum AssessmentStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  IN_PROGRESS
+  REPORTING
+  COMPLETE
+  ON_HOLD
+}
+
+model Message {
+  id              String          @id @default(uuid())
+  assessmentId    String
+  senderId        String
+  message         String
+  messageType     MessageType     @default(TEXT)
+  createdAt       DateTime        @default(now())
+
+  assessment      VaptAssessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  sender          User            @relation("SentMessages", fields: [senderId], references: [id])
+  attachments     Attachment[]
+
+  @@map("messages")
+}
+
+enum MessageType {
+  TEXT
+  STATUS_CHANGE
+  FILE_UPLOAD
+  INTERNAL_NOTE
+}
+
+model Attachment {
+  id            String          @id @default(uuid())
+  assessmentId  String?
+  messageId     String?
+  fileUrl       String
+  fileName      String
+  fileSize      Int
+  mimeType      String
+  uploadedBy    String
+  createdAt     DateTime        @default(now())
+
+  assessment    VaptAssessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  message       Message?        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model Notification {
+  id            String    @id @default(uuid())
+  userId        String
+  assessmentId  String?
+  type          NotificationType
+  title         String
+  message       String
+  read          Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  STATUS_CHANGE
+  FILE_UPLOAD
+  ASSESSMENT_ASSIGNED
+  ASSESSMENT_CREATED
+}
