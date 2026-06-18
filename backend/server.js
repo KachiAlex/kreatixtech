@@ -55,6 +55,34 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/debug/db', async (req, res) => {
+  try {
+    const userCount = await prisma.user.count();
+    const orgCount = await prisma.organization.count();
+    res.json({
+      dbConnected: true,
+      userCount,
+      orgCount,
+      env: {
+        databaseUrlSet: !!process.env.DATABASE_URL,
+        jwtSecretSet: !!process.env.JWT_SECRET,
+        adminSecretSet: !!process.env.ADMIN_SECRET
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      dbConnected: false,
+      error: err.message,
+      code: err.code,
+      env: {
+        databaseUrlSet: !!process.env.DATABASE_URL,
+        jwtSecretSet: !!process.env.JWT_SECRET,
+        adminSecretSet: !!process.env.ADMIN_SECRET
+      }
+    });
+  }
+});
+
 const connectedUsers = new Map();
 
 io.use((socket, next) => {
