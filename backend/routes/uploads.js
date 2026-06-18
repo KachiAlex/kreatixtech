@@ -97,23 +97,27 @@ router.post('/assessment/:assessmentId', upload.array('files', 10), async (req, 
       )
     );
 
-    await prisma.message.create({
-      data: {
-        assessmentId,
-        senderId: req.user.id,
-        message: `Uploaded ${files.length} file(s)`,
-        messageType: 'FILE_UPLOAD'
-      }
-    });
+    // Only create a FILE_UPLOAD message if not attaching to an existing message
+    const skipMessage = req.query.skipMessage === 'true';
+    if (!skipMessage) {
+      await prisma.message.create({
+        data: {
+          assessmentId,
+          senderId: req.user.id,
+          message: `Uploaded ${files.length} file(s)`,
+          messageType: 'FILE_UPLOAD'
+        }
+      });
 
-    io.to(`assessment:${assessmentId}`).emit('files-uploaded', {
-      assessmentId,
-      attachments,
-      uploadedBy: {
-        id: req.user.id,
-        name: req.user.name
-      }
-    });
+      io.to(`assessment:${assessmentId}`).emit('files-uploaded', {
+        assessmentId,
+        attachments,
+        uploadedBy: {
+          id: req.user.id,
+          name: req.user.name
+        }
+      });
+    }
 
     res.status(201).json({
       message: `${files.length} file(s) uploaded successfully`,

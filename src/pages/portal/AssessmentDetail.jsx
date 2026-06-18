@@ -41,6 +41,7 @@ export default function AssessmentDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [readReceipts, setReadReceipts] = useState({});
@@ -165,7 +166,7 @@ export default function AssessmentDetail() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && pendingAttachments.length === 0) return;
 
     setIsSending(true);
 
@@ -174,12 +175,14 @@ export default function AssessmentDetail() {
         method: 'POST',
         body: JSON.stringify({
           assessmentId: id,
-          message: newMessage
+          message: newMessage.trim() || `Sent ${pendingAttachments.length} attachment(s)`,
+          attachmentIds: pendingAttachments.map(a => a.id)
         })
       });
 
       if (response.ok) {
         setNewMessage('');
+        setPendingAttachments([]);
         // Refetch messages since Socket.io is disabled on Vercel
         fetchAssessment();
       }
@@ -229,7 +232,7 @@ export default function AssessmentDetail() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/uploads/assessment/${id}`, {
+      const response = await fetch(`${API_URL}/api/uploads/assessment/${id}?skipMessage=true`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('portalToken')}`
@@ -238,7 +241,8 @@ export default function AssessmentDetail() {
       });
 
       if (response.ok) {
-        fetchAssessment();
+        const data = await response.json();
+        setPendingAttachments(prev => [...prev, ...data.attachments]);
       }
     } catch (error) {
       console.error('Failed to upload files:', error);
@@ -246,6 +250,10 @@ export default function AssessmentDetail() {
       setIsUploading(false);
       e.target.value = '';
     }
+  };
+
+  const removePendingAttachment = (attachmentId) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== attachmentId));
   };
 
   const updateStatus = async (newStatus) => {
@@ -395,6 +403,23 @@ export default function AssessmentDetail() {
               </div>
 
               <div className="p-4 border-t border-border">
+                {pendingAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {pendingAttachments.map(att => (
+                      <div key={att.id} className="flex items-center gap-1 bg-offwhite px-3 py-1.5 rounded-lg text-xs text-ink border border-border">
+                        <FileText className="h-3 w-3 text-orange" />
+                        <span className="truncate max-w-[120px]">{att.fileName}</span>
+                        <button
+                          type="button"
+                          onClick={() => removePendingAttachment(att.id)}
+                          className="text-grey hover:text-red-500 ml-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <form onSubmit={handleSendMessage} className="flex gap-2">
                   <input
                     type="file"
@@ -422,13 +447,13 @@ export default function AssessmentDetail() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={handleTyping}
-                    placeholder="Type your message..."
+                    placeholder={pendingAttachments.length > 0 ? "Add a message (optional)..." : "Type your message..."}
                     className="flex-1 px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-orange focus:border-transparent"
                   />
                   
                   <button
                     type="submit"
-                    disabled={isSending || !newMessage.trim()}
+                    disabled={isSending || (!newMessage.trim() && pendingAttachments.length === 0)}
                     className="p-3 bg-orange text-white rounded-xl hover:bg-orange-deep disabled:opacity-50"
                   >
                     {isSending ? (

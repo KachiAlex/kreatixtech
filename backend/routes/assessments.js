@@ -3,6 +3,7 @@ import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../server.js';
 import { io } from '../server.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { sendNewAssessmentEmail, sendStatusChangeEmail, sendAssignedEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -143,6 +144,26 @@ router.post('/', [
 
     io.emit('new-assessment', assessment);
 
+    // Send email notification to all admins
+    try {
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { email: true }
+      });
+      const adminEmails = admins.map(a => a.email);
+
+      if (adminEmails.length > 0) {
+        await sendNewAssessmentEmail({
+          to: adminEmails,
+          assessmentTitle: title,
+          organizationName: assessment.organization.name,
+          assessmentId: assessment.id
+        });
+      }
+    } catch (emailErr) {
+      console.error('Assessment email notification failed:', emailErr.message);
+    }
+
     res.status(201).json(assessment);
   } catch (error) {
     console.error('Create assessment error:', error);
@@ -207,6 +228,29 @@ router.put('/:id', [
     io.to(`assessment:${id}`).emit('assessment-updated', assessment);
     io.to(`org:${assessment.orgId}`).emit('assessment-updated', assessment);
 
+    // Send email notification on status change
+    if (updateData.status && updateData.status !== existingAssessment.status) {
+      try {
+        const orgUsers = await prisma.user.findMany({
+          where: { orgId: assessment.orgId },
+          select: { email: true }
+        });
+        const emails = orgUsers.map(u => u.email);
+
+        if (emails.length > 0) {
+          await sendStatusChangeEmail({
+            to: emails,
+            assessmentTitle: assessment.title,
+            oldStatus: existingAssessment.status,
+            newStatus: updateData.status,
+            assessmentId: id
+          });
+        }
+      } catch (emailErr) {
+        console.error('Status change email failed:', emailErr.message);
+      }
+    }
+
     res.json(assessment);
   } catch (error) {
     console.error('Update assessment error:', error);
@@ -263,6 +307,20 @@ router.post('/:id/assign', [
         message: `You have been assigned to: ${assessment.title}`
       }
     });
+
+    // Send email to assigned admin
+    try {
+      if (admin.email) {
+        await sendAssignedEmail({
+          to: admin.email,
+          assessmentTitle: assessment.title,
+          adminName: admin.name,
+          assessmentId: id
+        });
+      }
+    } catch (emailErr) {
+      console.error('Assignment email failed:', emailErr.message);
+    }
 
     io.to(`assessment:${id}`).emit('assignment-updated', assessment);
 

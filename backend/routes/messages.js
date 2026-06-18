@@ -2,6 +2,7 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../server.js';
 import { io } from '../server.js';
+import { sendNewMessageEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -102,6 +103,8 @@ router.post('/', [
       }
     }
 
+    const { attachmentIds } = req.body;
+
     const newMessage = await prisma.message.create({
       data: {
         assessmentId,
@@ -116,6 +119,17 @@ router.post('/', [
         attachments: true
       }
     });
+
+    // Link existing attachments to this message
+    if (attachmentIds && attachmentIds.length > 0) {
+      await prisma.attachment.updateMany({
+        where: {
+          id: { in: attachmentIds },
+          assessmentId
+        },
+        data: { messageId: newMessage.id }
+      });
+    }
 
     const notificationRecipients = [];
     
@@ -150,6 +164,27 @@ router.post('/', [
       assessmentId,
       message: newMessage
     });
+
+    // Send Brevo email notification
+    try {
+      const emailRecipients = await prisma.user.findMany({
+        where: { id: { in: notificationRecipients } },
+        select: { email: true }
+      });
+      const recipientEmails = emailRecipients.map(u => u.email);
+
+      if (recipientEmails.length > 0) {
+        await sendNewMessageEmail({
+          to: recipientEmails,
+          senderName: req.user.name,
+          assessmentTitle: assessment.title,
+          messagePreview: message.substring(0, 200),
+          assessmentId
+        });
+      }
+    } catch (emailErr) {
+      console.error('Email notification failed:', emailErr.message);
+    }
 
     res.status(201).json(newMessage);
   } catch (error) {
