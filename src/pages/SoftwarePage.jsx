@@ -5,6 +5,7 @@ import {
   Zap, CheckCircle2, ArrowRight, Layers, RefreshCw,
   Shield, Cpu, BarChart3
 } from 'lucide-react';
+import SEO from '../components/SEO';
 
 const services = [
   {
@@ -202,6 +203,12 @@ export default function SoftwarePage() {
           </div>
         </div>
       </section>
+      <SEO
+        title="Software Development"
+        description="Custom web applications, mobile apps, enterprise SaaS platforms, and legacy modernization from Kreatix Technologies."
+        keywords="software development, web applications, mobile apps, SaaS, React, Next.js, Node.js, custom software"
+        pathname="/services/software"
+      />
     </div>
   );
 }

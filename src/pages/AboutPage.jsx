@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
+import SEO from '../components/SEO';
 
 const values = [
   { title: 'Creative Rigor', body: 'We apply imaginative problem-solving to highly technical, structured environments.' },
@@ -69,6 +70,12 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      <SEO
+        title="About Us"
+        description="Learn about Kreatix Technologies — our mission, values, and the team behind secure, scalable software solutions."
+        keywords="about Kreatix Technologies, IT company, software consultancy, cybersecurity team, cloud experts"
+        pathname="/about"
+      />
     </div>
   );
 }

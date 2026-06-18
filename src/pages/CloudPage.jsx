@@ -5,6 +5,7 @@ import {
   ArrowRight, CheckCircle2, Database, RefreshCw,
   BarChart2, Lock, Cpu
 } from 'lucide-react';
+import SEO from '../components/SEO';
 
 const services = [
   {
@@ -193,6 +194,12 @@ export default function CloudPage() {
           </div>
         </div>
       </section>
+      <SEO
+        title="Cloud Services"
+        description="Cloud migration, DevOps CI/CD, infrastructure as code, managed databases, and cost optimization from Kreatix Technologies."
+        keywords="cloud services, cloud migration, DevOps, CI/CD, infrastructure as code, AWS, Azure, GCP"
+        pathname="/services/cloud"
+      />
     </div>
   );
 }

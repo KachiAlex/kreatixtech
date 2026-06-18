@@ -1,25 +1,25 @@
-﻿import React from 'react';
+﻿import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { PortalProvider, usePortal } from './contexts/PortalContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
-import CybersecurityPage from './pages/CybersecurityPage';
-import VaptPage from './pages/VaptPage';
-import PortfolioPage from './pages/PortfolioPage';
-import AboutPage from './pages/AboutPage';
-import ContactPage from './pages/ContactPage';
-import AdminPage from './pages/AdminPage';
-import NotFoundPage from './pages/NotFoundPage';
 
-import PortalLogin from './pages/portal/PortalLogin';
-import ForgotPassword from './pages/portal/ForgotPassword';
-import ResetPassword from './pages/portal/ResetPassword';
-import ClientDashboard from './pages/portal/ClientDashboard';
-import AdminDashboard from './pages/portal/AdminDashboard';
-import NewAssessment from './pages/portal/NewAssessment';
-import AssessmentDetail from './pages/portal/AssessmentDetail';
+const CybersecurityPage = lazy(() => import('./pages/CybersecurityPage'));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+
+const PortalLogin = lazy(() => import('./pages/portal/PortalLogin'));
+const ForgotPassword = lazy(() => import('./pages/portal/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/portal/ResetPassword'));
+const ClientDashboard = lazy(() => import('./pages/portal/ClientDashboard'));
+const AdminDashboard = lazy(() => import('./pages/portal/AdminDashboard'));
+const NewAssessment = lazy(() => import('./pages/portal/NewAssessment'));
+const AssessmentDetail = lazy(() => import('./pages/portal/AssessmentDetail'));
 
 function ProtectedPortalRoute({ children, requireAdmin = false }) {
   const { isAuthenticated, isAdmin, isLoading } = usePortal();
@@ -94,19 +94,25 @@ function AppRoutes() {
   return (
     <>
       {!isAdmin && !isPortal && <Navbar />}
-      <Routes>
-        <Route path="/"                      element={<HomePage />} />
-        <Route path="/services/cybersecurity" element={<CybersecurityPage />} />
-        <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
-        <Route path="/portfolio"             element={<PortfolioPage />} />
-        <Route path="/about"                 element={<AboutPage />} />
-        <Route path="/contact"               element={<ContactPage />} />
-        <Route path="/admin"                 element={<AdminPage />} />
-        <Route path="/cybersecurity"         element={<CybersecurityPage />} />
-        <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
-        <Route path="/portal/*"              element={<PortalRoutes />} />
-        <Route path="*"                      element={<NotFoundPage />} />
-      </Routes>
+      <Suspense fallback={
+        <div className="min-h-screen bg-offwhite flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange border-t-transparent"></div>
+        </div>
+      }>
+        <Routes>
+          <Route path="/"                      element={<HomePage />} />
+          <Route path="/services/cybersecurity" element={<CybersecurityPage />} />
+          <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
+          <Route path="/portfolio"             element={<PortfolioPage />} />
+          <Route path="/about"                 element={<AboutPage />} />
+          <Route path="/contact"               element={<ContactPage />} />
+          <Route path="/admin"                 element={<AdminPage />} />
+          <Route path="/cybersecurity"         element={<CybersecurityPage />} />
+          <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
+          <Route path="/portal/*"              element={<PortalRoutes />} />
+          <Route path="*"                      element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
       {!isAdmin && !isPortal && <Footer />}
     </>
   );

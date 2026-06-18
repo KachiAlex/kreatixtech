@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
+import SEO from '../components/SEO';
 
 const services = [
   {
@@ -76,6 +77,12 @@ export default function CybersecurityPage() {
           </div>
         </div>
       </section>
+      <SEO
+        title="Cybersecurity Services"
+        description="Comprehensive cybersecurity services including VAPT, threat detection, API security audits, and zero-trust architecture from Kreatix Technologies."
+        keywords="cybersecurity, VAPT, penetration testing, threat detection, API security, zero-trust, security audit"
+        pathname="/services/cybersecurity"
+      />
     </div>
   );
 }

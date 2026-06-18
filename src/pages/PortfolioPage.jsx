@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Code2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import SEO from '../components/SEO';
 
 const defaultProjects = [
   {
@@ -107,6 +108,12 @@ export default function PortfolioPage() {
           </div>
         </div>
       </section>
+      <SEO
+        title="Portfolio"
+        description="Explore our portfolio of custom software projects — SaaS platforms, healthcare systems, logistics dashboards, and enterprise solutions."
+        keywords="software portfolio, case studies, SaaS projects, web applications, custom software examples"
+        pathname="/portfolio"
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, Send } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import SEO from '../components/SEO';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -132,6 +133,12 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
+      <SEO
+        title="Contact"
+        description="Get in touch with Kreatix Technologies for software development, cybersecurity assessments, and cloud consulting. We reply within 24 hours."
+        keywords="contact Kreatix Technologies, IT consulting, software inquiry, cybersecurity quote, cloud services contact"
+        pathname="/contact"
+      />
     </div>
   );
 }

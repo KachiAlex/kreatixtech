@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Shield, Code2, Cloud } from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
+import SEO, { organizationSchema, websiteSchema } from '../components/SEO';
 
 const stats = [
   { value: '99.9%', label: 'Uptime Guaranteed' },
@@ -437,6 +438,11 @@ export default function HomePage() {
           <Link to="/contact" className="btn-outline">Talk to our team</Link>
         </div>
       </section>
+      <SEO
+        title="Home"
+        pathname="/"
+        structuredData={[organizationSchema, websiteSchema]}
+      />
     </div>
   );
 }
