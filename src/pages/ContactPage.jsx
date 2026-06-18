@@ -1,34 +1,32 @@
 ﻿import React, { useState } from 'react';
-import { ArrowUpRight, Loader2, CheckCircle2, AlertCircle, Send } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Send } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import emailjs from '@emailjs/browser';
 
-const EMAILJS_SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID  || '';
-const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || '';
-const EMAILJS_PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  || '';
-const EMAIL_CONFIGURED = EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY;
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending]     = useState(false);
   const [sendError, setSendError] = useState('');
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   const onSubmit = async (data) => {
     setSending(true);
     setSendError('');
-    if (!EMAIL_CONFIGURED) {
-      await new Promise(r => setTimeout(r, 800));
-      setSending(false);
-      setSubmitted(true);
-      return;
-    }
     try {
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        name: data.name, email: data.email, company: data.company || 'N/A',
-        subject: data.subject, message: data.message,
-      }, EMAILJS_PUBLIC_KEY);
-      setSubmitted(true);
+      const response = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        setSubmitted(true);
+        reset();
+      } else {
+        const err = await response.json();
+        setSendError(err.error || 'Failed to send. Please email us directly at info@kreatixtech.com');
+      }
     } catch (err) {
       setSendError('Failed to send. Please email us directly at info@kreatixtech.com');
     } finally {

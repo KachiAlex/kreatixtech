@@ -20,6 +20,7 @@ import assessmentRoutes from './routes/assessments.js';
 import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/uploads.js';
 import notificationRoutes from './routes/notifications.js';
+import contactRoutes from './routes/contact.js';
 import { authenticateToken } from './middleware/auth.js';
 
 const app = express();
@@ -42,6 +43,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/contact', contactRoutes);
 app.use('/api/assessments', authenticateToken, assessmentRoutes);
 app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/uploads', authenticateToken, uploadRoutes);
