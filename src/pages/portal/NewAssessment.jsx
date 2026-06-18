@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Plus, X, Globe, Server, FileText, 
+  ArrowLeft, Plus, X, ExternalLink, Server, FileText, 
   ChevronDown, AlertCircle 
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
@@ -184,7 +184,7 @@ export default function NewAssessment() {
                 {formData.targetUrls.map((url, index) => (
                   <div key={index} className="flex gap-2">
                     <div className="relative flex-1">
-                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-grey" />
+                      <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-grey" />
                       <input
                         type="url"
                         value={url}

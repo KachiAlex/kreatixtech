@@ -4,7 +4,7 @@ import {
   ArrowLeft, Send, Paperclip, FileText, Download, 
   Clock, User, Building2, Shield, CheckCircle, 
   AlertCircle, MoreVertical, X, Loader2, Check, CheckCheck,
-  Wifi, WifiOff
+  Wifi, WifiOff, ExternalLink
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
@@ -490,7 +490,7 @@ export default function AssessmentDetail() {
                         rel="noopener noreferrer"
                         className="text-orange hover:underline flex items-center"
                       >
-                        <Globe className="h-4 w-4 mr-1" />
+                        <ExternalLink className="h-4 w-4 mr-1" />
                         {url}
                       </a>
                     </li>

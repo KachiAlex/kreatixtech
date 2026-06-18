@@ -23,12 +23,27 @@ export function PortalProvider({ children }) {
 
   useEffect(() => {
     if (token && user) {
+      // Skip Socket.io on Vercel serverless — no WebSocket support
+      const isVercel = !API_URL || API_URL.includes('vercel');
+      if (isVercel) {
+        console.log('Socket.io disabled on Vercel');
+        return;
+      }
+
       const newSocket = io(API_URL, {
-        auth: { token }
+        auth: { token },
+        reconnection: false,
+        transports: ['polling'],
+        timeout: 5000
       });
 
       newSocket.on('connect', () => {
         console.log('Socket connected');
+      });
+
+      newSocket.on('connect_error', (err) => {
+        console.warn('Socket connection failed:', err.message);
+        newSocket.disconnect();
       });
 
       newSocket.on('new-message', (data) => {

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Code2, Monitor, Smartphone, Server, Database, GitBranch,
-  Zap, CheckCircle2, ArrowRight, Layers, Globe, RefreshCw,
+  Zap, CheckCircle2, ArrowRight, Layers, RefreshCw,
   Shield, Cpu, BarChart3
 } from 'lucide-react';
 

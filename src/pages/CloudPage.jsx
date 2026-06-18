@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Cloud, Server, GitBranch, Shield, TrendingUp, Zap,
-  ArrowRight, CheckCircle2, Database, RefreshCw, Globe,
+  ArrowRight, CheckCircle2, Database, RefreshCw,
   BarChart2, Lock, Cpu
 } from 'lucide-react';
 
