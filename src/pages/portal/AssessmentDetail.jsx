@@ -180,6 +180,8 @@ export default function AssessmentDetail() {
 
       if (response.ok) {
         setNewMessage('');
+        // Refetch messages since Socket.io is disabled on Vercel
+        fetchAssessment();
       }
     } catch (error) {
       console.error('Failed to send message:', error);
