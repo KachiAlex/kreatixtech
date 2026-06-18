@@ -18,6 +18,7 @@ model Organization {
 
   users        User[]
   assessments  VaptAssessment[]
+  invitations  Invitation[]
 
   @@map("organizations")
 }
@@ -38,6 +39,8 @@ model User {
   sentMessages    Message[]         @relation("SentMessages")
   assessments     VaptAssessment[]  @relation("AssignedAssessments")
   notifications   Notification[]
+  auditLogs       AuditLog[]
+  sentInvitations Invitation[]      @relation("SentInvitations")
 
   @@map("users")
 }
@@ -59,6 +62,8 @@ model VaptAssessment {
   specialReqs     String?
   status          AssessmentStatus  @default(PENDING)
   assignedAdminId String?
+  reportPdfUrl    String?
+  reportSummary   String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -66,6 +71,7 @@ model VaptAssessment {
   assignedAdmin   User?             @relation("AssignedAssessments", fields: [assignedAdminId], references: [id])
   messages        Message[]
   attachments     Attachment[]
+  findings        Finding[]
 
   @@map("vapt_assessments")
 }
@@ -153,4 +159,140 @@ enum NotificationType {
   FILE_UPLOAD
   ASSESSMENT_ASSIGNED
   ASSESSMENT_CREATED
+}
+
+// ─── VAPT Report Findings ───
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ACCEPTED_RISK
+  FALSE_POSITIVE
+}
+
+model Finding {
+  id            String        @id @default(uuid())
+  assessmentId  String
+  title         String
+  description   String
+  severity      Severity
+  cvssScore     Float?
+  category      String
+  affectedUrl   String?
+  remediation   String
+  evidence      String?
+  status        FindingStatus @default(OPEN)
+  resolvedAt    DateTime?
+  resolvedBy    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  assessment    VaptAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@map("findings")
+}
+
+// ─── Blog / Content ───
+
+model BlogPost {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  title       String
+  excerpt     String
+  content     String
+  coverImage  String?
+  author      String
+  tags        String[]
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("blog_posts")
+}
+
+// ─── Testimonials ───
+
+model Testimonial {
+  id            String    @id @default(uuid())
+  clientName    String
+  clientRole    String?
+  clientCompany String?
+  quote         String
+  metricValue   String?
+  metricLabel   String?
+  industry      String?
+  featured      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@map("testimonials")
+}
+
+// ─── Audit Log ───
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  REGISTER
+  PASSWORD_RESET
+  ASSESSMENT_CREATE
+  ASSESSMENT_UPDATE
+  ASSESSMENT_DELETE
+  ASSESSMENT_ASSIGN
+  MESSAGE_SEND
+  FILE_UPLOAD
+  FILE_DELETE
+  FINDING_CREATE
+  FINDING_UPDATE
+  FINDING_DELETE
+  USER_INVITE
+  USER_REMOVE
+  SETTINGS_UPDATE
+}
+
+model AuditLog {
+  id           String     @id @default(uuid())
+  userId       String?
+  action       AuditAction
+  resourceType String?
+  resourceId   String?
+  details      String?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime   @default(now())
+
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ─── Organization Invitations ───
+
+model Invitation {
+  id        String    @id @default(uuid())
+  email     String
+  orgId     String
+  invitedBy String
+  role      UserRole  @default(CLIENT)
+  token     String    @unique
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inviter      User         @relation("SentInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@unique([email, orgId])
+  @@map("invitations")
 }

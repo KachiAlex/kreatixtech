@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../server.js';
 import { sendPasswordResetEmail } from '../services/email.js';
+import { logAudit } from '../middleware/audit.js';
 
 const router = express.Router();
 
@@ -79,6 +80,15 @@ router.post('/register', [
 
     const token = generateToken(result);
 
+    await logAudit({
+      userId: result.id,
+      action: 'REGISTER',
+      resourceType: 'user',
+      resourceId: result.id,
+      details: { email: result.email, org: result.organization.name },
+      req
+    });
+
     res.status(201).json({
       token,
       user: {
@@ -123,6 +133,15 @@ router.post('/login', [
     }
 
     const token = generateToken(user);
+
+    await logAudit({
+      userId: user.id,
+      action: 'LOGIN',
+      resourceType: 'user',
+      resourceId: user.id,
+      details: { email: user.email },
+      req
+    });
 
     res.json({
       token,
