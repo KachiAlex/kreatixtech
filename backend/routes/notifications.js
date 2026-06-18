@@ -16,11 +16,6 @@ router.get('/', async (req, res) => {
     const [notifications, total, unreadCount] = await Promise.all([
       prisma.notification.findMany({
         where,
-        include: {
-          assessment: {
-            select: { id: true, title: true, status: true }
-          }
-        },
         orderBy: { createdAt: 'desc' },
         skip,
         take: parseInt(limit)
