@@ -3,7 +3,17 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { PrismaClient } from '@prisma/client';
+
+dotenv.config();
+
+let prisma;
+try {
+  const { PrismaClient } = await import('@prisma/client');
+  prisma = new PrismaClient();
+} catch (err) {
+  console.error('PrismaClient failed to initialize:', err.message);
+  throw err;
+}
 
 import authRoutes from './routes/auth.js';
 import assessmentRoutes from './routes/assessments.js';
@@ -11,8 +21,6 @@ import messageRoutes from './routes/messages.js';
 import uploadRoutes from './routes/uploads.js';
 import notificationRoutes from './routes/notifications.js';
 import { authenticateToken } from './middleware/auth.js';
-
-dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,7 +31,7 @@ const io = new Server(httpServer, {
   }
 });
 
-export const prisma = new PrismaClient();
+export { prisma };
 
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:5173",
