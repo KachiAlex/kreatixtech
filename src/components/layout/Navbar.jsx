@@ -11,6 +11,8 @@ const navLinks = [
   { label: 'Contact', href: '/contact' },
 ];
 
+const portalLink = { label: 'Client Portal', href: '/portal/login' };
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -66,6 +68,9 @@ export default function Navbar() {
           <Link to="/contact" className="text-sm font-semibold text-ink opacity-65 hover:opacity-100 transition-opacity">
             Contact
           </Link>
+          <Link to="/portal/login" className="text-sm font-semibold text-orange hover:text-ink transition-colors">
+            Client Portal
+          </Link>
           <Link to="/portal/vapt-request" className="btn-dark">
             Request Assessment
           </Link>
@@ -101,6 +106,16 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
+          <NavLink
+            to={portalLink.href}
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) => cn(
+              'text-sm font-semibold text-orange transition-colors',
+              isActive ? 'opacity-100' : 'opacity-80 hover:opacity-100'
+            )}
+          >
+            {portalLink.label}
+          </NavLink>
         </div>
       )}
     </nav>

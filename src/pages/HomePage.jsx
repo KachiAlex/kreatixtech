@@ -216,7 +216,7 @@ export default function HomePage() {
             Kreatix Technologies architects software and secures infrastructure for organizations that demand both rigorous engineering and inventive design — across software development, cybersecurity and cloud services.
           </p>
           <div className="flex gap-3.5 flex-wrap mb-14">
-            <Link to="/portal/vapt-request" className="btn-primary">
+            <Link to="/portal/login" className="btn-primary">
               Request a VAPT assessment →
             </Link>
             <Link to="/portfolio" className="btn-outline">
@@ -353,7 +353,7 @@ export default function HomePage() {
             <h3 className="text-[clamp(24px,3vw,32px)] mb-3.5 font-extrabold relative">Submit your VAPT scope in one guided flow</h3>
             <p className="text-[#C7C9CC] text-[15px] max-w-[48ch] relative">Tell us what you need assessed and upload supporting documents — network diagrams, IP ranges, NDAs. Our team reviews, scopes and responds, with every update and deliverable shared back through the same thread.</p>
             <div className="flex gap-3.5 mt-7 mb-0">
-              <Link to="/portal/vapt-request" className="btn-orange">Start a VAPT request →</Link>
+              <Link to="/portal/login" className="btn-orange">Start a VAPT request →</Link>
             </div>
           </div>
           <div className="flex flex-col gap-3 relative">
@@ -433,7 +433,7 @@ export default function HomePage() {
         <h2 className="text-[clamp(28px,5vw,52px)] mb-5 font-extrabold max-w-[18ch] mx-auto">Tell us what you're protecting — or building next.</h2>
         <p className="text-grey-dark max-w-[50ch] mx-auto mb-9 text-[16px]">Whether it's a new product, a cloud migration, or a security assessment, our team replies within one business day.</p>
         <div className="flex gap-3.5 justify-center flex-wrap">
-          <Link to="/portal/vapt-request" className="btn-primary">Start a VAPT request →</Link>
+          <Link to="/portal/login" className="btn-primary">Start a VAPT request →</Link>
           <Link to="/contact" className="btn-outline">Talk to our team</Link>
         </div>
       </section>

@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const statusColors = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   IN_REVIEW: 'bg-blue-100 text-blue-800',
@@ -225,7 +227,7 @@ export default function AssessmentDetail() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/uploads/assessment/${id}`, {
+      const response = await fetch(`${API_URL}/api/uploads/assessment/${id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('portalToken')}`
@@ -361,7 +363,7 @@ export default function AssessmentDetail() {
                             {message.attachments.map(attachment => (
                               <a
                                 key={attachment.id}
-                                href={`http://localhost:5000${attachment.fileUrl}`}
+                                href={`${API_URL}${attachment.fileUrl}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`flex items-center text-xs underline ${
@@ -504,7 +506,7 @@ export default function AssessmentDetail() {
                   {assessment.attachments.map((attachment) => (
                     <li key={attachment.id}>
                       <a
-                        href={`http://localhost:5000${attachment.fileUrl}`}
+                        href={`${API_URL}${attachment.fileUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center text-sm text-orange hover:underline"

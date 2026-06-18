@@ -137,6 +137,19 @@ export default function VaptPage() {
             Client Security Portal
           </h1>
           <p className="text-ink-500 text-base">Manage your vulnerability assessments and security audits.</p>
+
+          <div className="mt-8 bg-coral-500/5 border border-coral-500/20 rounded-xl p-5 flex items-start gap-4">
+            <Shield className="h-5 w-5 text-coral-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-ink-900 font-semibold text-sm">Already registered with Kreatix?</p>
+              <p className="text-ink-500 text-sm mt-1">
+                Log in to your portal to track all assessments, chat with our team, and upload documents securely.
+              </p>
+              <Link to="/portal/login" className="inline-flex items-center gap-1 text-coral-500 text-sm font-semibold mt-3 hover:underline">
+                Go to Client Portal <ArrowUpRight size={14} />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-16">

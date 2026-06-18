@@ -70,7 +70,7 @@ export default function CybersecurityPage() {
               Identify vulnerabilities before they are exploited. Partner with Kreatix Technologies
               for a comprehensive security assessment.
             </p>
-            <Link to="/portal/vapt-request" className="btn-primary">
+            <Link to="/portal/login" className="btn-primary">
               Request a VAPT Assessment <ArrowUpRight size={15} />
             </Link>
           </div>
