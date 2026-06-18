@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, Shield, Code2, Cloud } from 'lucide-react';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import SEO, { organizationSchema, websiteSchema } from '../components/SEO';
+import Testimonials from '../components/Testimonials';
 
 const stats = [
   { value: '99.9%', label: 'Uptime Guaranteed' },
@@ -429,6 +430,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <Testimonials />
 
       <section ref={ctaRef} className={`bg-offwhite text-center rounded-[28px] mx-14 mb-0 py-20 px-10 ${ctaVisible ? 'visible' : ''} scale-in`}>
         <h2 className="text-[clamp(28px,5vw,52px)] mb-5 font-extrabold max-w-[18ch] mx-auto">Tell us what you're protecting — or building next.</h2>

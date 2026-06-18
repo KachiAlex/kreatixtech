@@ -13,13 +13,18 @@ const ContactPage = lazy(() => import('./pages/ContactPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
+const BlogPage = lazy(() => import('./pages/BlogPage'));
+const BlogPost = lazy(() => import('./pages/BlogPost'));
+
 const PortalLogin = lazy(() => import('./pages/portal/PortalLogin'));
 const ForgotPassword = lazy(() => import('./pages/portal/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/portal/ResetPassword'));
+const AcceptInvite = lazy(() => import('./pages/portal/AcceptInvite'));
 const ClientDashboard = lazy(() => import('./pages/portal/ClientDashboard'));
 const AdminDashboard = lazy(() => import('./pages/portal/AdminDashboard'));
 const NewAssessment = lazy(() => import('./pages/portal/NewAssessment'));
 const AssessmentDetail = lazy(() => import('./pages/portal/AssessmentDetail'));
+const ReportViewer = lazy(() => import('./pages/portal/ReportViewer'));
 
 function ProtectedPortalRoute({ children, requireAdmin = false }) {
   const { isAuthenticated, isAdmin, isLoading } = usePortal();
@@ -49,6 +54,7 @@ function PortalRoutes() {
       <Route path="login" element={<PortalLogin />} />
       <Route path="forgot-password" element={<ForgotPassword />} />
       <Route path="reset-password" element={<ResetPassword />} />
+      <Route path="accept-invite" element={<AcceptInvite />} />
       <Route 
         path="dashboard" 
         element={
@@ -81,6 +87,14 @@ function PortalRoutes() {
           </ProtectedPortalRoute>
         } 
       />
+      <Route 
+        path="report/:id" 
+        element={
+          <ProtectedPortalRoute>
+            <ReportViewer />
+          </ProtectedPortalRoute>
+        } 
+      />
       <Route path="*" element={<Navigate to="/portal/login" replace />} />
     </Routes>
   );
@@ -106,6 +120,8 @@ function AppRoutes() {
           <Route path="/portfolio"             element={<PortfolioPage />} />
           <Route path="/about"                 element={<AboutPage />} />
           <Route path="/contact"               element={<ContactPage />} />
+          <Route path="/blog"                  element={<BlogPage />} />
+          <Route path="/blog/:slug"            element={<BlogPost />} />
           <Route path="/admin"                 element={<AdminPage />} />
           <Route path="/cybersecurity"         element={<CybersecurityPage />} />
           <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
