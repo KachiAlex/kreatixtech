@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 
 const PortalContext = createContext(null);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export function PortalProvider({ children }) {
   const [user, setUser] = useState(null);

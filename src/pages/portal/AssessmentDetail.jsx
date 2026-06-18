@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 const statusColors = {
   PENDING: 'bg-yellow-100 text-yellow-800',
