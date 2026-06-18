@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const sender = {
-  email: process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev',
+  email: process.env.RESEND_SENDER_EMAIL || (process.env.VERCEL ? 'onboarding@resend.dev' : 'noreply@kreatixtech.com'),
   name: process.env.RESEND_SENDER_NAME || 'Kreatix Technologies'
 };
 
@@ -122,5 +122,24 @@ export async function sendAssignedEmail({ to, assessmentTitle, adminName, assess
   });
 }
 
+export async function sendPasswordResetEmail({ to, name, resetUrl }) {
+  return sendEmail({
+    to,
+    subject: 'Reset your Kreatix Technologies password',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #FF6B35;">Password Reset Requested</h2>
+        <p>Hi ${name},</p>
+        <p>We received a request to reset your password for the Kreatix Technologies portal. Click the button below to set a new password:</p>
+        <p><a href="${resetUrl}" style="background: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 16px;">Reset Password</a></p>
+        <p style="margin-top: 24px; color: #666;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">Kreatix Technologies VAPT Portal</p>
+      </div>
+    `,
+    text: `Hi ${name},\n\nReset your password: ${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, ignore this email.`
+  });
+}
+
 export { resend };
-export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendStatusChangeEmail, sendAssignedEmail };
+export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail };

@@ -23,14 +23,16 @@ model Organization {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  passwordHash  String
-  name          String
-  role          UserRole @default(CLIENT)
-  orgId         String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid())
+  email           String   @unique
+  passwordHash    String
+  name            String
+  role            UserRole @default(CLIENT)
+  orgId           String
+  resetToken      String?  @unique
+  resetTokenExpiry DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   organization    Organization      @relation(fields: [orgId], references: [id])
   sentMessages    Message[]         @relation("SentMessages")

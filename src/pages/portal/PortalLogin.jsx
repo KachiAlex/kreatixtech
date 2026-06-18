@@ -205,6 +205,13 @@ export default function PortalLogin() {
                 Must be at least 6 characters
               </p>
             )}
+            {isLogin && (
+              <div className="mt-2 text-right">
+                <Link to="/portal/forgot-password" className="text-xs text-orange hover:text-orange-deep">
+                  Forgot password?
+                </Link>
+              </div>
+            )}
           </div>
 
           <div>

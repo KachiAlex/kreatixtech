@@ -156,6 +156,16 @@ export default function AssessmentDetail() {
     }
   }, [socket, id, fetchAssessment]);
 
+  // Poll for new messages when Socket.io is unavailable (Vercel serverless)
+  useEffect(() => {
+    if (!socket && id) {
+      const interval = setInterval(() => {
+        fetchAssessment();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [socket, id, fetchAssessment]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -406,13 +416,13 @@ export default function AssessmentDetail() {
                 {pendingAttachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {pendingAttachments.map(att => (
-                      <div key={att.id} className="flex items-center gap-1 bg-offwhite px-3 py-1.5 rounded-lg text-xs text-ink border border-border">
-                        <FileText className="h-3 w-3 text-orange" />
-                        <span className="truncate max-w-[120px]">{att.fileName}</span>
+                      <div key={att.id} className="flex items-center gap-1.5 bg-offwhite px-2.5 py-1.5 rounded-lg text-xs text-ink border border-border max-w-full">
+                        <FileText className="h-3 w-3 text-orange flex-shrink-0" />
+                        <span className="truncate max-w-[80px] sm:max-w-[120px]">{att.fileName}</span>
                         <button
                           type="button"
                           onClick={() => removePendingAttachment(att.id)}
-                          className="text-grey hover:text-red-500 ml-1"
+                          className="text-grey hover:text-red-500 flex-shrink-0"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -428,38 +438,38 @@ export default function AssessmentDetail() {
                     multiple
                     className="hidden"
                   />
-                  
+
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="p-3 text-grey hover:text-orange border border-border rounded-xl disabled:opacity-50"
+                    className="p-2.5 sm:p-3 text-grey hover:text-orange border border-border rounded-xl disabled:opacity-50 flex-shrink-0"
                   >
                     {isUploading ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                     ) : (
-                      <Paperclip className="h-5 w-5" />
+                      <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
                     )}
                   </button>
-                  
+
                   <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={handleTyping}
                     placeholder={pendingAttachments.length > 0 ? "Add a message (optional)..." : "Type your message..."}
-                    className="flex-1 px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-orange focus:border-transparent"
+                    className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 border border-border rounded-xl focus:ring-2 focus:ring-orange focus:border-transparent text-sm sm:text-base"
                   />
-                  
+
                   <button
                     type="submit"
                     disabled={isSending || (!newMessage.trim() && pendingAttachments.length === 0)}
-                    className="p-3 bg-orange text-white rounded-xl hover:bg-orange-deep disabled:opacity-50"
+                    className="p-2.5 sm:p-3 bg-orange text-white rounded-xl hover:bg-orange-deep disabled:opacity-50 flex-shrink-0"
                   >
                     {isSending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                     ) : (
-                      <Send className="h-5 w-5" />
+                      <Send className="h-4 w-4 sm:h-5 sm:w-5" />
                     )}
                   </button>
                 </form>

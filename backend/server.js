@@ -18,10 +18,15 @@ try {
 import authRoutes from './routes/auth.js';
 import assessmentRoutes from './routes/assessments.js';
 import messageRoutes from './routes/messages.js';
-import uploadRoutes from './routes/uploads.js';
 import notificationRoutes from './routes/notifications.js';
 import contactRoutes from './routes/contact.js';
 import { authenticateToken } from './middleware/auth.js';
+
+// Use Cloudinary uploads on Vercel (serverless), local disk for local dev
+const isVercel = !!process.env.VERCEL;
+const uploadRoutes = isVercel
+  ? await import('./routes/uploads-cloudinary.js').then(m => m.default)
+  : await import('./routes/uploads.js').then(m => m.default);
 
 const app = express();
 const httpServer = createServer(app);

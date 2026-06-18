@@ -14,6 +14,8 @@ import AdminPage from './pages/AdminPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import PortalLogin from './pages/portal/PortalLogin';
+import ForgotPassword from './pages/portal/ForgotPassword';
+import ResetPassword from './pages/portal/ResetPassword';
 import ClientDashboard from './pages/portal/ClientDashboard';
 import AdminDashboard from './pages/portal/AdminDashboard';
 import NewAssessment from './pages/portal/NewAssessment';
@@ -45,6 +47,8 @@ function PortalRoutes() {
   return (
     <Routes>
       <Route path="login" element={<PortalLogin />} />
+      <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password" element={<ResetPassword />} />
       <Route 
         path="dashboard" 
         element={
@@ -93,13 +97,13 @@ function AppRoutes() {
       <Routes>
         <Route path="/"                      element={<HomePage />} />
         <Route path="/services/cybersecurity" element={<CybersecurityPage />} />
-        <Route path="/portal/vapt-request"   element={<VaptPage />} />
+        <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
         <Route path="/portfolio"             element={<PortfolioPage />} />
         <Route path="/about"                 element={<AboutPage />} />
         <Route path="/contact"               element={<ContactPage />} />
         <Route path="/admin"                 element={<AdminPage />} />
         <Route path="/cybersecurity"         element={<CybersecurityPage />} />
-        <Route path="/vapt"                  element={<VaptPage />} />
+        <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
         <Route path="/portal/*"              element={<PortalRoutes />} />
         <Route path="*"                      element={<NotFoundPage />} />
       </Routes>
