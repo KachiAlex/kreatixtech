@@ -63,10 +63,7 @@ export default function Navbar() {
         </div>
 
         {/* CTA */}
-        <div className="hidden md:flex items-center gap-6">
-          <Link to="/contact" className="text-sm font-semibold text-ink opacity-65 hover:opacity-100 transition-opacity">
-            Contact
-          </Link>
+        <div className="hidden md:flex items-center">
           <Link to="/portal/login" className="btn-dark">
             Request Assessment
           </Link>
