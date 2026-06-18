@@ -183,7 +183,11 @@ router.post('/create-admin', async (req, res) => {
     });
   } catch (error) {
     console.error('Admin creation error:', error);
-    res.status(500).json({ error: 'Admin creation failed' });
+    res.status(500).json({ 
+      error: 'Admin creation failed',
+      message: error.message,
+      code: error.code
+    });
   }
 });
 
