@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "vercel-build": "vite build && npx prisma generate --schema=backend/prisma/schema.prisma && npx prisma migrate deploy --schema=backend/prisma/schema.prisma",
+    "vercel-build": "vite build && npx prisma generate --schema=backend/prisma/schema.prisma && npx prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss",
     "preview": "vite preview",
     "start": "cd backend && node server.js"
   },
