@@ -480,7 +480,14 @@ export default function AssessmentDetail() {
           <div className="space-y-6">
             <div className="bg-white rounded-xl border border-border p-6">
               <h3 className="font-semibold text-ink mb-4">Assessment Details</h3>
-              
+
+              <Link
+                to={`/portal/report/${id}`}
+                className="block w-full mb-4 p-3 bg-orange/5 border border-orange/20 rounded-lg text-sm font-medium text-orange hover:bg-orange/10 transition-colors text-center"
+              >
+                View VAPT Report
+              </Link>
+
               <div className="space-y-4 text-sm">
                 <div>
                   <span className="text-grey">Status</span>
