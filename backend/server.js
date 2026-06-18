@@ -47,7 +47,7 @@ app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/uploads', authenticateToken, uploadRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
 
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
