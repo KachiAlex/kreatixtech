@@ -161,7 +161,7 @@ router.post('/', [
         });
       }
     } catch (emailErr) {
-      console.error('Assessment email notification failed:', emailErr.message);
+      console.error('Resend assessment notification failed:', emailErr.message);
     }
 
     res.status(201).json(assessment);
@@ -247,7 +247,7 @@ router.put('/:id', [
           });
         }
       } catch (emailErr) {
-        console.error('Status change email failed:', emailErr.message);
+        console.error('Resend status change notification failed:', emailErr.message);
       }
     }
 
@@ -319,7 +319,7 @@ router.post('/:id/assign', [
         });
       }
     } catch (emailErr) {
-      console.error('Assignment email failed:', emailErr.message);
+      console.error('Resend assignment notification failed:', emailErr.message);
     }
 
     io.to(`assessment:${id}`).emit('assignment-updated', assessment);

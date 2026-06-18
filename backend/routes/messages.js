@@ -183,7 +183,7 @@ router.post('/', [
         });
       }
     } catch (emailErr) {
-      console.error('Email notification failed:', emailErr.message);
+      console.error('Resend notification failed:', emailErr.message);
     }
 
     res.status(201).json(newMessage);

@@ -1,34 +1,36 @@
-import SibApiV3Sdk from '@getbrevo/brevo';
+import { Resend } from 'resend';
 
-const brevoClient = new SibApiV3Sdk.TransactionalEmailsApi();
-
-if (process.env.BREVO_API_KEY) {
-  const apiKey = brevoClient.authentications['api-key'];
-  apiKey.apiKey = process.env.BREVO_API_KEY;
-}
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const sender = {
-  email: process.env.BREVO_SENDER_EMAIL || 'noreply@kreatixtech.com',
-  name: process.env.BREVO_SENDER_NAME || 'Kreatix Technologies'
+  email: process.env.RESEND_SENDER_EMAIL || 'onboarding@resend.dev',
+  name: process.env.RESEND_SENDER_NAME || 'Kreatix Technologies'
 };
 
-export async function sendEmail({ to, subject, htmlContent, textContent }) {
-  if (!process.env.BREVO_API_KEY) {
-    console.warn('BREVO_API_KEY not set, skipping email');
+export async function sendEmail({ to, subject, html, text }) {
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set, skipping email');
     return;
   }
 
-  try {
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.sender = sender;
-    sendSmtpEmail.to = Array.isArray(to) ? to.map(email => ({ email })) : [{ email: to }];
-    sendSmtpEmail.subject = subject;
-    sendSmtpEmail.htmlContent = htmlContent;
-    if (textContent) sendSmtpEmail.textContent = textContent;
+  const toList = Array.isArray(to) ? to : [to];
 
-    const response = await brevoClient.sendTransacEmail(sendSmtpEmail);
-    console.log('Email sent:', response.messageId);
-    return response;
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `${sender.name} <${sender.email}>`,
+      to: toList,
+      subject,
+      html,
+      text
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('Email sent:', data.id);
+    return data;
   } catch (error) {
     console.error('Email send failed:', error.message);
     throw error;
@@ -41,7 +43,7 @@ export async function sendNewAssessmentEmail({ to, assessmentTitle, organization
   return sendEmail({
     to,
     subject: `New VAPT Assessment: ${assessmentTitle}`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #FF6B35;">New Assessment Submitted</h2>
         <p>A new vulnerability assessment has been submitted by <strong>${organizationName}</strong>.</p>
@@ -51,7 +53,7 @@ export async function sendNewAssessmentEmail({ to, assessmentTitle, organization
         <p style="color: #999; font-size: 12px;">Kreatix Technologies VAPT Portal</p>
       </div>
     `,
-    textContent: `New assessment submitted: ${assessmentTitle} by ${organizationName}. View at ${portalUrl}`
+    text: `New assessment submitted: ${assessmentTitle} by ${organizationName}. View at ${portalUrl}`
   });
 }
 
@@ -61,7 +63,7 @@ export async function sendNewMessageEmail({ to, senderName, assessmentTitle, mes
   return sendEmail({
     to,
     subject: `New message on ${assessmentTitle}`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #FF6B35;">New Message</h2>
         <p><strong>${senderName}</strong> sent a message on <strong>${assessmentTitle}</strong>:</p>
@@ -73,7 +75,7 @@ export async function sendNewMessageEmail({ to, senderName, assessmentTitle, mes
         <p style="color: #999; font-size: 12px;">Kreatix Technologies VAPT Portal</p>
       </div>
     `,
-    textContent: `${senderName}: ${messagePreview}\nView at ${portalUrl}`
+    text: `${senderName}: ${messagePreview}\nView at ${portalUrl}`
   });
 }
 
@@ -83,7 +85,7 @@ export async function sendStatusChangeEmail({ to, assessmentTitle, oldStatus, ne
   return sendEmail({
     to,
     subject: `Status Update: ${assessmentTitle}`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #FF6B35;">Assessment Status Updated</h2>
         <p><strong>${assessmentTitle}</strong> status changed:</p>
@@ -97,7 +99,7 @@ export async function sendStatusChangeEmail({ to, assessmentTitle, oldStatus, ne
         <p style="color: #999; font-size: 12px;">Kreatix Technologies VAPT Portal</p>
       </div>
     `,
-    textContent: `Status changed from ${oldStatus} to ${newStatus} for ${assessmentTitle}. View at ${portalUrl}`
+    text: `Status changed from ${oldStatus} to ${newStatus} for ${assessmentTitle}. View at ${portalUrl}`
   });
 }
 
@@ -107,7 +109,7 @@ export async function sendAssignedEmail({ to, assessmentTitle, adminName, assess
   return sendEmail({
     to,
     subject: `Assessment Assigned: ${assessmentTitle}`,
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #FF6B35;">Assessment Assigned to You</h2>
         <p><strong>${assessmentTitle}</strong> has been assigned to <strong>${adminName}</strong>.</p>
@@ -116,9 +118,9 @@ export async function sendAssignedEmail({ to, assessmentTitle, adminName, assess
         <p style="color: #999; font-size: 12px;">Kreatix Technologies VAPT Portal</p>
       </div>
     `,
-    textContent: `${assessmentTitle} assigned to ${adminName}. View at ${portalUrl}`
+    text: `${assessmentTitle} assigned to ${adminName}. View at ${portalUrl}`
   });
 }
 
-export { brevoClient };
+export { resend };
 export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendStatusChangeEmail, sendAssignedEmail };
