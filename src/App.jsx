@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 const CybersecurityPage = lazy(() => import('./pages/CybersecurityPage'));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const TeamPage = lazy(() => import('./pages/TeamPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -119,6 +120,7 @@ function AppRoutes() {
           <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
           <Route path="/portfolio"             element={<PortfolioPage />} />
           <Route path="/about"                 element={<AboutPage />} />
+          <Route path="/team"                  element={<TeamPage />} />
           <Route path="/contact"               element={<ContactPage />} />
           <Route path="/blog"                  element={<BlogPage />} />
           <Route path="/blog/:slug"            element={<BlogPost />} />
