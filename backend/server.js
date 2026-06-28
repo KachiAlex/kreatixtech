@@ -13,7 +13,6 @@ try {
   prisma = new PrismaClient();
 } catch (err) {
   console.error('PrismaClient failed to initialize:', err.message);
-  throw err;
 }
 
 import authRoutes from './routes/auth.js';

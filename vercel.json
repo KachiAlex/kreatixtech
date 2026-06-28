@@ -1,10 +1,5 @@
 {
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
-  "framework": null,
-  "invalid_field_test": "this_should_cause_error",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "framework": null
 }
