@@ -2,8 +2,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache python3 make g++
+
 COPY backend/package*.json ./
-RUN npm ci --only=production
+RUN npm install
 
 COPY backend/prisma ./prisma/
 RUN npx prisma generate
