@@ -5,9 +5,9 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY backend/package*.json ./
+COPY backend/prisma ./prisma/
 RUN npm install
 
-COPY backend/prisma ./prisma/
 RUN npx prisma generate
 
 COPY backend/ .
