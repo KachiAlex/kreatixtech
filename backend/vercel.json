@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "buildCommand": "npx prisma generate && npx prisma db push --accept-data-loss",
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index" }
+  ]
+}
