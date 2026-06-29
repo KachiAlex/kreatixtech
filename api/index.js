@@ -1,21 +1,12 @@
 import express from 'express';
+const app = express();
 
-let app;
-let initError = null;
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy', source: 'minimal', timestamp: new Date().toISOString() });
+});
 
-try {
-  const mod = await import('../backend/server.js');
-  app = mod.default || mod;
-} catch (err) {
-  initError = err;
-  app = express();
-  app.all('*', (req, res) => {
-    res.status(500).json({
-      error: 'Server initialization failed',
-      message: initError?.message,
-      stack: initError?.stack?.split('\n').slice(0, 6)
-    });
-  });
-}
+app.get('*', (req, res) => {
+  res.json({ path: req.path, url: req.url, message: 'catch-all from minimal' });
+});
 
 export default app;
