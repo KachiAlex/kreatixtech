@@ -5,6 +5,12 @@ const PortalContext = createContext(null);
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+// Socket.io requires a persistent server (not serverless).
+// fly.io supports WebSockets; Vercel serverless does not.
+// When API_URL is unset we're in local dev using Vite's proxy — sockets
+// can still connect directly to localhost:5000 in that case.
+const SOCKET_URL = API_URL || 'http://localhost:5000';
+
 export function PortalProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('portalToken'));
@@ -23,17 +29,11 @@ export function PortalProvider({ children }) {
 
   useEffect(() => {
     if (token && user) {
-      // Skip Socket.io on Vercel serverless — no WebSocket support
-      const isVercel = !API_URL || API_URL.includes('vercel');
-      if (isVercel) {
-        console.log('Socket.io disabled on Vercel');
-        return;
-      }
-
-      const newSocket = io(API_URL, {
+      const newSocket = io(SOCKET_URL, {
         auth: { token },
-        reconnection: false,
-        transports: ['polling'],
+        reconnection: true,
+        reconnectionAttempts: 3,
+        transports: ['websocket', 'polling'],
         timeout: 5000
       });
 
