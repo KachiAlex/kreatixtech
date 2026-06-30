@@ -26,18 +26,58 @@ try {
   console.error('PrismaClient failed to initialize:', err.message);
 }
 
-// Route imports temporarily disabled for debugging
-// import authRoutes from './routes/auth.js';
-// import assessmentRoutes from './routes/assessments.js';
-// import messageRoutes from './routes/messages.js';
-// import notificationRoutes from './routes/notifications.js';
-// import contactRoutes from './routes/contact.js';
-// import findingRoutes from './routes/findings.js';
-// import blogRoutes from './routes/blog.js';
-// import testimonialRoutes from './routes/testimonials.js';
-// import auditRoutes from './routes/audit.js';
-// import invitationRoutes from './routes/invitations.js';
-// import { authenticateToken } from './middleware/auth.js';
+// Dynamic route imports with error handling for debugging
+const routeImports = [];
+try {
+  routeImports.push({ name: 'auth', module: await import('./routes/auth.js') });
+} catch (e) { console.error('FAIL auth:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'assessments', module: await import('./routes/assessments.js') });
+} catch (e) { console.error('FAIL assessments:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'messages', module: await import('./routes/messages.js') });
+} catch (e) { console.error('FAIL messages:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'notifications', module: await import('./routes/notifications.js') });
+} catch (e) { console.error('FAIL notifications:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'contact', module: await import('./routes/contact.js') });
+} catch (e) { console.error('FAIL contact:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'findings', module: await import('./routes/findings.js') });
+} catch (e) { console.error('FAIL findings:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'blog', module: await import('./routes/blog.js') });
+} catch (e) { console.error('FAIL blog:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'testimonials', module: await import('./routes/testimonials.js') });
+} catch (e) { console.error('FAIL testimonials:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'audit', module: await import('./routes/audit.js') });
+} catch (e) { console.error('FAIL audit:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'invitations', module: await import('./routes/invitations.js') });
+} catch (e) { console.error('FAIL invitations:', e.message.substring(0, 200)); }
+try {
+  routeImports.push({ name: 'authMiddleware', module: await import('./middleware/auth.js') });
+} catch (e) { console.error('FAIL authMiddleware:', e.message.substring(0, 200)); }
+
+console.log('Route imports attempted:', routeImports.map(r => r.name).join(', '));
+
+const authRoutes = routeImports.find(r => r.name === 'auth')?.module?.default;
+const assessmentRoutes = routeImports.find(r => r.name === 'assessments')?.module?.default;
+const messageRoutes = routeImports.find(r => r.name === 'messages')?.module?.default;
+const notificationRoutes = routeImports.find(r => r.name === 'notifications')?.module?.default;
+const contactRoutes = routeImports.find(r => r.name === 'contact')?.module?.default;
+const findingRoutes = routeImports.find(r => r.name === 'findings')?.module?.default;
+const blogRoutes = routeImports.find(r => r.name === 'blog')?.module?.default;
+const testimonialRoutes = routeImports.find(r => r.name === 'testimonials')?.module?.default;
+const auditRoutes = routeImports.find(r => r.name === 'audit')?.module?.default;
+const invitationRoutes = routeImports.find(r => r.name === 'invitations')?.module?.default;
+const authMiddleware = routeImports.find(r => r.name === 'authMiddleware')?.module;
+const authenticateToken = authMiddleware?.authenticateToken;
+const requireAdmin = authMiddleware?.requireAdmin;
+const requireClient = authMiddleware?.requireClient;
 
 const app = express();
 const httpServer = createServer(app);
@@ -78,17 +118,17 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', strictLimiter);
 app.use('/api/auth/reset-password', strictLimiter);
 
-// app.use('/api/auth', authRoutes);
-// app.use('/api/contact', contactRoutes);
-// app.use('/api/assessments', authenticateToken, assessmentRoutes);
-// app.use('/api/messages', authenticateToken, messageRoutes);
-// app.use('/api/uploads', authenticateToken, uploadRoutes);
-// app.use('/api/notifications', authenticateToken, notificationRoutes);
-// app.use('/api/findings', authenticateToken, findingRoutes);
-// app.use('/api/blog', blogRoutes);
-// app.use('/api/testimonials', testimonialRoutes);
-// app.use('/api/audit', authenticateToken, auditRoutes);
-// app.use('/api/invitations', authenticateToken, invitationRoutes);
+if (authRoutes) app.use('/api/auth', authRoutes);
+if (contactRoutes) app.use('/api/contact', contactRoutes);
+if (assessmentRoutes) app.use('/api/assessments', authenticateToken, assessmentRoutes);
+if (messageRoutes) app.use('/api/messages', authenticateToken, messageRoutes);
+if (uploadRoutes) app.use('/api/uploads', authenticateToken, uploadRoutes);
+if (notificationRoutes) app.use('/api/notifications', authenticateToken, notificationRoutes);
+if (findingRoutes) app.use('/api/findings', authenticateToken, findingRoutes);
+if (blogRoutes) app.use('/api/blog', blogRoutes);
+if (testimonialRoutes) app.use('/api/testimonials', testimonialRoutes);
+if (auditRoutes) app.use('/api/audit', authenticateToken, auditRoutes);
+if (invitationRoutes) app.use('/api/invitations', authenticateToken, invitationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ 
