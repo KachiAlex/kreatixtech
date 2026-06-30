@@ -4,10 +4,9 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and prisma schema BEFORE npm install
+# so the postinstall prisma generate script can find the schema
 COPY backend/package*.json ./
-
-# Copy prisma schema BEFORE npm install so the postinstall script can find it
 COPY backend/prisma ./prisma/
 
 # Install dependencies (postinstall runs prisma generate automatically)
@@ -18,4 +17,5 @@ COPY backend/ .
 
 EXPOSE 5000
 
-CMD ["node", "server.js"]
+# Use start.mjs wrapper to surface any static import errors
+CMD ["node", "start.mjs"]
