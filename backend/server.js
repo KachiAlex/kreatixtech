@@ -7,25 +7,35 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 
+// Catch any unhandled error at the top level and print it before exiting.
+// In Node ESM, top-level await errors bypass process.on handlers, so we
+// use a synchronous stderr write via a custom error handler registered early.
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT EXCEPTION:', err.name, err.message);
-  console.error(err.stack);
+  process.stderr.write(`UNCAUGHT EXCEPTION: ${err.name}: ${err.message}\n${err.stack}\n`);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  console.error('UNHANDLED REJECTION:', reason);
+  process.stderr.write(`UNHANDLED REJECTION: ${reason}\n`);
+  if (reason instanceof Error) process.stderr.write(reason.stack + '\n');
   process.exit(1);
 });
 
 dotenv.config();
 
+console.log('ENV CHECK — DATABASE_URL set:', !!process.env.DATABASE_URL);
+console.log('ENV CHECK — JWT_SECRET set:', !!process.env.JWT_SECRET);
+
 let prisma;
 try {
+  console.log('Importing @prisma/client...');
   const { PrismaClient } = await import('@prisma/client');
+  console.log('PrismaClient imported, instantiating...');
   prisma = new PrismaClient();
+  console.log('PrismaClient ready');
 } catch (err) {
   console.error('PrismaClient failed to initialize:', err.message);
+  console.error(err.stack);
 }
 
 // Dynamic route imports with error handling for debugging
