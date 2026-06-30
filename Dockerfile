@@ -17,5 +17,5 @@ COPY backend/ .
 
 EXPOSE 5000
 
-# Use start.mjs wrapper to surface any static import errors
-CMD ["node", "start.mjs"]
+# Push schema changes to DB then start server
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node start.mjs"]

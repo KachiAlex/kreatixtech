@@ -60,6 +60,9 @@ function useInView(threshold = 0.15) {
   return [ref, visible];
 }
 
+// ── API_URL (same pattern as portal) ─────────────────────────────────────────
+const API_URL = import.meta.env.VITE_API_URL || '';
+
 // ── Marquee items ────────────────────────────────────────────────────────────
 const MARQUEE = [
   { label: 'VAPT', hi: true }, { label: 'Threat intelligence' },
@@ -72,33 +75,24 @@ const MARQUEE = [
 ];
 const MARQUEE_DOUBLED = [...MARQUEE, ...MARQUEE];
 
-// ── Work cards data ──────────────────────────────────────────────────────────
-const WORK = [
-  {
-    title: 'Caremaster',
-    desc: 'A multi-tenant SaaS solution helping care agencies manage operations, staff scheduling, and compliance securely.',
-    tags: ['SaaS', 'Multi-tenant', 'Healthcare'],
-    href: 'https://getcaremaster.com', external: true,
-  },
-  {
-    title: 'PropertyArk',
-    desc: 'A multivendor Real Estate platform providing a secure ecosystem for property businesses and buyers globally.',
-    tags: ['Marketplace', 'Real Estate', 'Security'],
-    href: '/portfolio', external: false,
-  },
-  {
-    title: 'Ojawa Africa',
-    desc: 'A multivendor eCommerce application that guarantees secure transactions via an integrated escrow system.',
-    tags: ['eCommerce', 'Escrow', 'Fintech'],
-    href: '/portfolio', external: false,
-  },
-  {
-    title: 'Fintech onboarding app',
-    desc: 'A mobile-first KYC and onboarding flow for a digital lender, cutting signup time from 12 minutes to 3.',
-    tags: ['React Native', 'Node.js', 'AWS'],
-    href: '/portfolio', external: false,
-  },
+// ── Work cards — fetched from API, fallback to static ────────────────────────
+const STATIC_WORK = [
+  { id:'caremaster', title:'Caremaster', description:'A multi-tenant SaaS solution helping care agencies manage operations, staff scheduling, and compliance securely.', tags:['SaaS','Multi-tenant','Healthcare'], liveUrl:'https://getcaremaster.com', previewUrl:null },
+  { id:'propertyark', title:'PropertyArk', description:'A multivendor Real Estate platform providing a secure ecosystem for property businesses and buyers globally.', tags:['Marketplace','Real Estate','Security'], liveUrl:null, previewUrl:null },
+  { id:'ojawa', title:'Ojawa Africa', description:'A multivendor eCommerce application that guarantees secure transactions via an integrated escrow system.', tags:['eCommerce','Escrow','Fintech'], liveUrl:null, previewUrl:null },
+  { id:'fintech', title:'Fintech onboarding app', description:'A mobile-first KYC and onboarding flow for a digital lender, cutting signup time from 12 minutes to 3.', tags:['React Native','Node.js','AWS'], liveUrl:null, previewUrl:null },
 ];
+
+function useProjects(limit = 6) {
+  const [projects, setProjects] = useState(STATIC_WORK);
+  useEffect(() => {
+    fetch(`${API_URL}/api/projects?limit=${limit}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.length) setProjects(data); })
+      .catch(() => {});
+  }, [limit]);
+  return projects;
+}
 
 // ── Service tab data ─────────────────────────────────────────────────────────
 const TABS = [
@@ -142,30 +136,59 @@ const SERVICE_PANELS = {
 };
 
 // ── WorkCard ─────────────────────────────────────────────────────────────────
-function WorkCard({ title, desc, tags, href, external }) {
-  const Tag = external ? 'a' : Link;
-  const props = external ? { href, target: '_blank', rel: 'noopener noreferrer' } : { to: href };
+function WorkCard({ title, description, desc, tags, liveUrl, href, external, previewUrl }) {
+  // Support both old shape (desc/href/external) and new API shape (description/liveUrl/previewUrl)
+  const text = description || desc || '';
+  const target = liveUrl || href || '/portfolio';
+  const isExternal = !!(liveUrl || external);
+  const Tag = isExternal ? 'a' : Link;
+  const props = isExternal
+    ? { href: target, target: '_blank', rel: 'noopener noreferrer' }
+    : { to: target };
+
   return (
-    <Tag {...props} className="flex-none w-[360px] border border-[#E8E5E0] rounded-[20px] overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl group">
-      <div className="h-[200px] bg-[#F7F5F2] flex items-center justify-center relative">
-        {/* mock screen */}
-        <div className="w-[260px] h-[150px] rounded-xl bg-white border border-[#E8E5E0] shadow-lg overflow-hidden p-3">
-          <div className="h-2 bg-[#F7F5F2] rounded mb-2 w-3/5" />
-          <div className="flex gap-2 mb-2">
-            <div className="h-9 bg-[#F7F5F2] rounded flex-1" />
-            <div className="h-9 bg-[rgba(242,120,46,0.15)] rounded flex-1" />
+    <Tag {...props} className="flex-none w-[340px] border border-[#E8E5E0] rounded-[20px] overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl group">
+      <div className="h-[200px] bg-[#F7F5F2] relative overflow-hidden">
+        {previewUrl ? (
+          <>
+            <img
+              src={previewUrl}
+              alt={`${title} preview`}
+              className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+            {isExternal && (
+              <div className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-[#F2782E] flex items-center justify-center text-white text-xs shadow-lg shadow-orange-400/40 opacity-90">▶</div>
+            )}
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="w-[250px] h-[145px] rounded-xl bg-white border border-[#E8E5E0] shadow-lg overflow-hidden p-3">
+              <div className="flex items-center gap-1 mb-2">
+                <div className="w-2 h-2 rounded-full bg-red-300" />
+                <div className="w-2 h-2 rounded-full bg-yellow-300" />
+                <div className="w-2 h-2 rounded-full bg-green-300" />
+              </div>
+              <div className="h-1.5 bg-[#F7F5F2] rounded mb-2 w-3/5" />
+              <div className="flex gap-2 mb-2">
+                <div className="h-8 bg-[#F7F5F2] rounded flex-1" />
+                <div className="h-8 bg-[rgba(242,120,46,0.15)] rounded flex-1" />
+              </div>
+              <div className="h-1.5 bg-[#F7F5F2] rounded mb-1.5 w-4/5" />
+              <div className="h-1.5 bg-[#F7F5F2] rounded w-1/2" />
+            </div>
+            {isExternal && (
+              <div className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-[#F2782E] flex items-center justify-center text-white text-xs shadow-lg shadow-orange-400/40">▶</div>
+            )}
           </div>
-          <div className="h-1.5 bg-[#F7F5F2] rounded mb-1.5 w-4/5" />
-          <div className="h-1.5 bg-[#F7F5F2] rounded w-1/2" />
-        </div>
-        <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-[#F2782E] flex items-center justify-center text-white text-sm shadow-lg shadow-orange-400/40">▶</div>
+        )}
       </div>
-      <div className="p-6">
-        <h4 className="text-[18px] font-extrabold mb-2 group-hover:text-[#F2782E] transition-colors">{title}</h4>
-        <p className="text-sm text-[#6B6F76] mb-4 leading-relaxed">{desc}</p>
-        <div className="flex gap-2 flex-wrap">
-          {tags.map(t => (
-            <span key={t} className="text-[11px] font-bold text-[#F2782E] bg-[#FDF1E8] rounded-full px-3 py-1.5">{t}</span>
+      <div className="p-5">
+        <h4 className="text-[17px] font-extrabold mb-2 group-hover:text-[#F2782E] transition-colors">{title}</h4>
+        <p className="text-sm text-[#6B6F76] mb-3 leading-relaxed line-clamp-3">{text}</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {(tags || []).map(t => (
+            <span key={t} className="text-[11px] font-bold text-[#F2782E] bg-[#FDF1E8] rounded-full px-2.5 py-1">{t}</span>
           ))}
         </div>
       </div>
@@ -209,6 +232,7 @@ function ServicePanel({ data, active }) {
 export default function HomePage() {
   const { word, phase } = useKineticWord();
   const [activeTab, setActiveTab] = useState('software');
+  const projects = useProjects(6);
   const [heroRef, heroVisible] = useInView(0.1);
   const [statsRef, statsVisible] = useInView(0.2);
   const [servicesRef, servicesVisible] = useInView(0.1);
@@ -449,7 +473,7 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="flex gap-6 overflow-x-auto pb-4 pr-6 md:pr-12" style={{ scrollbarWidth: 'none' }}>
-          {WORK.map(w => <WorkCard key={w.title} {...w} />)}
+          {projects.map(p => <WorkCard key={p.id || p.title} {...p} />)}
         </div>
       </section>
 

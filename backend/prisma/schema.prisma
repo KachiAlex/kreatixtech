@@ -201,6 +201,26 @@ model Finding {
   @@map("findings")
 }
 
+// ─── Portfolio Projects ───
+
+model Project {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  tags        String[]
+  category    String?
+  liveUrl     String?
+  previewUrl  String?   // screenshot / cover image URL
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  published   Boolean  @default(true)
+  year        Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("projects")
+}
+
 // ─── Blog / Content ───
 
 model BlogPost {

@@ -44,6 +44,7 @@ await tryImport('testimonials',  './routes/testimonials.js');
 await tryImport('audit',         './routes/audit.js');
 await tryImport('invitations',   './routes/invitations.js');
 await tryImport('uploads',       './routes/uploads.js');
+await tryImport('projects',      './routes/projects.js');
 await tryImport('authMiddleware','./middleware/auth.js');
 
 console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
@@ -61,6 +62,7 @@ const testimonialRoutes = get('testimonials')?.default;
 const auditRoutes       = get('audit')?.default;
 const invitationRoutes  = get('invitations')?.default;
 const uploadRoutes      = get('uploads')?.default;
+const projectRoutes     = get('projects')?.default;
 const authMiddleware    = get('authMiddleware');
 const authenticateToken = authMiddleware?.authenticateToken;
 const requireAdmin      = authMiddleware?.requireAdmin;
@@ -119,6 +121,7 @@ if (findingRoutes)      app.use('/api/findings',       authenticateToken, findin
 if (uploadRoutes)       app.use('/api/uploads',        authenticateToken, uploadRoutes);
 if (blogRoutes)         app.use('/api/blog',           blogRoutes);
 if (testimonialRoutes)  app.use('/api/testimonials',   testimonialRoutes);
+if (projectRoutes)      app.use('/api/projects',        projectRoutes);
 if (auditRoutes)        app.use('/api/audit',          authenticateToken, auditRoutes);
 if (invitationRoutes)   app.use('/api/invitations',    authenticateToken, invitationRoutes);
 
