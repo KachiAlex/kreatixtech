@@ -6,6 +6,9 @@ primary_region = 'iad'
 [env]
   PORT = '5000'
 
+[processes]
+  app = "node start.mjs"
+
 [http_service]
   internal_port = 5000
   force_https = true
