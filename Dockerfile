@@ -12,4 +12,4 @@ COPY backend/ .
 
 EXPOSE 5000
 
-CMD ["node", "server-fly.js"]
+CMD ["npm", "start"]

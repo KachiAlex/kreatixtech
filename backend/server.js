@@ -26,23 +26,18 @@ try {
   console.error('PrismaClient failed to initialize:', err.message);
 }
 
-import authRoutes from './routes/auth.js';
-import assessmentRoutes from './routes/assessments.js';
-import messageRoutes from './routes/messages.js';
-import notificationRoutes from './routes/notifications.js';
-import contactRoutes from './routes/contact.js';
-import findingRoutes from './routes/findings.js';
-import blogRoutes from './routes/blog.js';
-import testimonialRoutes from './routes/testimonials.js';
-import auditRoutes from './routes/audit.js';
-import invitationRoutes from './routes/invitations.js';
-import { authenticateToken } from './middleware/auth.js';
-
-// Use Cloudinary uploads on Vercel (serverless), local disk for local dev
-const isVercel = !!process.env.VERCEL;
-const uploadRoutes = isVercel
-  ? await import('./routes/uploads-cloudinary.js').then(m => m.default)
-  : await import('./routes/uploads.js').then(m => m.default);
+// Route imports temporarily disabled for debugging
+// import authRoutes from './routes/auth.js';
+// import assessmentRoutes from './routes/assessments.js';
+// import messageRoutes from './routes/messages.js';
+// import notificationRoutes from './routes/notifications.js';
+// import contactRoutes from './routes/contact.js';
+// import findingRoutes from './routes/findings.js';
+// import blogRoutes from './routes/blog.js';
+// import testimonialRoutes from './routes/testimonials.js';
+// import auditRoutes from './routes/audit.js';
+// import invitationRoutes from './routes/invitations.js';
+// import { authenticateToken } from './middleware/auth.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -83,17 +78,17 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', strictLimiter);
 app.use('/api/auth/reset-password', strictLimiter);
 
-app.use('/api/auth', authRoutes);
-app.use('/api/contact', contactRoutes);
-app.use('/api/assessments', authenticateToken, assessmentRoutes);
-app.use('/api/messages', authenticateToken, messageRoutes);
-app.use('/api/uploads', authenticateToken, uploadRoutes);
-app.use('/api/notifications', authenticateToken, notificationRoutes);
-app.use('/api/findings', authenticateToken, findingRoutes);
-app.use('/api/blog', blogRoutes);
-app.use('/api/testimonials', testimonialRoutes);
-app.use('/api/audit', authenticateToken, auditRoutes);
-app.use('/api/invitations', authenticateToken, invitationRoutes);
+// app.use('/api/auth', authRoutes);
+// app.use('/api/contact', contactRoutes);
+// app.use('/api/assessments', authenticateToken, assessmentRoutes);
+// app.use('/api/messages', authenticateToken, messageRoutes);
+// app.use('/api/uploads', authenticateToken, uploadRoutes);
+// app.use('/api/notifications', authenticateToken, notificationRoutes);
+// app.use('/api/findings', authenticateToken, findingRoutes);
+// app.use('/api/blog', blogRoutes);
+// app.use('/api/testimonials', testimonialRoutes);
+// app.use('/api/audit', authenticateToken, auditRoutes);
+// app.use('/api/invitations', authenticateToken, invitationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ 
