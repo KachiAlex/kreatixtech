@@ -4,13 +4,14 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
 WORKDIR /app
 
-# Copy package files and install deps first (layer cache)
+# Copy package files
 COPY backend/package*.json ./
-RUN npm install
 
-# Copy prisma schema and generate client for the correct platform
+# Copy prisma schema BEFORE npm install so the postinstall script can find it
 COPY backend/prisma ./prisma/
-RUN npx prisma generate
+
+# Install dependencies (postinstall runs prisma generate automatically)
+RUN npm install
 
 # Copy the rest of the backend source
 COPY backend/ .
