@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { prisma } from '../server.js';
-import { io } from '../server.js';
+import { prisma } from '../lib/prisma.js';
+import { getIo } from '../lib/socket.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { sendNewAssessmentEmail, sendStatusChangeEmail, sendAssignedEmail } from '../services/email.js';
 
@@ -142,7 +142,7 @@ router.post('/', [
       }
     });
 
-    io.emit('new-assessment', assessment);
+    getIo().emit('new-assessment', assessment);
 
     // Send email notification to all admins
     try {
@@ -225,8 +225,8 @@ router.put('/:id', [
       }
     });
 
-    io.to(`assessment:${id}`).emit('assessment-updated', assessment);
-    io.to(`org:${assessment.orgId}`).emit('assessment-updated', assessment);
+    getIo().to(`assessment:${id}`).emit('assessment-updated', assessment);
+    getIo().to(`org:${assessment.orgId}`).emit('assessment-updated', assessment);
 
     // Send email notification on status change
     if (updateData.status && updateData.status !== existingAssessment.status) {
@@ -322,7 +322,7 @@ router.post('/:id/assign', [
       console.error('Resend assignment notification failed:', emailErr.message);
     }
 
-    io.to(`assessment:${id}`).emit('assignment-updated', assessment);
+    getIo().to(`assessment:${id}`).emit('assignment-updated', assessment);
 
     res.json(assessment);
   } catch (error) {
@@ -341,7 +341,7 @@ router.delete('/:id', [
       where: { id }
     });
 
-    io.to(`assessment:${id}`).emit('assessment-deleted', { id });
+    getIo().to(`assessment:${id}`).emit('assessment-deleted', { id });
 
     res.json({ message: 'Assessment deleted successfully' });
   } catch (error) {

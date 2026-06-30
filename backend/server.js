@@ -6,10 +6,9 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
+import { prisma } from './lib/prisma.js';
+import { setIo, connectedUsers } from './lib/socket.js';
 
-// Catch any unhandled error at the top level and print it before exiting.
-// In Node ESM, top-level await errors bypass process.on handlers, so we
-// use a synchronous stderr write via a custom error handler registered early.
 process.on('uncaughtException', (err) => {
   process.stderr.write(`UNCAUGHT EXCEPTION: ${err.name}: ${err.message}\n${err.stack}\n`);
   process.exit(1);
@@ -23,193 +22,125 @@ process.on('unhandledRejection', (reason) => {
 
 dotenv.config();
 
-console.log('ENV CHECK — DATABASE_URL set:', !!process.env.DATABASE_URL);
-console.log('ENV CHECK — JWT_SECRET set:', !!process.env.JWT_SECRET);
-
-let prisma;
-try {
-  console.log('Importing @prisma/client...');
-  const { PrismaClient } = await import('@prisma/client');
-  console.log('PrismaClient imported, instantiating...');
-  prisma = new PrismaClient();
-  console.log('PrismaClient ready');
-} catch (err) {
-  console.error('PrismaClient failed to initialize:', err.message);
-  console.error(err.stack);
-}
-
-// Dynamic route imports with error handling for debugging
+// Dynamic route imports — each is wrapped so a single bad route doesn't kill startup
 const routeImports = [];
-try {
-  routeImports.push({ name: 'auth', module: await import('./routes/auth.js') });
-} catch (e) { console.error('FAIL auth:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'assessments', module: await import('./routes/assessments.js') });
-} catch (e) { console.error('FAIL assessments:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'messages', module: await import('./routes/messages.js') });
-} catch (e) { console.error('FAIL messages:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'notifications', module: await import('./routes/notifications.js') });
-} catch (e) { console.error('FAIL notifications:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'contact', module: await import('./routes/contact.js') });
-} catch (e) { console.error('FAIL contact:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'findings', module: await import('./routes/findings.js') });
-} catch (e) { console.error('FAIL findings:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'blog', module: await import('./routes/blog.js') });
-} catch (e) { console.error('FAIL blog:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'testimonials', module: await import('./routes/testimonials.js') });
-} catch (e) { console.error('FAIL testimonials:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'audit', module: await import('./routes/audit.js') });
-} catch (e) { console.error('FAIL audit:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'invitations', module: await import('./routes/invitations.js') });
-} catch (e) { console.error('FAIL invitations:', e.message.substring(0, 200)); }
-try {
-  routeImports.push({ name: 'authMiddleware', module: await import('./middleware/auth.js') });
-} catch (e) { console.error('FAIL authMiddleware:', e.message.substring(0, 200)); }
+const tryImport = async (name, path) => {
+  try {
+    const mod = await import(path);
+    routeImports.push({ name, module: mod });
+  } catch (e) {
+    console.error(`FAIL ${name}:`, e.message.substring(0, 300));
+  }
+};
 
-console.log('Route imports attempted:', routeImports.map(r => r.name).join(', '));
+await tryImport('auth',          './routes/auth.js');
+await tryImport('assessments',   './routes/assessments.js');
+await tryImport('messages',      './routes/messages.js');
+await tryImport('notifications', './routes/notifications.js');
+await tryImport('contact',       './routes/contact.js');
+await tryImport('findings',      './routes/findings.js');
+await tryImport('blog',          './routes/blog.js');
+await tryImport('testimonials',  './routes/testimonials.js');
+await tryImport('audit',         './routes/audit.js');
+await tryImport('invitations',   './routes/invitations.js');
+await tryImport('authMiddleware','./middleware/auth.js');
 
-const authRoutes = routeImports.find(r => r.name === 'auth')?.module?.default;
-const assessmentRoutes = routeImports.find(r => r.name === 'assessments')?.module?.default;
-const messageRoutes = routeImports.find(r => r.name === 'messages')?.module?.default;
-const notificationRoutes = routeImports.find(r => r.name === 'notifications')?.module?.default;
-const contactRoutes = routeImports.find(r => r.name === 'contact')?.module?.default;
-const findingRoutes = routeImports.find(r => r.name === 'findings')?.module?.default;
-const blogRoutes = routeImports.find(r => r.name === 'blog')?.module?.default;
-const testimonialRoutes = routeImports.find(r => r.name === 'testimonials')?.module?.default;
-const auditRoutes = routeImports.find(r => r.name === 'audit')?.module?.default;
-const invitationRoutes = routeImports.find(r => r.name === 'invitations')?.module?.default;
-const authMiddleware = routeImports.find(r => r.name === 'authMiddleware')?.module;
+console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
+
+const get = (name) => routeImports.find(r => r.name === name)?.module;
+
+const authRoutes        = get('auth')?.default;
+const assessmentRoutes  = get('assessments')?.default;
+const messageRoutes     = get('messages')?.default;
+const notificationRoutes= get('notifications')?.default;
+const contactRoutes     = get('contact')?.default;
+const findingRoutes     = get('findings')?.default;
+const blogRoutes        = get('blog')?.default;
+const testimonialRoutes = get('testimonials')?.default;
+const auditRoutes       = get('audit')?.default;
+const invitationRoutes  = get('invitations')?.default;
+const authMiddleware    = get('authMiddleware');
 const authenticateToken = authMiddleware?.authenticateToken;
-const requireAdmin = authMiddleware?.requireAdmin;
-const requireClient = authMiddleware?.requireClient;
+const requireAdmin      = authMiddleware?.requireAdmin;
 
 const app = express();
 const httpServer = createServer(app);
 
-// Build list of allowed origins from environment.
-// FRONTEND_URL can be a comma-separated list, e.g.:
-//   https://kreatixtech.vercel.app,https://www.kreatixtech.com
+// CORS — FRONTEND_URL can be comma-separated for multiple origins
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
-  .split(',')
-  .map(o => o.trim())
-  .filter(Boolean);
+  .split(',').map(o => o.trim()).filter(Boolean);
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (curl, mobile apps, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: origin '${origin}' not allowed`));
   },
   credentials: true,
 };
 
 const io = new Server(httpServer, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true,
-  }
+  cors: { origin: allowedOrigins, methods: ['GET', 'POST'], credentials: true }
 });
 
-export { prisma };
+// Make the io instance available to route modules via lib/socket.js
+setIo(io);
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
-
 app.use('/uploads', express.static('uploads'));
 
-// Rate limiting on auth endpoints
+// Rate limiting
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window
+  windowMs: 15 * 60 * 1000, max: 10,
   message: { error: 'Too many attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
+  standardHeaders: true, legacyHeaders: false,
 });
-
 const strictLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 attempts per hour
+  windowMs: 60 * 60 * 1000, max: 5,
   message: { error: 'Too many attempts. Please try again in an hour.' },
 });
 
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/login',           authLimiter);
+app.use('/api/auth/register',        authLimiter);
 app.use('/api/auth/forgot-password', strictLimiter);
-app.use('/api/auth/reset-password', strictLimiter);
+app.use('/api/auth/reset-password',  strictLimiter);
 
-if (authRoutes) app.use('/api/auth', authRoutes);
-if (contactRoutes) app.use('/api/contact', contactRoutes);
-if (assessmentRoutes) app.use('/api/assessments', authenticateToken, assessmentRoutes);
-if (messageRoutes) app.use('/api/messages', authenticateToken, messageRoutes);
-if (uploadRoutes) app.use('/api/uploads', authenticateToken, uploadRoutes);
-if (notificationRoutes) app.use('/api/notifications', authenticateToken, notificationRoutes);
-if (findingRoutes) app.use('/api/findings', authenticateToken, findingRoutes);
-if (blogRoutes) app.use('/api/blog', blogRoutes);
-if (testimonialRoutes) app.use('/api/testimonials', testimonialRoutes);
-if (auditRoutes) app.use('/api/audit', authenticateToken, auditRoutes);
-if (invitationRoutes) app.use('/api/invitations', authenticateToken, invitationRoutes);
+if (authRoutes)         app.use('/api/auth',          authRoutes);
+if (contactRoutes)      app.use('/api/contact',        contactRoutes);
+if (assessmentRoutes)   app.use('/api/assessments',    authenticateToken, assessmentRoutes);
+if (messageRoutes)      app.use('/api/messages',       authenticateToken, messageRoutes);
+if (notificationRoutes) app.use('/api/notifications',  authenticateToken, notificationRoutes);
+if (findingRoutes)      app.use('/api/findings',       authenticateToken, findingRoutes);
+if (blogRoutes)         app.use('/api/blog',           blogRoutes);
+if (testimonialRoutes)  app.use('/api/testimonials',   testimonialRoutes);
+if (auditRoutes)        app.use('/api/audit',          authenticateToken, auditRoutes);
+if (invitationRoutes)   app.use('/api/invitations',    authenticateToken, invitationRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+  res.json({ status: 'healthy', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
 
 app.get('/api/debug/db', async (req, res) => {
   try {
     const userCount = await prisma.user.count();
-    const orgCount = await prisma.organization.count();
-    res.json({
-      dbConnected: true,
-      userCount,
-      orgCount,
-      env: {
-        databaseUrlSet: !!process.env.DATABASE_URL,
-        jwtSecretSet: !!process.env.JWT_SECRET,
-        adminSecretSet: !!process.env.ADMIN_SECRET
-      }
-    });
+    const orgCount  = await prisma.organization.count();
+    res.json({ dbConnected: true, userCount, orgCount });
   } catch (err) {
-    res.status(500).json({
-      dbConnected: false,
-      error: err.message,
-      code: err.code,
-      env: {
-        databaseUrlSet: !!process.env.DATABASE_URL,
-        jwtSecretSet: !!process.env.JWT_SECRET,
-        adminSecretSet: !!process.env.ADMIN_SECRET
-      }
-    });
+    res.status(500).json({ dbConnected: false, error: err.message });
   }
 });
 
-const connectedUsers = new Map();
+// Socket.io auth middleware
+import jwt from 'jsonwebtoken';
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
-  if (!token) {
-    return next(new Error('Authentication required'));
-  }
-  
+  if (!token) return next(new Error('Authentication required'));
   try {
-    import('jsonwebtoken').then(({ default: jwt }) => {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded.userId;
-      socket.orgId = decoded.orgId;
-      next();
-    });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId;
+    socket.orgId  = decoded.orgId;
+    next();
   } catch (err) {
     next(new Error('Invalid token'));
   }
@@ -217,85 +148,41 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log(`User ${socket.userId} connected`);
-  connectedUsers.set(socket.userId, {
-    socketId: socket.id,
-    userId: socket.userId,
-    orgId: socket.orgId,
-    lastSeen: new Date()
-  });
-  
+  connectedUsers.set(socket.userId, { socketId: socket.id, userId: socket.userId, orgId: socket.orgId, lastSeen: new Date() });
   socket.join(`org:${socket.orgId}`);
-  
-  // Broadcast user online status to organization
-  socket.to(`org:${socket.orgId}`).emit('user-online', {
-    userId: socket.userId,
-    status: 'online'
-  });
-  
+  socket.to(`org:${socket.orgId}`).emit('user-online', { userId: socket.userId, status: 'online' });
+
   socket.on('join-assessment', (assessmentId) => {
     socket.join(`assessment:${assessmentId}`);
-    console.log(`User ${socket.userId} joined assessment ${assessmentId}`);
-    
-    // Notify others in the room
-    socket.to(`assessment:${assessmentId}`).emit('user-joined', {
-      userId: socket.userId,
-      timestamp: new Date()
-    });
+    socket.to(`assessment:${assessmentId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });
   });
-  
+
   socket.on('leave-assessment', (assessmentId) => {
     socket.leave(`assessment:${assessmentId}`);
-    socket.to(`assessment:${assessmentId}`).emit('user-left', {
-      userId: socket.userId,
-      timestamp: new Date()
-    });
+    socket.to(`assessment:${assessmentId}`).emit('user-left', { userId: socket.userId, timestamp: new Date() });
   });
-  
+
   socket.on('typing', (data) => {
-    socket.to(`assessment:${data.assessmentId}`).emit('user-typing', {
-      userId: socket.userId,
-      name: data.name,
-      timestamp: new Date()
-    });
+    socket.to(`assessment:${data.assessmentId}`).emit('user-typing', { userId: socket.userId, name: data.name, timestamp: new Date() });
   });
-  
+
   socket.on('stop-typing', (data) => {
-    socket.to(`assessment:${data.assessmentId}`).emit('user-stop-typing', {
-      userId: socket.userId
-    });
+    socket.to(`assessment:${data.assessmentId}`).emit('user-stop-typing', { userId: socket.userId });
   });
-  
+
   socket.on('message-read', (data) => {
-    socket.to(`assessment:${data.assessmentId}`).emit('message-read-receipt', {
-      messageId: data.messageId,
-      userId: socket.userId,
-      readAt: new Date()
-    });
+    socket.to(`assessment:${data.assessmentId}`).emit('message-read-receipt', { messageId: data.messageId, userId: socket.userId, readAt: new Date() });
   });
-  
+
   socket.on('disconnect', () => {
-    console.log(`User ${socket.userId} disconnected`);
-    
-    // Broadcast user offline status
-    socket.to(`org:${socket.orgId}`).emit('user-offline', {
-      userId: socket.userId,
-      status: 'offline',
-      lastSeen: new Date()
-    });
-    
+    socket.to(`org:${socket.orgId}`).emit('user-offline', { userId: socket.userId, status: 'offline', lastSeen: new Date() });
     connectedUsers.delete(socket.userId);
   });
 });
 
-export { io, connectedUsers };
-
 const PORT = process.env.PORT || 5000;
-
-// Only start the HTTP server when running locally (not on Vercel serverless)
-if (!process.env.VERCEL) {
-  httpServer.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 export default app;

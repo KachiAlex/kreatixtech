@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import crypto from 'crypto';
-import { prisma } from '../server.js';
+import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { sendEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';

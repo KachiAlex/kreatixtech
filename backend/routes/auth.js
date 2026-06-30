@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { body, validationResult } from 'express-validator';
-import { prisma } from '../server.js';
+import { prisma } from '../lib/prisma.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';
 

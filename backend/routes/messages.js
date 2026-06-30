@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { prisma } from '../server.js';
-import { io } from '../server.js';
+import { prisma } from '../lib/prisma.js';
+import { getIo } from '../lib/socket.js';
 import { sendNewMessageEmail } from '../services/email.js';
 
 const router = express.Router();
@@ -159,8 +159,8 @@ router.post('/', [
       )
     );
 
-    io.to(`assessment:${assessmentId}`).emit('new-message', newMessage);
-    io.to(`org:${assessment.orgId}`).emit('new-message', {
+    getIo().to(`assessment:${assessmentId}`).emit('new-message', newMessage);
+    getIo().to(`org:${assessment.orgId}`).emit('new-message', {
       assessmentId,
       message: newMessage
     });
@@ -199,7 +199,7 @@ router.put('/:id/read', [
   try {
     const { id } = req.params;
 
-    io.to(`assessment:${req.body.assessmentId}`).emit('message-read', {
+    getIo().to(`assessment:${req.body.assessmentId}`).emit('message-read', {
       messageId: id,
       userId: req.user.id
     });
@@ -234,7 +234,7 @@ router.delete('/:id', [
       where: { id }
     });
 
-    io.to(`assessment:${message.assessmentId}`).emit('message-deleted', { id });
+    getIo().to(`assessment:${message.assessmentId}`).emit('message-deleted', { id });
 
     res.json({ message: 'Message deleted successfully' });
   } catch (error) {

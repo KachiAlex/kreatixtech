@@ -1,7 +1,7 @@
 import express from 'express';
 import { upload, cloudinary } from '../config/cloudinary.js';
-import { prisma } from '../server.js';
-import { io } from '../server.js';
+import { prisma } from '../lib/prisma.js';
+import { getIo } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -57,7 +57,7 @@ router.post('/assessment/:assessmentId', upload.array('files', 10), async (req, 
         }
       });
 
-      io.to(`assessment:${assessmentId}`).emit('files-uploaded', {
+      getIo().to(`assessment:${assessmentId}`).emit('files-uploaded', {
         assessmentId,
         attachments,
         uploadedBy: {
@@ -110,7 +110,7 @@ router.delete('/:id', async (req, res) => {
       where: { id }
     });
 
-    io.to(`assessment:${attachment.assessmentId}`).emit('file-deleted', { id });
+    getIo().to(`assessment:${attachment.assessmentId}`).emit('file-deleted', { id });
 
     res.json({ message: 'File deleted successfully' });
   } catch (error) {
