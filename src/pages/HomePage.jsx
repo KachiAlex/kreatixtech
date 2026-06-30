@@ -1,451 +1,488 @@
-﻿import React, { useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Shield, Code2, Cloud } from 'lucide-react';
-import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import SEO, { organizationSchema, websiteSchema } from '../components/SEO';
 import Testimonials from '../components/Testimonials';
 
-const stats = [
-  { value: '99.9%', label: 'Uptime Guaranteed' },
-  { value: '24/7',  label: 'Active Threat Hunting' },
-  { value: String.fromCharCode(8734), label: 'Vulnerability Patcher' },
-  { value: '50+',   label: 'Enterprise Clients' },
-];
+// ── Kinetic headline words ──────────────────────────────────────────────────
+const KINETIC_WORDS = ['build', 'secure', 'scale', 'ship', 'protect'];
 
-const disciplines = [
-  {
-    icon: Code2,
-    title: 'Software Development',
-    body: 'We build scalable, custom software solutions designed from the ground up to be secure, fast, and adaptable to your business needs.',
-    items: ['Custom Web Applications', 'Enterprise SaaS Platforms', 'Mobile App Development', 'Legacy System Modernization'],
-    href: '/contact',
-  },
-  {
-    icon: Shield,
-    title: 'Cybersecurity',
-    body: 'Rigorous defense strategies and offensive testing to ensure your infrastructure remains impenetrable against modern threats.',
-    items: ['VAPT Assessments', 'Threat Detection & Response', 'API Security Audits', 'Zero-Trust Architecture'],
-    href: '/services/cybersecurity',
-  },
-  {
-    icon: Cloud,
-    title: 'Cloud Services',
-    body: 'Resilient, high-availability cloud environments engineered for massive scale, automated deployments, and cost optimization.',
-    items: ['Cloud Migration', 'Infrastructure as Code', 'DevSecOps Pipelines', 'Serverless Architecture'],
-    href: '/contact',
-  },
-];
+function useKineticWord() {
+  const [idx, setIdx] = useState(0);
+  const [phase, setPhase] = useState('in'); // 'in' | 'out'
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setPhase('out');
+      setTimeout(() => {
+        setIdx(i => (i + 1) % KINETIC_WORDS.length);
+        setPhase('in');
+      }, 300);
+    }, 2200);
+    return () => clearInterval(tick);
+  }, []);
+  return { word: KINETIC_WORDS[idx], phase };
+}
 
-const work = [
+// ── Animated counter ────────────────────────────────────────────────────────
+function Counter({ target, suffix = '+', duration = 1800 }) {
+  const [val, setVal] = useState(0);
+  const ref = useRef(null);
+  const started = useRef(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && !started.current) {
+        started.current = true;
+        const start = performance.now();
+        const step = (now) => {
+          const p = Math.min((now - start) / duration, 1);
+          setVal(Math.round(p * target));
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+    }, { threshold: 0.3 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [target, duration]);
+  return <span ref={ref}>{val}{suffix}</span>;
+}
+
+// ── Scroll-triggered visibility ─────────────────────────────────────────────
+function useInView(threshold = 0.15) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setVisible(true); obs.disconnect(); }
+    }, { threshold });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return [ref, visible];
+}
+
+// ── Marquee items ────────────────────────────────────────────────────────────
+const MARQUEE = [
+  { label: 'VAPT', hi: true }, { label: 'Threat intelligence' },
+  { label: 'Penetration testing', hi: true }, { label: 'Endpoint detection & response' },
+  { label: 'API security', hi: true }, { label: 'Extended detection & response' },
+  { label: 'Zero-trust architecture', hi: true }, { label: 'Managed detection & response' },
+  { label: 'Vulnerability assessment', hi: true }, { label: 'Endpoint management' },
+  { label: 'Incident response', hi: true }, { label: 'Security audits' },
+  { label: 'Cloud native security', hi: true },
+];
+const MARQUEE_DOUBLED = [...MARQUEE, ...MARQUEE];
+
+// ── Work cards data ──────────────────────────────────────────────────────────
+const WORK = [
   {
     title: 'Caremaster',
-    desc: 'A multi-tenant SaaS solution helping numerous care agencies manage operations, staff scheduling, and compliance securely.',
+    desc: 'A multi-tenant SaaS solution helping care agencies manage operations, staff scheduling, and compliance securely.',
     tags: ['SaaS', 'Multi-tenant', 'Healthcare'],
-    href: 'https://getcaremaster.com',
-    external: true,
+    href: 'https://getcaremaster.com', external: true,
   },
   {
     title: 'PropertyArk',
     desc: 'A multivendor Real Estate platform providing a secure ecosystem for property businesses and buyers globally.',
     tags: ['Marketplace', 'Real Estate', 'Security'],
-    href: '/portfolio',
-    external: false,
+    href: '/portfolio', external: false,
   },
   {
     title: 'Ojawa Africa',
     desc: 'A multivendor eCommerce application that guarantees secure transactions via an integrated escrow system.',
     tags: ['eCommerce', 'Escrow', 'Fintech'],
-    href: '/portfolio',
-    external: false,
+    href: '/portfolio', external: false,
+  },
+  {
+    title: 'Fintech onboarding app',
+    desc: 'A mobile-first KYC and onboarding flow for a digital lender, cutting signup time from 12 minutes to 3.',
+    tags: ['React Native', 'Node.js', 'AWS'],
+    href: '/portfolio', external: false,
   },
 ];
 
-function GlassSculpture() {
-  return (
-    <div className="relative w-full h-[480px] md:h-[560px]">
-      <div className="absolute top-8 right-0 w-64 h-80 rounded-full bg-gradient-to-br from-orange-300/50 via-rose-300/30 to-amber-200/40 backdrop-blur-3xl" />
-      <div className="absolute top-28 right-20 w-48 h-64 rounded-[40%] bg-gradient-to-tr from-rose-400/40 via-orange-300/30 to-pink-300/20 backdrop-blur-2xl rotate-12" />
-      <div className="absolute top-12 right-40 w-36 h-52 rounded-full bg-gradient-to-bl from-amber-300/40 via-orange-200/30 to-rose-300/20 backdrop-blur-xl -rotate-6" />
-      <div className="absolute bottom-8 right-8 w-44 h-44 rounded-[45%] bg-gradient-to-t from-orange-400/30 via-rose-300/25 to-amber-200/30 backdrop-blur-2xl rotate-45" />
-      <div className="absolute top-36 right-28 w-28 h-40 rounded-full bg-gradient-to-br from-orange-200/30 to-rose-200/20 backdrop-blur-2xl" />
-      <div className="absolute top-20 right-4 bg-white/80 backdrop-blur-md border border-white/60 rounded-full px-3 py-1.5 shadow-lg flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-coral-500" />
-        <span className="text-[11px] font-medium text-ink-700">Zero-Trust Architecture</span>
-      </div>
-      <div className="absolute top-1/2 right-36 bg-white/80 backdrop-blur-md border border-white/60 rounded-full px-3 py-1.5 shadow-lg flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-coral-500" />
-        <span className="text-[11px] font-medium text-ink-700">Custom Software</span>
-      </div>
-      <div className="absolute bottom-20 right-4 bg-white/80 backdrop-blur-md border border-white/60 rounded-full px-3 py-1.5 shadow-lg flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-coral-500" />
-        <span className="text-[11px] font-medium text-ink-700">Cloud Infrastructure</span>
-      </div>
-    </div>
-  );
-}
+// ── Service tab data ─────────────────────────────────────────────────────────
+const TABS = [
+  { key: 'software', label: 'Software development' },
+  { key: 'cyber',    label: 'Cybersecurity' },
+  { key: 'cloud',    label: 'Cloud services' },
+];
 
-function DevIllustration() {
+const SERVICE_PANELS = {
+  software: {
+    title: 'Software development',
+    desc: 'Custom web and mobile applications, internal tools and platforms — designed with creativity and engineered to scale reliably.',
+    features: ['Web applications & portals', 'Mobile apps (iOS & Android)', 'API design & integrations', 'Product design & UX', 'Internal tools & dashboards'],
+    ctaLabel: 'See what we\'ve shipped →', ctaHref: '/portfolio',
+    cards: [
+      { label: 'Process', title: 'Discovery → Design → Build → Ship', body: 'We run structured discovery sprints before writing a line of code, so what we build always solves the right problem.' },
+      { label: 'Delivery', title: 'Agile, with clear milestones', body: 'Weekly check-ins, living documentation and deployments you can see — not a black box you open six months later.' },
+      { label: 'Stack', title: 'Next.js, React Native, Node, Django', body: 'We choose the right tool for your context — not the one we find most comfortable.' },
+    ],
+  },
+  cyber: {
+    title: 'Cybersecurity',
+    desc: 'Assessments, monitoring and protection that find weaknesses before attackers do — and respond fast when it matters most.',
+    features: ['Vulnerability Assessment & Pen Testing (VAPT)', 'Endpoint Detection & Response (EDR)', 'Extended & Managed Detection (XDR / MDR)', 'Endpoint management', 'API security & testing'],
+    ctaLabel: 'Explore cybersecurity →', ctaHref: '/services/cybersecurity',
+    cards: [
+      { label: 'Assessment', title: 'Scoped, methodical, clear', body: 'Every VAPT engagement starts with a defined scope and ends with an actionable report — not just a CVE list.' },
+      { label: 'Monitoring', title: '24/7 threat visibility', body: 'Our MDR service keeps eyes on your environment around the clock, with escalation paths that actually work.' },
+    ],
+  },
+  cloud: {
+    title: 'Cloud services',
+    desc: 'Architecture, migration and managed operations across AWS, Azure and GCP — built for cost efficiency, performance and uptime.',
+    features: ['Cloud architecture & design', 'Migration & lift-and-shift', 'Infrastructure as code (Terraform)', 'Managed cloud operations', 'Cost optimisation & FinOps'],
+    ctaLabel: 'Talk to our cloud team →', ctaHref: '/contact',
+    cards: [
+      { label: 'Platforms', title: 'AWS · Azure · GCP', body: 'We\'re platform-agnostic. We recommend what fits your workload, compliance requirements and team.' },
+      { label: 'Operations', title: 'We run it so you don\'t have to', body: 'From monitoring and patching to incident response — our managed ops team keeps your infrastructure healthy.' },
+    ],
+  },
+};
+
+// ── WorkCard ─────────────────────────────────────────────────────────────────
+function WorkCard({ title, desc, tags, href, external }) {
+  const Tag = external ? 'a' : Link;
+  const props = external ? { href, target: '_blank', rel: 'noopener noreferrer' } : { to: href };
   return (
-    <div className="relative w-full h-[320px] md:h-[380px]">
-      <div className="absolute top-6 left-6 right-6 h-48 rounded-2xl bg-white border border-surface-300 shadow-lg shadow-surface-200/50 overflow-hidden">
-        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-surface-200">
-          <span className="w-2.5 h-2.5 rounded-full bg-coral-400/60" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
-          <span className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
-        </div>
-        <div className="p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-coral-500 text-xs font-mono font-bold">&lt;App /&gt;</span>
-            <span className="text-ink-300 text-xs font-mono">=</span>
-            <span className="text-amber-500 text-xs font-mono">{'{...}'}</span>
+    <Tag {...props} className="flex-none w-[360px] border border-[#E8E5E0] rounded-[20px] overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl group">
+      <div className="h-[200px] bg-[#F7F5F2] flex items-center justify-center relative">
+        {/* mock screen */}
+        <div className="w-[260px] h-[150px] rounded-xl bg-white border border-[#E8E5E0] shadow-lg overflow-hidden p-3">
+          <div className="h-2 bg-[#F7F5F2] rounded mb-2 w-3/5" />
+          <div className="flex gap-2 mb-2">
+            <div className="h-9 bg-[#F7F5F2] rounded flex-1" />
+            <div className="h-9 bg-[rgba(242,120,46,0.15)] rounded flex-1" />
           </div>
-          <div className="w-3/4 h-2 rounded-full bg-surface-200" />
-          <div className="w-1/2 h-2 rounded-full bg-surface-200" />
-          <div className="w-5/6 h-2 rounded-full bg-surface-200" />
-          <div className="w-2/3 h-2 rounded-full bg-surface-200" />
+          <div className="h-1.5 bg-[#F7F5F2] rounded mb-1.5 w-4/5" />
+          <div className="h-1.5 bg-[#F7F5F2] rounded w-1/2" />
+        </div>
+        <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-[#F2782E] flex items-center justify-center text-white text-sm shadow-lg shadow-orange-400/40">▶</div>
+      </div>
+      <div className="p-6">
+        <h4 className="text-[18px] font-extrabold mb-2 group-hover:text-[#F2782E] transition-colors">{title}</h4>
+        <p className="text-sm text-[#6B6F76] mb-4 leading-relaxed">{desc}</p>
+        <div className="flex gap-2 flex-wrap">
+          {tags.map(t => (
+            <span key={t} className="text-[11px] font-bold text-[#F2782E] bg-[#FDF1E8] rounded-full px-3 py-1.5">{t}</span>
+          ))}
         </div>
       </div>
-      <div className="absolute bottom-6 left-4 bg-white border border-surface-300 rounded-xl p-3 shadow-lg shadow-surface-200/40 w-36">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-coral-500/20 to-amber-400/20 flex items-center justify-center">
-            <span className="text-coral-600 font-bold text-[8px]">S</span>
-          </span>
-          <span className="text-ink-700 text-[10px] font-semibold">SaaS</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full bg-surface-200 mb-1" />
-        <div className="w-2/3 h-1.5 rounded-full bg-surface-200" />
-      </div>
-      <div className="absolute bottom-10 right-4 bg-white border border-surface-300 rounded-xl p-3 shadow-lg shadow-surface-200/40 w-36">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400/20 to-coral-500/20 flex items-center justify-center">
-            <span className="text-amber-600 font-bold text-[8px]">M</span>
-          </span>
-          <span className="text-ink-700 text-[10px] font-semibold">Mobile</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full bg-surface-200 mb-1" />
-        <div className="w-3/4 h-1.5 rounded-full bg-surface-200" />
-      </div>
-      <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-gradient-to-bl from-coral-500/8 to-amber-300/8 blur-2xl pointer-events-none" />
-    </div>
+    </Tag>
   );
 }
 
-function SecurityIllustration() {
+// ── ServicePanel ─────────────────────────────────────────────────────────────
+function ServicePanel({ data, active }) {
   return (
-    <div className="relative w-full h-[320px] md:h-[380px]">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-coral-500/10 via-rose-400/10 to-amber-300/10 border border-coral-500/20 flex items-center justify-center shadow-lg shadow-coral-500/5">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-coral-500 to-amber-400 flex items-center justify-center">
-            <Shield size={28} className="text-white" />
+    <div className={`${active ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-10 items-start`}>
+      <div className="bg-white rounded-3xl p-10 border border-[#E8E5E0]">
+        <h3 className="text-3xl font-extrabold mb-4">{data.title}</h3>
+        <p className="text-[#6B6F76] text-base leading-relaxed mb-8">{data.desc}</p>
+        <div className="flex flex-col gap-3.5 mb-8">
+          {data.features.map(f => (
+            <div key={f} className="flex items-center gap-3.5 bg-[#F7F5F2] rounded-xl px-4 py-3.5 text-sm font-semibold">
+              <span className="w-6 h-6 rounded-full bg-[#F2782E] flex items-center justify-center text-white text-xs flex-shrink-0">✓</span>
+              {f}
+            </div>
+          ))}
+        </div>
+        <Link to={data.ctaHref} className="inline-flex items-center gap-2 font-bold text-sm text-[#F2782E] hover:gap-4 transition-all">
+          {data.ctaLabel}
+        </Link>
+      </div>
+      <div className="flex flex-col gap-4">
+        {data.cards.map(c => (
+          <div key={c.label} className="bg-white border border-[#E8E5E0] rounded-2xl p-7 hover:border-[#F2782E] hover:-translate-y-1 transition-all duration-200">
+            <div className="text-[11px] font-bold tracking-widest text-[#F2782E] uppercase mb-2.5">{c.label}</div>
+            <h4 className="text-base font-bold mb-2">{c.title}</h4>
+            <p className="text-sm text-[#6B6F76]">{c.body}</p>
           </div>
-        </div>
+        ))}
       </div>
-      <div className="absolute top-8 left-8 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
-        <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center">
-          <span className="text-rose-600 font-bold text-[9px]">W</span>
-        </div>
-        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">Web</p>
-      </div>
-      <div className="absolute top-6 right-10 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
-        <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
-          <span className="text-amber-600 font-bold text-[9px]">N</span>
-        </div>
-        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">Net</p>
-      </div>
-      <div className="absolute bottom-12 left-6 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
-        <div className="w-7 h-7 rounded-lg bg-coral-500/10 flex items-center justify-center">
-          <span className="text-coral-600 font-bold text-[9px]">A</span>
-        </div>
-        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">API</p>
-      </div>
-      <div className="absolute bottom-10 right-6 bg-white border border-surface-300 rounded-xl p-2.5 shadow-sm">
-        <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
-          <span className="text-orange-600 font-bold text-[9px]">Z</span>
-        </div>
-        <p className="text-[9px] text-ink-400 mt-1 text-center font-medium">Zero</p>
-      </div>
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-32 rounded-full bg-gradient-to-t from-coral-500/5 to-transparent blur-2xl pointer-events-none" />
     </div>
   );
 }
 
-function HeroBlobs() {
-  return (
-    <div className="absolute top-0 -right-[6%] w-[780px] h-[780px] z-0 pointer-events-none">
-      <svg viewBox="0 0 780 780" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        <defs>
-          <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#FCE3CF" />
-            <stop offset="100%" stopColor="#F8C9A8" />
-          </linearGradient>
-          <linearGradient id="g2" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FDEFE3" />
-            <stop offset="100%" stopColor="#F6D6BC" />
-          </linearGradient>
-          <linearGradient id="g3" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#FBE8DA" />
-            <stop offset="100%" stopColor="#F2C8AC" />
-          </linearGradient>
-        </defs>
-        <path d="M520 60 C660 40 760 170 740 320 C720 470 600 540 480 530 C360 520 300 420 320 300 C340 180 400 80 520 60 Z" fill="url(#g1)" />
-        <path d="M300 320 C420 300 520 380 510 500 C500 620 380 690 270 660 C160 630 110 510 150 410 C190 310 230 335 300 320 Z" fill="url(#g2)" opacity="0.9" />
-        <path d="M430 480 C540 470 620 560 600 660 C580 750 460 780 380 740 C300 700 280 600 320 540 C360 480 360 488 430 480 Z" fill="url(#g3)" opacity="0.85" />
-      </svg>
-    </div>
-  );
-}
-
+// ── Main component ────────────────────────────────────────────────────────────
 export default function HomePage() {
-  const [heroRef, heroVisible] = useScrollAnimation();
-  const [servicesRef, servicesVisible] = useScrollAnimation();
-  const [cyberRef, cyberVisible] = useScrollAnimation();
-  const [portfolioRef, portfolioVisible] = useScrollAnimation();
-  const [ctaRef, ctaVisible] = useScrollAnimation();
+  const { word, phase } = useKineticWord();
+  const [activeTab, setActiveTab] = useState('software');
+  const [heroRef, heroVisible] = useInView(0.1);
+  const [statsRef, statsVisible] = useInView(0.2);
+  const [servicesRef, servicesVisible] = useInView(0.1);
+  const [cyberRef, cyberVisible] = useInView(0.1);
+  const [workRef, workVisible] = useInView(0.1);
+  const [ctaRef, ctaVisible] = useInView(0.1);
 
   return (
-    <div className="bg-paper text-ink min-h-screen">
-      <header ref={heroRef} className="relative grid grid-cols-[1.1fr_0.9fr] gap-10 items-center py-[200px] px-14 overflow-hidden">
-        <HeroBlobs />
-        <div className={`relative z-2 ${heroVisible ? 'visible' : ''} fade-in-up`}>
-          <span className="inline-flex items-center gap-2 text-[13px] font-bold text-orange tracking-[0.12em] uppercase mb-6">
-            <span className="w-2 h-2 rounded-full bg-orange" />
-            Innovation meets creativity
-          </span>
-          <h1 className="text-[clamp(48px,7vw,84px)] font-extrabold leading-[1.04] mb-7 tracking-tight">
-            Dynamic solutions through innovation, built with <span className="text-grey">creativity.</span>
-          </h1>
-          <p className="text-[18px] text-grey-dark max-w-[46ch] mb-10 font-normal">
-            Kreatix Technologies architects software and secures infrastructure for organizations that demand both rigorous engineering and inventive design — across software development, cybersecurity and cloud services.
-          </p>
-          <div className="flex gap-3.5 flex-wrap mb-14">
-            <Link to="/portal/login" className="btn-primary">
-              Request a VAPT assessment →
-            </Link>
-            <Link to="/portfolio" className="btn-outline">
-              View our work
-            </Link>
-          </div>
-          <div className="flex gap-12 pt-8 border-t border-border">
-            <div>
-              <div className="font-display font-extrabold text-[30px] text-ink">120+</div>
-              <div className="text-[13px] text-grey font-semibold mt-1">Projects delivered</div>
-            </div>
-            <div>
-              <div className="font-display font-extrabold text-[30px] text-ink">40+</div>
-              <div className="text-[13px] text-grey font-semibold mt-1">Security assessments</div>
-            </div>
-            <div>
-              <div className="font-display font-extrabold text-[30px] text-ink">99.9%</div>
-              <div className="text-[13px] text-grey font-semibold mt-1">Client uptime SLA</div>
-            </div>
-          </div>
-        </div>
-        <div className={`relative z-2 h-[560px] ${heroVisible ? 'visible' : ''} scale-in`}>
-          <div className="pill top-[18%] right-[4%] animate-float" style={{ animationDelay: '0s' }}>
-            <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
-            Zero-trust architecture
-          </div>
-          <div className="pill top-[52%] left-[6%] animate-float" style={{ animationDelay: '1.5s' }}>
-            <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
-            Custom software
-          </div>
-          <div className="pill bottom-[8%] right-[14%] animate-float" style={{ animationDelay: '3s' }}>
-            <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0" />
-            Cloud infrastructure
-          </div>
-        </div>
-      </header>
+    <div className="bg-white text-[#0E0E0F] overflow-x-hidden">
+      <SEO
+        title="Kreatix Technologies — Software, Cybersecurity & Cloud"
+        description="Kreatix Technologies architects software and secures infrastructure for organisations that demand rigorous engineering and inventive design."
+        schemas={[organizationSchema, websiteSchema]}
+      />
 
-      <div className="border-t border-b border-border overflow-hidden py-7 bg-paper">
-        <div className="flex gap-5 animate-scroll-left" style={{ width: 'max-content', animation: 'scroll-left 80s linear infinite' }}>
-          {[
-            'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
-            'Endpoint detection & response', 'Extended detection & response',
-            'Managed detection & response', 'API security', 'Cloud native security',
-            'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
-            'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
-            'Endpoint detection & response', 'Extended detection & response',
-            'Managed detection & response', 'API security', 'Cloud native security',
-            'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
-            'Vulnerability assessment', 'Penetration testing', 'Threat intelligence',
-            'Endpoint detection & response', 'Extended detection & response',
-            'Managed detection & response', 'API security', 'Cloud native security',
-            'Endpoint management', 'Zero-trust architecture', 'Incident response', 'Security audits',
-          ].map((label, i) => (
-            <div key={i} className="marquee-item">{label}</div>
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      <section
+        ref={heroRef}
+        className="min-h-screen bg-[#0E0E0F] text-white flex flex-col justify-center px-6 md:px-12 pt-28 pb-24 relative overflow-hidden"
+      >
+        {/* grid bg */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)',
+            backgroundSize: '64px 64px',
+            maskImage: 'radial-gradient(ellipse 80% 60% at 50% 50%,black,transparent)',
+          }}
+        />
+        {/* glows */}
+        <div className="absolute -top-32 -right-20 w-[700px] h-[700px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle,rgba(242,120,46,0.18) 0%,transparent 65%)' }} />
+        <div className="absolute -bottom-40 -left-10 w-[500px] h-[500px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle,rgba(242,120,46,0.08) 0%,transparent 65%)' }} />
+
+        <div className={`relative z-10 max-w-6xl mx-auto w-full fade-in-up ${heroVisible ? 'visible' : ''}`}>
+          {/* eyebrow */}
+          <div className="inline-flex items-center gap-2.5 text-[#F2782E] text-xs font-bold tracking-[0.14em] uppercase mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F2782E] shadow-[0_0_10px_#F2782E]" />
+            Innovation meets creativity
+          </div>
+
+          {/* headline */}
+          <h1 className="text-[clamp(52px,8vw,96px)] font-extrabold leading-[1.0] tracking-tight mb-0">
+            <span className="block">
+              We{' '}
+              <span
+                className="text-[#F2782E] inline-block transition-all duration-300"
+                style={{ opacity: phase === 'out' ? 0 : 1, transform: phase === 'out' ? 'translateY(-20px)' : 'translateY(0)' }}
+              >{word}</span>
+            </span>
+            <span className="block">software that</span>
+            <span className="block">moves <em className="not-italic text-[#F2782E]">business</em></span>
+            <span className="block">forward.</span>
+          </h1>
+
+          {/* body row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-14 items-end">
+            <p className="text-[18px] leading-[1.75]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              Kreatix Technologies architects software and secures infrastructure for organisations that demand both rigorous engineering and inventive design — across software development, cybersecurity and cloud.
+            </p>
+            <div className="flex flex-col gap-4 md:items-end">
+              <Link to="/portal/login"
+                className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)] whitespace-nowrap">
+                Request a VAPT assessment →
+              </Link>
+              <Link to="/portfolio"
+                className="inline-flex items-center gap-2.5 border text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-white/5 whitespace-nowrap"
+                style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
+                View our work
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* pills row */}
+        <div className="absolute bottom-10 left-6 md:left-12 right-6 md:right-12 flex gap-3 flex-wrap z-10">
+          {['Zero-trust architecture', 'Custom software', 'Cloud infrastructure', 'Penetration testing', 'API security'].map(p => (
+            <div key={p} className="flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold backdrop-blur-sm"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#F2782E]" />{p}
+            </div>
+          ))}
+          <div className="ml-auto flex items-center gap-2.5 text-[11px] font-bold tracking-widest uppercase"
+            style={{ color: 'rgba(255,255,255,0.3)' }}>Scroll ↓</div>
+        </div>
+      </section>
+
+      {/* ── MARQUEE ────────────────────────────────────────────────────────── */}
+      <div className="border-b border-[#E8E5E0] overflow-hidden py-[22px] bg-white">
+        <div className="flex gap-4 w-max" style={{ animation: 'marquee-scroll 35s linear infinite' }}
+          onMouseEnter={e => e.currentTarget.style.animationPlayState = 'paused'}
+          onMouseLeave={e => e.currentTarget.style.animationPlayState = 'running'}>
+          {MARQUEE_DOUBLED.map((item, i) => (
+            <div key={i}
+              className="flex-none rounded-[10px] px-7 py-3.5 text-[11px] font-bold tracking-widest uppercase whitespace-nowrap"
+              style={{
+                border: `1.5px dashed ${item.hi ? '#F2782E' : '#E8E5E0'}`,
+                color: item.hi ? '#F2782E' : '#0E0E0F',
+                background: 'white',
+              }}>
+              {item.label}
+            </div>
           ))}
         </div>
       </div>
 
-      <section ref={servicesRef} className="py-[100px] px-14 bg-offwhite">
-        <div className={`max-w-[680px] mb-16 ${servicesVisible ? 'visible' : ''} fade-in-up`}>
-          <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">What we do</span>
-          <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Three disciplines, one team</h2>
-          <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">From the first line of code to the systems that keep it safe and running — we cover the full lifecycle.</p>
+      {/* ── STATS STRIP ────────────────────────────────────────────────────── */}
+      <div ref={statsRef} className="bg-[#F2782E] py-14 px-6 md:px-12 grid grid-cols-2 md:grid-cols-4 gap-6">
+        {[
+          { target: 120, suffix: '+', label: 'Projects delivered' },
+          { target: 40,  suffix: '+', label: 'Security assessments' },
+          { target: null, display: '99.9%', label: 'Client uptime SLA' },
+          { target: 5,   suffix: '+', label: 'Years of excellence' },
+        ].map((s, i) => (
+          <div key={i} className="text-center">
+            <div className="font-extrabold text-white leading-none" style={{ fontSize: 'clamp(40px,5vw,60px)' }}>
+              {statsVisible
+                ? s.target != null
+                  ? <Counter target={s.target} suffix={s.suffix} />
+                  : s.display
+                : s.target != null ? `0${s.suffix}` : s.display}
+            </div>
+            <div className="text-sm font-semibold mt-2" style={{ color: 'rgba(255,255,255,0.7)' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── SERVICES ───────────────────────────────────────────────────────── */}
+      <section ref={servicesRef} className="py-24 px-6 md:px-12 bg-[#F7F5F2]" id="services">
+        <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-5">What we do</span>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-start mb-14 fade-in-up ${servicesVisible ? 'visible' : ''}`}>
+          <h2 className="font-extrabold leading-[1.1]" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>
+            Three disciplines,<br />one team
+          </h2>
+          <p className="text-[17px] text-[#6B6F76] leading-[1.75] pt-2 max-w-[44ch]">
+            From the first line of code to the systems that keep it safe and running — we cover the full lifecycle. Pick a discipline to explore.
+          </p>
         </div>
-        <div className="grid grid-cols-3 gap-6">
-          <div className={`service-card ${servicesVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.1s' }}>
-            <div className="w-11 h-11 rounded-[12px] bg-ink text-white flex items-center justify-center font-extrabold text-[15px] mb-7">01</div>
-            <h3 className="text-[22px] mb-3 font-extrabold">Software development</h3>
-            <p className="text-grey-dark text-[15px] mb-6">Custom web and mobile applications, internal tools and platforms — designed with creativity and built to scale.</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Web apps</span>
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Mobile apps</span>
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">APIs</span>
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Product design</span>
+
+        {/* tabs */}
+        <div className="flex gap-2 mb-10 flex-wrap">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              className="px-7 py-3 rounded-full font-bold text-sm border-[1.5px] transition-all duration-200 cursor-pointer"
+              style={{
+                background: activeTab === t.key ? '#0E0E0F' : 'transparent',
+                color: activeTab === t.key ? '#fff' : '#6B6F76',
+                borderColor: activeTab === t.key ? '#0E0E0F' : '#E8E5E0',
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {Object.entries(SERVICE_PANELS).map(([key, data]) => (
+          <ServicePanel key={key} data={data} active={activeTab === key} />
+        ))}
+      </section>
+
+      {/* ── CYBERSECURITY ──────────────────────────────────────────────────── */}
+      <section ref={cyberRef} className="py-24 px-6 md:px-12 bg-[#0E0E0F] text-white" id="cyber">
+        <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-5">Cybersecurity services</span>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-start mb-14 fade-in-up ${cyberVisible ? 'visible' : ''}`}>
+          <h2 className="font-extrabold leading-[1.1]" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>
+            Find the gaps.<br />Close them.<br />Watch what's left.
+          </h2>
+          <p className="text-[17px] leading-[1.75] pt-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            A layered set of services covering assessment, detection and ongoing protection — tailored to your environment and threat profile.
+          </p>
+        </div>
+
+        {/* cyber cards 2×2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+          {[
+            { abbr: 'VA', title: 'Vulnerability assessment & pen testing', body: 'Scoped, methodical testing of your systems — web apps, APIs, networks, cloud — with clear, actionable reporting you can act on immediately.' },
+            { abbr: 'TD', title: 'Threat detection & response',            body: 'EDR, XDR and MDR services that monitor your environment around the clock and respond to threats as they emerge — not after the damage is done.' },
+            { abbr: 'EM', title: 'Endpoint management',                    body: 'Centralised visibility and control across laptops, servers and devices — patched, configured and compliant with your policies.' },
+            { abbr: 'AS', title: 'API security',                           body: 'Discovery, testing and continuous protection for the APIs connecting your services, partners and customers.' },
+          ].map(c => (
+            <div key={c.abbr}
+              className="rounded-[20px] p-8 border transition-all duration-200 hover:-translate-y-1"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(242,120,46,0.08)'; e.currentTarget.style.borderColor = 'rgba(242,120,46,0.3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+              <div className="w-10 h-10 rounded-[10px] flex items-center justify-center font-extrabold text-[12px] text-[#F2782E] mb-5"
+                style={{ background: 'rgba(242,120,46,0.15)', border: '1px solid rgba(242,120,46,0.25)' }}>
+                {c.abbr}
+              </div>
+              <h4 className="text-lg font-bold mb-2.5">{c.title}</h4>
+              <p className="text-sm leading-[1.65]" style={{ color: 'rgba(255,255,255,0.45)' }}>{c.body}</p>
             </div>
+          ))}
+        </div>
+
+        {/* VAPT flow */}
+        <div className="rounded-3xl p-10 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-10 items-center"
+          style={{ background: 'linear-gradient(135deg,rgba(242,120,46,0.12),rgba(242,120,46,0.03))', border: '1px solid rgba(242,120,46,0.25)' }}>
+          <div>
+            <h3 className="font-extrabold leading-[1.2] mb-3.5" style={{ fontSize: 'clamp(22px,3vw,30px)' }}>
+              Submit your VAPT scope in one guided flow
+            </h3>
+            <p className="text-[15px] leading-[1.7] mb-7" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Tell us what you need assessed and upload supporting documents — network diagrams, IP ranges, NDAs. Our team reviews, scopes and responds, with every update and deliverable shared back through the same thread.
+            </p>
+            <Link to="/portal/login"
+              className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-8 py-4 rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]">
+              Start a VAPT request →
+            </Link>
           </div>
-          <div className={`service-card featured shadow-lg ${servicesVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.2s' }}>
-            <div className="w-11 h-11 rounded-[12px] bg-orange text-white flex items-center justify-center font-extrabold text-[15px] mb-7">02</div>
-            <h3 className="text-[22px] mb-3 font-extrabold">Cybersecurity</h3>
-            <p className="text-grey-dark text-[15px] mb-6">Assessments, monitoring and protection that find weaknesses before attackers do — and respond fast when it matters.</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">VAPT</span>
-              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">EDR / XDR / MDR</span>
-              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">Endpoint mgmt</span>
-              <span className="text-[12px] font-semibold text-ink bg-paper border border-border rounded-full px-3.5 py-1.5">API security</span>
-            </div>
-          </div>
-          <div className={`service-card ${servicesVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.3s' }}>
-            <div className="w-11 h-11 rounded-[12px] bg-ink text-white flex items-center justify-center font-extrabold text-[15px] mb-7">03</div>
-            <h3 className="text-[22px] mb-3 font-extrabold">Cloud services</h3>
-            <p className="text-grey-dark text-[15px] mb-6">Architecture, migration and managed operations across major cloud platforms — built for cost, performance and uptime.</p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Migration</span>
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">IaC</span>
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Managed ops</span>
-              <span className="text-[12px] font-semibold text-ink bg-offwhite border border-border rounded-full px-3.5 py-1.5">Cost optimisation</span>
-            </div>
+          <div className="flex flex-col">
+            {[
+              { n: 1, title: 'Submit scope & documents',              sub: 'Target IPs, domains, environment details, NDAs' },
+              { n: 2, title: 'Team reviews & scopes engagement',      sub: 'We confirm scope, timeline and rules of engagement' },
+              { n: 3, title: 'Testing & live status updates',         sub: 'Active testing with real-time progress in your portal' },
+              { n: 4, title: 'Report & remediation guidance delivered', sub: 'Full findings with risk ratings and fix recommendations' },
+            ].map((s, i, arr) => (
+              <div key={s.n} className="flex items-start gap-4 py-4.5" style={{ borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                <div className="w-7 h-7 rounded-full bg-[#F2782E] flex items-center justify-center font-extrabold text-xs text-white flex-shrink-0 mt-0.5">{s.n}</div>
+                <div>
+                  <strong className="block text-[15px] font-bold mb-1">{s.title}</strong>
+                  <span className="text-[13px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{s.sub}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section ref={cyberRef} className="py-[100px] px-14">
-        <div className={`max-w-[680px] mb-16 ${cyberVisible ? 'visible' : ''} fade-in-up`}>
-          <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">Cybersecurity services</span>
-          <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Find the gaps. Close them. Watch what's left.</h2>
-          <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">A layered set of services covering assessment, detection and ongoing protection — tailored to your environment.</p>
+      {/* ── WORK ───────────────────────────────────────────────────────────── */}
+      <section ref={workRef} className="py-24 pl-6 md:pl-12 pr-0 bg-white overflow-hidden" id="work">
+        <div className={`flex justify-between items-end mb-12 pr-6 md:pr-12 fade-in-up ${workVisible ? 'visible' : ''}`}>
+          <div>
+            <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-4">Selected work</span>
+            <h2 className="font-extrabold" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>Things we've shipped</h2>
+          </div>
+          <Link to="/portfolio" className="text-sm font-bold text-[#F2782E] flex items-center gap-1.5 flex-shrink-0 hover:gap-3 transition-all">
+            View all →
+          </Link>
         </div>
-        <div className="grid grid-cols-4 gap-5">
-          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.1s' }}>
-            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">VA</div>
-            <h4 className="text-[17px] mb-2.5 font-extrabold">Vulnerability assessment & pen testing</h4>
-            <p className="text-grey-dark text-[14px]">Scoped, methodical testing of your systems with clear, actionable reporting.</p>
-          </div>
-          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.2s' }}>
-            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">TD</div>
-            <h4 className="text-[17px] mb-2.5 font-extrabold">Threat detection & response</h4>
-            <p className="text-grey-dark text-[14px]">EDR, XDR and MDR services that monitor and respond around the clock.</p>
-          </div>
-          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.3s' }}>
-            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">EM</div>
-            <h4 className="text-[17px] mb-2.5 font-extrabold">Endpoint management</h4>
-            <p className="text-grey-dark text-[14px]">Centralised visibility and control across laptops, servers and devices.</p>
-          </div>
-          <div className={`cyber-card ${cyberVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.4s' }}>
-            <div className="w-10 h-10 rounded-[10px] bg-offwhite flex items-center justify-center mb-5 font-extrabold text-[14px] text-orange">AS</div>
-            <h4 className="text-[17px] mb-2.5 font-extrabold">API security</h4>
-            <p className="text-grey-dark text-[14px]">Discovery, testing and continuous protection for your APIs and integrations.</p>
-          </div>
-        </div>
-
-        <div className={`bg-ink rounded-[24px] p-14 grid grid-cols-[1.4fr_1fr] gap-10 items-center mt-8 text-white relative overflow-hidden ${cyberVisible ? 'visible' : ''} scale-in`} style={{ transitionDelay: '0.5s' }}>
-          <div className="absolute top-[-40%] right-[-15%] w-[380px] h-[380px] rounded-full bg-[radial-gradient(circle,rgba(242,120,46,0.35),transparent_70%)]" />
-          <div className="relative">
-            <h3 className="text-[clamp(24px,3vw,32px)] mb-3.5 font-extrabold relative">Submit your VAPT scope in one guided flow</h3>
-            <p className="text-[#C7C9CC] text-[15px] max-w-[48ch] relative">Tell us what you need assessed and upload supporting documents — network diagrams, IP ranges, NDAs. Our team reviews, scopes and responds, with every update and deliverable shared back through the same thread.</p>
-            <div className="flex gap-3.5 mt-7 mb-0">
-              <Link to="/portal/login" className="btn-orange">Start a VAPT request →</Link>
-            </div>
-          </div>
-          <div className="flex flex-col gap-3 relative">
-            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
-              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">1</span>
-              Submit scope & documents
-            </div>
-            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
-              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">2</span>
-              Team reviews & scopes engagement
-            </div>
-            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
-              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">3</span>
-              Testing & live status updates
-            </div>
-            <div className="flex items-center gap-3.5 bg-white/6 border border-white/10 rounded-[14px] p-3.5 text-[14px] font-semibold">
-              <span className="w-6.5 h-6.5 rounded-full bg-orange flex items-center justify-center font-extrabold text-[12px] flex-shrink-0">4</span>
-              Report & remediation guidance delivered
-            </div>
-          </div>
+        <div className="flex gap-6 overflow-x-auto pb-4 pr-6 md:pr-12" style={{ scrollbarWidth: 'none' }}>
+          {WORK.map(w => <WorkCard key={w.title} {...w} />)}
         </div>
       </section>
 
-      <section ref={portfolioRef} className="py-[100px] px-14">
-        <div className={`max-w-[680px] mb-16 ${portfolioVisible ? 'visible' : ''} fade-in-up`}>
-          <span className="text-[13px] font-bold text-orange tracking-[0.12em] uppercase block mb-4">Selected work</span>
-          <h2 className="text-[clamp(30px,4.2vw,48px)] leading-[1.12] font-extrabold">Things we've shipped</h2>
-          <p className="text-grey-dark text-[17px] mt-4 max-w-[50ch]">A look at recent apps and websites we've built — each with a short walkthrough of how it works.</p>
-        </div>
-        <div className="grid grid-cols-3 gap-6">
-          <div className={`work-card ${portfolioVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.1s' }}>
-            <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
-              <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
-            </div>
-            <div className="p-6">
-              <h4 className="text-[17px] mb-2 font-extrabold">Fintech onboarding app</h4>
-              <p className="text-grey-dark text-[14px] mb-4">A mobile-first KYC and onboarding flow for a digital lender, cutting signup time from 12 minutes to 3.</p>
-              <div className="flex gap-2 flex-wrap">
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">React Native</span>
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Node.js</span>
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">AWS</span>
-              </div>
-            </div>
-          </div>
-          <div className={`work-card ${portfolioVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.2s' }}>
-            <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
-              <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
-            </div>
-            <div className="p-6">
-              <h4 className="text-[17px] mb-2 font-extrabold">Logistics dashboard</h4>
-              <p className="text-grey-dark text-[14px] mb-4">Real-time fleet tracking and reporting platform used across three regional hubs.</p>
-              <div className="flex gap-2 flex-wrap">
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Next.js</span>
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">PostgreSQL</span>
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Mapbox</span>
-              </div>
-            </div>
-          </div>
-          <div className={`work-card ${portfolioVisible ? 'visible' : ''} fade-in-up`} style={{ transitionDelay: '0.3s' }}>
-            <div className="h-[200px] bg-offwhite flex items-center justify-center text-grey text-[13px] font-semibold relative">
-              <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-[16px] text-orange shadow-lg">▶</div>
-            </div>
-            <div className="p-6">
-              <h4 className="text-[17px] mb-2 font-extrabold">Healthcare booking platform</h4>
-              <p className="text-grey-dark text-[14px] mb-4">Appointment scheduling and patient records system for a multi-branch clinic group.</p>
-              <div className="flex gap-2 flex-wrap">
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Django</span>
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">React</span>
-                <span className="text-[12px] font-semibold text-orange-deep bg-orange-light rounded-full px-3 py-1.5">Azure</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* ── TESTIMONIALS ───────────────────────────────────────────────────── */}
       <Testimonials />
 
-      <section ref={ctaRef} className={`bg-offwhite text-center rounded-[28px] mx-14 mb-0 py-20 px-10 ${ctaVisible ? 'visible' : ''} scale-in`}>
-        <h2 className="text-[clamp(28px,5vw,52px)] mb-5 font-extrabold max-w-[18ch] mx-auto">Tell us what you're protecting — or building next.</h2>
-        <p className="text-grey-dark max-w-[50ch] mx-auto mb-9 text-[16px]">Whether it's a new product, a cloud migration, or a security assessment, our team replies within one business day.</p>
-        <div className="flex gap-3.5 justify-center flex-wrap">
-          <Link to="/portal/login" className="btn-primary">Start a VAPT request →</Link>
-          <Link to="/contact" className="btn-outline">Talk to our team</Link>
+      {/* ── CTA ────────────────────────────────────────────────────────────── */}
+      <section ref={ctaRef} className="bg-[#0E0E0F] py-28 px-6 md:px-12 text-center relative overflow-hidden" id="contact">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] pointer-events-none rounded-full"
+          style={{ background: 'radial-gradient(ellipse,rgba(242,120,46,0.2),transparent 70%)' }} />
+        <div className={`relative z-10 fade-in-up ${ctaVisible ? 'visible' : ''}`}>
+          <h2 className="font-extrabold text-white leading-[1.05] max-w-[16ch] mx-auto mb-6"
+            style={{ fontSize: 'clamp(36px,6vw,72px)' }}>
+            Ready to build <em className="not-italic text-[#F2782E]">something</em> great?
+          </h2>
+          <p className="text-[17px] max-w-[44ch] mx-auto mb-11 leading-[1.7]"
+            style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Whether you need a new product built, your infrastructure secured, or your cloud optimised — let's talk.
+          </p>
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Link to="/contact"
+              className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]">
+              Start a project →
+            </Link>
+            <Link to="/portal/login"
+              className="inline-flex items-center gap-2.5 text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-white/5"
+              style={{ border: '1px solid rgba(255,255,255,0.2)' }}>
+              Request VAPT assessment
+            </Link>
+          </div>
         </div>
       </section>
-      <SEO
-        title="Home"
-        pathname="/"
-        structuredData={[organizationSchema, websiteSchema]}
-      />
+
     </div>
   );
 }
