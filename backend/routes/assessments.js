@@ -79,6 +79,9 @@ router.get('/:id', [
           select: { id: true, name: true, email: true }
         },
         messages: {
+          where: req.user.role === 'CLIENT'
+            ? { messageType: { not: 'INTERNAL_NOTE' } }
+            : undefined,
           include: {
             sender: {
               select: { id: true, name: true, role: true }
@@ -347,6 +350,91 @@ router.delete('/:id', [
   } catch (error) {
     console.error('Delete assessment error:', error);
     res.status(500).json({ error: 'Failed to delete assessment' });
+  }
+});
+
+// Stats — accurate server-side aggregates (not page-limited)
+router.get('/stats/summary', async (req, res) => {
+  try {
+    const where = req.user.role === 'CLIENT' ? { orgId: req.user.orgId } : {};
+
+    const [total, pending, inReview, approved, inProgress, reporting, complete, onHold] = await Promise.all([
+      prisma.vaptAssessment.count({ where }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'PENDING' } }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'IN_REVIEW' } }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'APPROVED' } }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'IN_PROGRESS' } }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'REPORTING' } }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'COMPLETE' } }),
+      prisma.vaptAssessment.count({ where: { ...where, status: 'ON_HOLD' } }),
+    ]);
+
+    let clients = 0;
+    if (req.user.role !== 'CLIENT') {
+      const orgs = await prisma.vaptAssessment.findMany({
+        where,
+        select: { orgId: true },
+        distinct: ['orgId'],
+      });
+      clients = orgs.length;
+    }
+
+    res.json({ total, pending, inReview, approved, inProgress, reporting, complete, onHold, clients });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Upload / set final report (admin only)
+router.put('/:id/report', requireAdmin, [
+  param('id').isUUID(),
+  body('reportPdfUrl').optional().isURL(),
+  body('reportSummary').optional().isString(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const { id } = req.params;
+    const { reportPdfUrl, reportSummary } = req.body;
+
+    const assessment = await prisma.vaptAssessment.update({
+      where: { id },
+      data: {
+        ...(reportPdfUrl !== undefined && { reportPdfUrl }),
+        ...(reportSummary !== undefined && { reportSummary }),
+        status: 'REPORTING',
+      },
+      include: {
+        organization: { select: { id: true, name: true } },
+        assignedAdmin: { select: { id: true, name: true } },
+      }
+    });
+
+    getIo().to(`assessment:${id}`).emit('assessment-updated', assessment);
+
+    // Notify org users
+    const orgUsers = await prisma.user.findMany({
+      where: { orgId: assessment.orgId },
+      select: { id: true }
+    });
+    await Promise.all(orgUsers.map(u =>
+      prisma.notification.create({
+        data: {
+          userId: u.id,
+          assessmentId: id,
+          type: 'STATUS_CHANGE',
+          title: 'Report Available',
+          message: `Your VAPT report for "${assessment.title}" is now available.`
+        }
+      })
+    ));
+
+    res.json(assessment);
+  } catch (error) {
+    console.error('Report update error:', error);
+    res.status(500).json({ error: 'Failed to update report' });
   }
 });
 

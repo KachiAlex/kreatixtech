@@ -1,142 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { 
-  Shield, Users, FileText, Clock, CheckCircle, AlertCircle, 
-  ChevronRight, LogOut, Bell, Search, Filter, Building2 
+import {
+  Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
+  ChevronRight, LogOut, Bell, Search, Filter, Building2,
+  RefreshCw, TrendingUp, XCircle, PauseCircle
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
-const statusColors = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  IN_REVIEW: 'bg-blue-100 text-blue-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  IN_PROGRESS: 'bg-purple-100 text-purple-800',
-  REPORTING: 'bg-orange-100 text-orange-800',
-  COMPLETE: 'bg-green-100 text-green-800',
-  ON_HOLD: 'bg-gray-100 text-gray-800'
+const STATUS_COLORS = {
+  PENDING:    'bg-yellow-100 text-yellow-800',
+  IN_REVIEW:  'bg-blue-100 text-blue-800',
+  APPROVED:   'bg-emerald-100 text-emerald-800',
+  IN_PROGRESS:'bg-purple-100 text-purple-800',
+  REPORTING:  'bg-orange-100 text-orange-800',
+  COMPLETE:   'bg-green-100 text-green-800',
+  ON_HOLD:    'bg-gray-100 text-gray-800',
 };
 
-const statusLabels = {
-  PENDING: 'Pending',
-  IN_REVIEW: 'In Review',
-  APPROVED: 'Approved',
-  IN_PROGRESS: 'In Progress',
-  REPORTING: 'Reporting',
-  COMPLETE: 'Complete',
-  ON_HOLD: 'On Hold'
+const STATUS_LABELS = {
+  PENDING:    'Pending',
+  IN_REVIEW:  'In Review',
+  APPROVED:   'Approved',
+  IN_PROGRESS:'In Progress',
+  REPORTING:  'Reporting',
+  COMPLETE:   'Complete',
+  ON_HOLD:    'On Hold',
 };
+
+const FILTER_OPTIONS = [
+  { value: 'all',        label: 'All Status' },
+  { value: 'PENDING',    label: 'Pending' },
+  { value: 'IN_REVIEW',  label: 'In Review' },
+  { value: 'APPROVED',   label: 'Approved' },
+  { value: 'IN_PROGRESS',label: 'In Progress' },
+  { value: 'REPORTING',  label: 'Reporting' },
+  { value: 'COMPLETE',   label: 'Complete' },
+  { value: 'ON_HOLD',    label: 'On Hold' },
+];
 
 export default function AdminDashboard() {
-  const [assessments, setAssessments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    inProgress: 0,
-    completed: 0,
-    clients: 0
-  });
-  
-  const { user, logout, apiCall, isAdmin } = usePortal();
+  const [assessments, setAssessments]   = useState([]);
+  const [stats, setStats]               = useState(null);
+  const [analysts, setAnalysts]         = useState([]);
+  const [isLoading, setIsLoading]       = useState(true);
+  const [filter, setFilter]             = useState('all');
+  const [search, setSearch]             = useState('');
+  const [page, setPage]                 = useState(1);
+  const [totalPages, setTotalPages]     = useState(1);
+  const [notifCount, setNotifCount]     = useState(0);
+
+  const { user, logout, apiCall, isAdmin, unreadCount } = usePortal();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAdmin) {
-      navigate('/portal/dashboard');
-      return;
-    }
-    fetchAssessments();
+    if (!isAdmin) { navigate('/portal/dashboard'); return; }
     fetchStats();
-  }, [isAdmin, navigate]);
+    fetchAnalysts();
+  }, [isAdmin]);
 
-  const fetchAssessments = async () => {
+  useEffect(() => {
+    if (isAdmin) fetchAssessments();
+  }, [filter, page, isAdmin]);
+
+  const fetchStats = useCallback(async () => {
     try {
-      const status = filter !== 'all' ? filter : '';
-      const response = await apiCall(`/api/assessments?status=${status}`);
-      const data = await response.json();
-      
-      if (response.ok) {
+      const r = await apiCall('/api/assessments/stats/summary');
+      if (r.ok) setStats(await r.json());
+    } catch (e) { console.error(e); }
+  }, [apiCall]);
+
+  const fetchAnalysts = useCallback(async () => {
+    try {
+      const r = await apiCall('/api/invitations/org/members');
+      if (r.ok) {
+        const data = await r.json();
+        setAnalysts((data.members || data).filter(m => m.role === 'ADMIN' || m.role === 'ANALYST'));
+      }
+    } catch (e) { console.error(e); }
+  }, [apiCall]);
+
+  const fetchAssessments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const statusParam = filter !== 'all' ? `&status=${filter}` : '';
+      const r = await apiCall(`/api/assessments?page=${page}&limit=15${statusParam}`);
+      if (r.ok) {
+        const data = await r.json();
         setAssessments(data.assessments);
+        setTotalPages(data.pagination.totalPages || 1);
       }
-    } catch (error) {
-      console.error('Failed to fetch assessments:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    } catch (e) { console.error(e); }
+    finally { setIsLoading(false); }
+  }, [apiCall, filter, page]);
 
-  const fetchStats = async () => {
+  const handleAssign = async (assessmentId, adminId) => {
     try {
-      const response = await apiCall('/api/assessments');
-      const data = await response.json();
-      
-      if (response.ok) {
-        const assessments = data.assessments;
-        const uniqueClients = new Set(assessments.map(a => a.organization.id));
-        
-        setStats({
-          total: data.pagination.total,
-          pending: assessments.filter(a => a.status === 'PENDING').length,
-          inProgress: assessments.filter(a => ['IN_REVIEW', 'APPROVED', 'IN_PROGRESS', 'REPORTING'].includes(a.status)).length,
-          completed: assessments.filter(a => a.status === 'COMPLETE').length,
-          clients: uniqueClients.size
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    }
+      const r = await apiCall(`/api/assessments/${assessmentId}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ adminId }),
+      });
+      if (r.ok) { fetchAssessments(); fetchStats(); }
+    } catch (e) { console.error(e); }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/portal/login');
+  const handleStatusChange = async (assessmentId, status) => {
+    try {
+      const r = await apiCall(`/api/assessments/${assessmentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      if (r.ok) { fetchAssessments(); fetchStats(); }
+    } catch (e) { console.error(e); }
   };
 
-  const filteredAssessments = assessments.filter(assessment => {
-    const searchLower = search.toLowerCase();
-    return (
-      assessment.title.toLowerCase().includes(searchLower) ||
-      assessment.organization.name.toLowerCase().includes(searchLower) ||
-      assessment.scopeDescription.toLowerCase().includes(searchLower)
-    );
+  const filtered = assessments.filter(a => {
+    const q = search.toLowerCase();
+    return !q || a.title.toLowerCase().includes(q) || a.organization?.name.toLowerCase().includes(q);
   });
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-offwhite flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange border-t-transparent"></div>
-      </div>
-    );
-  }
+  if (!isAdmin) return null;
 
   return (
-    <div className="min-h-screen bg-offwhite">
-      <nav className="bg-ink text-white sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Shield className="h-8 w-8 text-orange" />
-              <span className="ml-2 text-xl font-bold">Kreatix VAPT Admin</span>
+    <div className="min-h-screen bg-[#F7F5F2]">
+      {/* ── Nav ── */}
+      <nav className="bg-[#0E0E0F] text-white sticky top-0 z-50 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#F2782E] flex items-center justify-center">
+              <Shield className="h-4 w-4 text-white" />
             </div>
-            <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-grey hover:text-white">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-orange rounded-full"></span>
-              </button>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-grey">{user?.name}</span>
-                <span className="px-2 py-1 bg-orange text-white text-xs rounded-full">
-                  {user?.role}
+            <span className="text-lg font-bold">Kreatix VAPT Admin</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-[#F2782E] rounded-full text-[10px] font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
-                <button 
-                  onClick={handleLogout}
-                  className="p-2 text-grey hover:text-white"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </div>
+              )}
+            </button>
+            <div className="flex items-center gap-2 pl-4 border-l border-white/10">
+              <span className="text-sm text-gray-400">{user?.name}</span>
+              <span className="px-2 py-0.5 bg-[#F2782E] text-white text-xs font-bold rounded-full">{user?.role}</span>
+              <button onClick={() => { logout(); navigate('/portal/login'); }} className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Logout">
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -144,160 +153,180 @@ export default function AdminDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-ink">Admin Dashboard</h1>
-          <p className="mt-2 text-grey-dark">
-            Manage all VAPT assessments and client communications
-          </p>
+          <h1 className="text-3xl font-extrabold text-[#0E0E0F]">Admin Dashboard</h1>
+          <p className="mt-1 text-[#6B6F76]">Manage VAPT assessments and client communications</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <FileText className="h-6 w-6 text-blue-600" />
+        {/* ── Stats ── */}
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            {[
+              { label: 'Total',       value: stats.total,      icon: FileText,    bg: 'bg-blue-50',   ic: 'text-blue-600' },
+              { label: 'Pending',     value: stats.pending,    icon: Clock,       bg: 'bg-yellow-50', ic: 'text-yellow-600' },
+              { label: 'In Progress', value: stats.inProgress + stats.inReview + stats.approved + stats.reporting, icon: TrendingUp, bg: 'bg-purple-50', ic: 'text-purple-600' },
+              { label: 'Complete',    value: stats.complete,   icon: CheckCircle, bg: 'bg-green-50',  ic: 'text-green-600' },
+              { label: 'Clients',     value: stats.clients,    icon: Users,       bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
+            ].map(s => (
+              <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-5">
+                <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center mb-3`}>
+                  <s.icon className={`h-5 w-5 ${s.ic}`} />
+                </div>
+                <p className="text-2xl font-bold text-[#0E0E0F]">{s.value}</p>
+                <p className="text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Total Assessments</p>
-                <p className="text-2xl font-bold text-ink">{stats.total}</p>
-              </div>
-            </div>
+            ))}
           </div>
-          
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <Clock className="h-6 w-6 text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Pending Review</p>
-                <p className="text-2xl font-bold text-ink">{stats.pending}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <AlertCircle className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">In Progress</p>
-                <p className="text-2xl font-bold text-ink">{stats.inProgress}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <Users className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Clients</p>
-                <p className="text-2xl font-bold text-ink">{stats.clients}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
 
-        <div className="bg-white rounded-xl border border-border overflow-hidden">
-          <div className="p-6 border-b border-border">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <h2 className="text-xl font-bold text-ink">All Assessments</h2>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-grey" />
-                  <input
-                    type="text"
-                    placeholder="Search assessments..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-border rounded-xl focus:ring-2 focus:ring-orange focus:border-transparent"
-                  />
-                </div>
-                
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-grey" />
-                  <select
-                    value={filter}
-                    onChange={(e) => {
-                      setFilter(e.target.value);
-                      fetchAssessments();
-                    }}
-                    className="pl-10 pr-4 py-2 border border-border rounded-xl focus:ring-2 focus:ring-orange focus:border-transparent appearance-none bg-white"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="IN_REVIEW">In Review</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="COMPLETE">Complete</option>
-                  </select>
-                </div>
+        {/* ── Table ── */}
+        <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
+          <div className="p-5 border-b border-[#E8E5E0] flex flex-col sm:flex-row sm:items-center gap-4">
+            <h2 className="text-lg font-bold text-[#0E0E0F] flex-1">All Assessments</h2>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+                <input
+                  type="text" placeholder="Search…" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-full sm:w-52"
+                />
               </div>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+                <select
+                  value={filter}
+                  onChange={e => { setFilter(e.target.value); setPage(1); }}
+                  className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm bg-white appearance-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                >
+                  {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <button onClick={() => { fetchAssessments(); fetchStats(); }} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] hover:border-[#0E0E0F] transition-colors" title="Refresh">
+                <RefreshCw className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
-          {filteredAssessments.length === 0 ? (
-            <div className="p-12 text-center">
-              <AlertCircle className="h-12 w-12 text-grey mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-ink mb-2">No assessments found</h3>
-              <p className="text-grey">
-                {search ? 'Try adjusting your search terms' : 'No assessments match the selected filter'}
-              </p>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#F2782E] border-t-transparent" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-16 text-center">
+              <AlertCircle className="h-10 w-10 text-[#6B6F76] mx-auto mb-3" />
+              <p className="text-[#6B6F76]">{search ? 'No results for that search' : 'No assessments match this filter'}</p>
             </div>
           ) : (
-            <div className="divide-y divide-border">
-              {filteredAssessments.map((assessment) => (
-                <Link
-                  key={assessment.id}
-                  to={`/portal/assessment/${assessment.id}`}
-                  className="block p-6 hover:bg-offwhite transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center mb-2">
-                        <h3 className="text-lg font-semibold text-ink mr-3">
-                          {assessment.title}
-                        </h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[assessment.status]}`}>
-                          {statusLabels[assessment.status]}
-                        </span>
-                        {assessment.assignedAdmin && (
-                          <span className="ml-2 text-xs text-grey">
-                            Assigned to: {assessment.assignedAdmin.name}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center text-sm text-grey mb-2">
-                        <Building2 className="h-4 w-4 mr-1" />
-                        {assessment.organization.name}
-                        <span className="mx-2">•</span>
-                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">
-                          {assessment.organization.subdomain}
-                        </span>
-                      </div>
-                      
-                      <p className="text-sm text-grey line-clamp-2 mb-3">
-                        {assessment.scopeDescription}
-                      </p>
-                      
-                      <div className="flex items-center text-xs text-grey space-x-4">
-                        <span>{assessment._count.messages} messages</span>
-                        <span>{assessment._count.attachments} attachments</span>
-                        <span>{new Date(assessment.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-grey ml-4" />
-                  </div>
-                </Link>
+            <div className="divide-y divide-[#E8E5E0]">
+              {filtered.map(a => (
+                <AssessmentRow
+                  key={a.id} assessment={a}
+                  analysts={analysts}
+                  onAssign={handleAssign}
+                  onStatusChange={handleStatusChange}
+                />
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-[#E8E5E0]">
+              <span className="text-sm text-[#6B6F76]">Page {page} of {totalPages}</span>
+              <div className="flex gap-2">
+                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                  className="px-3 py-1.5 text-sm border border-[#E8E5E0] rounded-lg disabled:opacity-40 hover:border-[#0E0E0F] transition-colors">
+                  Previous
+                </button>
+                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                  className="px-3 py-1.5 text-sm border border-[#E8E5E0] rounded-lg disabled:opacity-40 hover:border-[#0E0E0F] transition-colors">
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+// ── Assessment row with inline assign + status controls ─────────────────────
+function AssessmentRow({ assessment: a, analysts, onAssign, onStatusChange }) {
+  const [showActions, setShowActions] = useState(false);
+
+  return (
+    <div className="p-5 hover:bg-[#F7F5F2] transition-colors">
+      <div className="flex items-start justify-between gap-4">
+        {/* Left: info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <Link to={`/portal/assessment/${a.id}`} className="text-base font-semibold text-[#0E0E0F] hover:text-[#F2782E] transition-colors">
+              {a.title}
+            </Link>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[a.status]}`}>
+              {STATUS_LABELS[a.status]}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm text-[#6B6F76] mb-2">
+            <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>{a.organization?.name}</span>
+            <span className="text-[#E8E5E0]">·</span>
+            <span className="text-xs">{new Date(a.createdAt).toLocaleDateString()}</span>
+            <span className="text-[#E8E5E0]">·</span>
+            <span className="text-xs">{a._count?.messages ?? 0} msgs</span>
+          </div>
+          {/* Assign analyst */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {a.assignedAdmin ? (
+              <span className="text-xs text-[#6B6F76] flex items-center gap-1">
+                <Shield className="h-3.5 w-3.5 text-[#F2782E]" />
+                Assigned: <strong className="text-[#0E0E0F]">{a.assignedAdmin.name}</strong>
+              </span>
+            ) : (
+              <span className="text-xs text-amber-600 font-medium">Unassigned</span>
+            )}
+            {analysts.length > 0 && (
+              <select
+                defaultValue=""
+                onChange={e => { if (e.target.value) onAssign(a.id, e.target.value); e.target.value = ''; }}
+                className="text-xs border border-[#E8E5E0] rounded-lg px-2 py-1 bg-white text-[#6B6F76] hover:border-[#F2782E] transition-colors"
+              >
+                <option value="">Assign to…</option>
+                {analysts.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+
+        {/* Right: actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link to={`/portal/assessment/${a.id}`}
+            className="px-3 py-1.5 text-xs font-semibold bg-[#0E0E0F] text-white rounded-lg hover:bg-[#F2782E] transition-colors">
+            Open
+          </Link>
+          <div className="relative">
+            <button
+              onClick={() => setShowActions(v => !v)}
+              className="px-3 py-1.5 text-xs font-semibold border border-[#E8E5E0] rounded-lg hover:border-[#0E0E0F] text-[#6B6F76] hover:text-[#0E0E0F] transition-colors"
+            >
+              Status ▾
+            </button>
+            {showActions && (
+              <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E8E5E0] rounded-xl shadow-lg z-10 py-1">
+                {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                  <button key={val} onClick={() => { onStatusChange(a.id, val); setShowActions(false); }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-[#F7F5F2] transition-colors ${a.status === val ? 'font-bold text-[#F2782E]' : 'text-[#0E0E0F]'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

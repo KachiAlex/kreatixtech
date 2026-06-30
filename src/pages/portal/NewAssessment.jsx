@@ -25,8 +25,9 @@ export default function NewAssessment() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { apiCall } = usePortal();
+  const { apiCall, isAdmin } = usePortal();
   const navigate = useNavigate();
+  const backPath = isAdmin ? '/portal/admin' : '/portal/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,7 +114,7 @@ export default function NewAssessment() {
       <div className="bg-white border-b border-border">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <button
-            onClick={() => navigate('/portal/dashboard')}
+            onClick={() => navigate(backPath)}
             className="inline-flex items-center text-grey hover:text-ink"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
@@ -302,7 +303,7 @@ export default function NewAssessment() {
           <div className="px-6 py-4 bg-offwhite border-t border-border flex justify-end space-x-4">
             <button
               type="button"
-              onClick={() => navigate('/portal/dashboard')}
+              onClick={() => navigate(backPath)}
               className="px-6 py-3 text-grey font-medium hover:text-ink"
             >
               Cancel

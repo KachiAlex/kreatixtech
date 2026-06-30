@@ -2,6 +2,7 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { logAudit } from '../middleware/audit.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -39,7 +40,7 @@ router.get('/assessment/:assessmentId', async (req, res) => {
 });
 
 // Create finding (admin/analyst only)
-router.post('/', [
+router.post('/', requireAdmin, [
   body('assessmentId').isUUID(),
   body('title').trim().isLength({ min: 3, max: 200 }),
   body('description').trim().isLength({ min: 10 }),
@@ -168,7 +169,7 @@ router.put('/:id', [
 });
 
 // Delete finding (admin only)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
