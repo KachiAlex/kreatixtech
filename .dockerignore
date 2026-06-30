@@ -1,6 +1,6 @@
-node_modules
-.git
-dist
+**/node_modules
+**/.git
+**/dist
 .env
 .env.*
 *.log
@@ -11,3 +11,6 @@ frontend
 kreatix-technologies-frontend
 .vscode
 .idea
+coverage
+*.local
+
