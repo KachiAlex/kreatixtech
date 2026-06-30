@@ -43,6 +43,7 @@ await tryImport('blog',          './routes/blog.js');
 await tryImport('testimonials',  './routes/testimonials.js');
 await tryImport('audit',         './routes/audit.js');
 await tryImport('invitations',   './routes/invitations.js');
+await tryImport('uploads',       './routes/uploads.js');
 await tryImport('authMiddleware','./middleware/auth.js');
 
 console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
@@ -59,6 +60,7 @@ const blogRoutes        = get('blog')?.default;
 const testimonialRoutes = get('testimonials')?.default;
 const auditRoutes       = get('audit')?.default;
 const invitationRoutes  = get('invitations')?.default;
+const uploadRoutes      = get('uploads')?.default;
 const authMiddleware    = get('authMiddleware');
 const authenticateToken = authMiddleware?.authenticateToken;
 const requireAdmin      = authMiddleware?.requireAdmin;
@@ -107,10 +109,14 @@ app.use('/api/auth/reset-password',  strictLimiter);
 
 if (authRoutes)         app.use('/api/auth',          authRoutes);
 if (contactRoutes)      app.use('/api/contact',        contactRoutes);
+// /api/invitations/accept is called without a JWT (token is in the body)
+// so mount it before the authenticateToken middleware
+if (invitationRoutes)   app.use('/api/invitations/accept', invitationRoutes);
 if (assessmentRoutes)   app.use('/api/assessments',    authenticateToken, assessmentRoutes);
 if (messageRoutes)      app.use('/api/messages',       authenticateToken, messageRoutes);
 if (notificationRoutes) app.use('/api/notifications',  authenticateToken, notificationRoutes);
 if (findingRoutes)      app.use('/api/findings',       authenticateToken, findingRoutes);
+if (uploadRoutes)       app.use('/api/uploads',        authenticateToken, uploadRoutes);
 if (blogRoutes)         app.use('/api/blog',           blogRoutes);
 if (testimonialRoutes)  app.use('/api/testimonials',   testimonialRoutes);
 if (auditRoutes)        app.use('/api/audit',          authenticateToken, auditRoutes);
