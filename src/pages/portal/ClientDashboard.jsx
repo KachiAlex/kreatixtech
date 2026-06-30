@@ -35,16 +35,20 @@ export default function ClientDashboard() {
     completed: 0
   });
   
-  const { user, logout, apiCall, isClient } = usePortal();
+  const { user, logout, apiCall, isClient, isAdmin } = usePortal();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (isAdmin) {
+      navigate('/portal/admin', { replace: true });
+      return;
+    }
     if (!isClient) {
       navigate('/portal/admin');
       return;
     }
     fetchAssessments();
-  }, [isClient, navigate]);
+  }, [isClient, isAdmin, navigate]);
 
   const fetchAssessments = async () => {
     try {

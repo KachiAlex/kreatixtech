@@ -17,11 +17,11 @@ export default function PortalLogin() {
     subdomain: ''
   });
 
-  const { login, register, isAuthenticated } = usePortal();
+  const { login, register, isAuthenticated, isAdmin } = usePortal();
   const navigate = useNavigate();
 
   if (isAuthenticated) {
-    navigate('/portal/dashboard');
+    navigate(isAdmin ? '/portal/admin' : '/portal/dashboard');
     return null;
   }
 
@@ -46,7 +46,12 @@ export default function PortalLogin() {
       }
 
       if (result.success) {
-        navigate('/portal/dashboard');
+        const role = result.user?.role;
+        if (role === 'ADMIN' || role === 'ANALYST') {
+          navigate('/portal/admin');
+        } else {
+          navigate('/portal/dashboard');
+        }
       } else {
         setError(result.error || 'An error occurred');
       }
