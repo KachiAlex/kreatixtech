@@ -50,4 +50,18 @@ const upload = multer({
   }
 });
 
-export { cloudinary, upload };
+const portfolioStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'kreatix-portfolio',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ width: 1200, height: 630, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+  },
+});
+
+const uploadPortfolioImage = multer({
+  storage: portfolioStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+export { cloudinary, upload, uploadPortfolioImage };

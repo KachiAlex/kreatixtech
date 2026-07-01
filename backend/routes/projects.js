@@ -2,19 +2,7 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { requireAdmin, authenticateToken } from '../middleware/auth.js';
-import { cloudinary } from '../config/cloudinary.js';
-import multer from 'multer';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
-
-const imageStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'kreatix-portfolio',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-    transformation: [{ width: 1200, height: 630, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
-  },
-});
-const imageUpload = multer({ storage: imageStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+import { uploadPortfolioImage } from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -51,7 +39,7 @@ router.get('/:id', [param('id').isUUID()], async (req, res) => {
 });
 
 // ── Admin: upload preview image ─────────────────────────────────────────────
-router.post('/upload-image', authenticateToken, requireAdmin, imageUpload.single('image'), async (req, res) => {
+router.post('/upload-image', authenticateToken, requireAdmin, uploadPortfolioImage.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image file provided' });
     res.json({ url: req.file.path });
