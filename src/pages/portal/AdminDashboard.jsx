@@ -124,10 +124,10 @@ export default function AdminDashboard() {
 
   const fetchProjects = useCallback(async () => {
     try {
-      const r = await fetch('/api/projects');
+      const r = await apiCall('/api/projects');
       if (r.ok) setProjects(await r.json());
     } catch (e) { console.error(e); }
-  }, []);
+  }, [apiCall]);
 
   const fetchTeam = useCallback(async () => {
     setTeamLoading(true);
