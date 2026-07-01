@@ -14,6 +14,16 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
+console.log('start.mjs: running prisma db push...');
+
+import { execSync } from 'child_process';
+try {
+  execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'inherit' });
+  console.log('start.mjs: prisma db push done');
+} catch (e) {
+  process.stderr.write(`start.mjs: prisma db push failed: ${e.message}\n`);
+}
+
 console.log('start.mjs: loading server.js...');
 
 try {

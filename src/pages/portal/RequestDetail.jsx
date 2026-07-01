@@ -4,11 +4,86 @@ import {
   ArrowLeft, Send, Paperclip, FileText, Download, X, Loader2,
   Wifi, WifiOff, Shield, Code2, Cloud, MessageSquare, Plus,
   CheckCircle, Clock, ChevronDown, ChevronUp, Lock, ExternalLink,
-  AlertTriangle, AlertCircle, Info, Eye
+  AlertTriangle, AlertCircle, Info, Eye, Star
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
+
+function FeedbackPanel({ request, onUpdated }) {
+  const { apiCall } = usePortal();
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  if (request.feedbackAt) {
+    return (
+      <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
+        <h3 className="text-sm font-bold text-[#0E0E0F] mb-3 flex items-center gap-2">
+          <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Your Feedback
+        </h3>
+        <div className="flex gap-0.5 mb-2">
+          {[1,2,3,4,5].map(s => (
+            <Star key={s} className={`h-5 w-5 ${s <= request.clientRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-200'}`} />
+          ))}
+        </div>
+        <p className="text-sm text-[#6B6F76] whitespace-pre-wrap">{request.clientFeedback}</p>
+        <p className="text-xs text-[#6B6F76] mt-2">Submitted {new Date(request.feedbackAt).toLocaleDateString()}</p>
+      </div>
+    );
+  }
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!rating) { setErr('Please select a star rating'); return; }
+    setSaving(true); setErr('');
+    try {
+      const r = await apiCall(`/api/requests/${request.id}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ rating, feedback }),
+      });
+      if (r.ok) { onUpdated(); }
+      else { const d = await r.json(); setErr(d.error || d.errors?.[0]?.msg || 'Failed to submit'); }
+    } catch { setErr('Network error'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-[#F2782E]/30 p-5">
+      <h3 className="text-sm font-bold text-[#0E0E0F] mb-1 flex items-center gap-2">
+        <CheckCircle className="h-4 w-4 text-green-500" /> Project Delivered!
+      </h3>
+      <p className="text-xs text-[#6B6F76] mb-4">How was your experience with this project?</p>
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="flex gap-1">
+          {[1,2,3,4,5].map(s => (
+            <button key={s} type="button"
+              onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(0)}
+              onClick={() => setRating(s)}
+              className="focus:outline-none">
+              <Star className={`h-7 w-7 transition-colors ${s <= (hover || rating) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-200'}`} />
+            </button>
+          ))}
+        </div>
+        <textarea
+          rows={3}
+          placeholder="Share your experience (optional)…"
+          value={feedback}
+          onChange={e => setFeedback(e.target.value)}
+          className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+        />
+        <button type="submit" disabled={saving || !rating}
+          className="w-full py-2.5 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+          {saving ? 'Submitting…' : 'Submit Feedback'}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 const SERVICE_ICONS = { SOFTWARE_DEV: Code2, CYBERSECURITY: Shield, CLOUD: Cloud, CONSULTING: MessageSquare };
 const SERVICE_LABELS = { SOFTWARE_DEV: 'Software Development', CYBERSECURITY: 'Cybersecurity', CLOUD: 'Cloud Services', CONSULTING: 'Consulting' };
@@ -481,6 +556,10 @@ export default function RequestDetail() {
                   ))}
                 </ul>
               </div>
+            )}
+            {/* Feedback panel — visible to client on DELIVERED or already submitted */}
+            {user?.role === 'CLIENT' && (request.status === 'DELIVERED' || request.status === 'CLOSED') && (
+              <FeedbackPanel request={request} onUpdated={fetchRequest} />
             )}
           </div>
         </div>

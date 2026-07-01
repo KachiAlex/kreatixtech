@@ -4,7 +4,7 @@ import {
   Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
-  Image, Globe, X, Save
+  Image, Globe, X, Save, Mail, Star
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
@@ -58,11 +58,13 @@ const SERVICE_COLORS = {
 };
 
 export default function AdminDashboard() {
-  const [activeSection, setActiveSection]   = useState('requests'); // 'requests' | 'projects'
+  const [activeSection, setActiveSection]   = useState('requests'); // 'requests' | 'projects' | 'companies'
   const [requests, setRequests]   = useState([]);
   const [stats, setStats]               = useState(null);
   const [analysts, setAnalysts]         = useState([]);
   const [projects, setProjects]         = useState([]);
+  const [companies, setCompanies]       = useState([]);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
   const [isLoading, setIsLoading]       = useState(true);
   const [error, setError]               = useState(null);
   const [filter, setFilter]             = useState('all');
@@ -82,6 +84,10 @@ export default function AdminDashboard() {
     fetchAnalysts();
     fetchProjects();
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin && activeSection === 'companies') fetchCompanies();
+  }, [isAdmin, activeSection]);
 
   useEffect(() => {
     if (isAdmin) fetchRequests();
@@ -116,6 +122,15 @@ export default function AdminDashboard() {
       if (r.ok) setProjects(await r.json());
     } catch (e) { console.error(e); }
   }, []);
+
+  const fetchCompanies = useCallback(async () => {
+    setCompaniesLoading(true);
+    try {
+      const r = await apiCall('/api/requests/companies');
+      if (r.ok) setCompanies(await r.json());
+    } catch (e) { console.error(e); }
+    finally { setCompaniesLoading(false); }
+  }, [apiCall]);
 
   const deleteProject = async (id) => {
     if (!window.confirm('Delete this project?')) return;
@@ -239,11 +254,12 @@ export default function AdminDashboard() {
 
         {/* ── Section tabs ── */}
         <div className="flex gap-1 mb-6 border-b border-[#E8E5E0]">
-          {[['requests','Service Requests'],['projects','Portfolio Projects']].map(([key,label]) => (
+          {[['requests','Service Requests'],['companies','Companies'],['projects','Portfolio Projects']].map(([key,label]) => (
             <button key={key} onClick={() => setActiveSection(key)}
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeSection === key ? 'border-[#F2782E] text-[#F2782E]' : 'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>
               {label}
               {key === 'projects' && <span className="ml-1.5 text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{projects.length}</span>}
+            {key === 'companies' && <span className="ml-1.5 text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{companies.length}</span>}
             </button>
           ))}
         </div>
@@ -325,6 +341,11 @@ export default function AdminDashboard() {
           )}
         </div>
         </div>{/* end requests section */}
+
+        {/* ── Companies section ── */}
+        {activeSection === 'companies' && (
+          <CompaniesPanel companies={companies} loading={companiesLoading} onRefresh={fetchCompanies} />
+        )}
 
         {/* ── Projects section ── */}
         {activeSection === 'projects' && (
@@ -419,6 +440,121 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Companies panel ──────────────────────────────────────────────────────────
+function CompaniesPanel({ companies, loading, onRefresh }) {
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState(null);
+
+  const filtered = companies.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.contactEmail.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-[#6B6F76]">{companies.length} registered companies</p>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+            <input
+              type="text" placeholder="Search companies…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-52"
+            />
+          </div>
+          <button onClick={onRefresh} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] hover:border-[#0E0E0F] transition-colors">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#F2782E] border-t-transparent" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-[#E8E5E0] p-16 text-center">
+          <Building2 className="h-10 w-10 text-[#6B6F76] mx-auto mb-3 opacity-40" />
+          <p className="text-[#6B6F76]">{search ? 'No companies match your search' : 'No companies registered yet'}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(c => {
+            const reqCount = c._count?.serviceRequests ?? 0;
+            const activeReqs = c.serviceRequests?.filter(r => !['CLOSED','DELIVERED'].includes(r.status)).length ?? 0;
+            const avgRating = null;
+            const isOpen = expanded === c.id;
+            return (
+              <div key={c.id} className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
+                <div
+                  className="p-5 flex items-center gap-4 cursor-pointer hover:bg-[#F7F5F2] transition-colors"
+                  onClick={() => setExpanded(isOpen ? null : c.id)}
+                >
+                  <div className="w-10 h-10 bg-[#F2782E]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Building2 className="h-5 w-5 text-[#F2782E]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[#0E0E0F] truncate">{c.name}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="flex items-center gap-1 text-xs text-[#6B6F76]">
+                        <Mail className="h-3 w-3" />{c.contactEmail}
+                      </span>
+                      <span className="text-[#E8E5E0]">·</span>
+                      <span className="text-xs text-[#6B6F76]">Joined {new Date(c.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0 text-right">
+                    <div>
+                      <p className="text-lg font-bold text-[#0E0E0F]">{reqCount}</p>
+                      <p className="text-xs text-[#6B6F76]">Requests</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-purple-600">{activeReqs}</p>
+                      <p className="text-xs text-[#6B6F76]">Active</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-[#0E0E0F]">{c.users?.length ?? 0}</p>
+                      <p className="text-xs text-[#6B6F76]">Users</p>
+                    </div>
+                    <ChevronRight className={`h-4 w-4 text-[#6B6F76] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                  </div>
+                </div>
+
+                {isOpen && (
+                  <div className="border-t border-[#E8E5E0] px-5 py-4 bg-[#F7F5F2]">
+                    <p className="text-xs font-bold text-[#6B6F76] uppercase tracking-wide mb-3">Team Members</p>
+                    {c.users?.length === 0 ? (
+                      <p className="text-sm text-[#6B6F76]">No users</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {c.users.map(u => (
+                          <div key={u.id} className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border border-[#E8E5E0]">
+                            <div className="w-7 h-7 rounded-full bg-[#F2782E]/10 flex items-center justify-center text-xs font-bold text-[#F2782E]">
+                              {u.name?.[0]?.toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-[#0E0E0F] truncate">{u.name}</p>
+                              <p className="text-xs text-[#6B6F76] truncate">{u.email}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.role === 'ADMIN' ? 'bg-[#F2782E] text-white' : 'bg-[#F7F5F2] text-[#6B6F76]'}`}>
+                              {u.role}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

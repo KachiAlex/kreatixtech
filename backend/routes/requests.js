@@ -41,6 +41,26 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ── GET /companies — admin: all registered organizations ─────────────────────
+router.get('/companies', requireAdmin, async (req, res) => {
+  try {
+    const companies = await prisma.organization.findMany({
+      include: {
+        users: { select: { id: true, name: true, email: true, role: true, createdAt: true } },
+        _count: { select: { serviceRequests: true } },
+        serviceRequests: {
+          select: { status: true },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(companies);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch companies' });
+  }
+});
+
 // ── GET /stats/summary ───────────────────────────────────────────────────────
 router.get('/stats/summary', async (req, res) => {
   try {
@@ -251,6 +271,53 @@ router.put('/:id/report', requireAdmin, [param('id').isUUID()], async (req, res)
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: 'Failed to update report' });
+  }
+});
+
+// ── POST /:id/feedback — client submits feedback after delivery ──────────────
+router.post('/:id/feedback', [
+  param('id').isUUID(),
+  body('rating').isInt({ min: 1, max: 5 }),
+  body('feedback').trim().isLength({ min: 5, max: 2000 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  try {
+    const existing = await prisma.serviceRequest.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Request not found' });
+    if (req.user.role !== 'CLIENT' || existing.orgId !== req.user.orgId)
+      return res.status(403).json({ error: 'Access denied' });
+    if (existing.status !== 'DELIVERED' && existing.status !== 'CLOSED')
+      return res.status(400).json({ error: 'Feedback can only be submitted after delivery' });
+    if (existing.feedbackAt)
+      return res.status(400).json({ error: 'Feedback already submitted' });
+
+    const updated = await prisma.serviceRequest.update({
+      where: { id: req.params.id },
+      data: {
+        clientFeedback: req.body.feedback,
+        clientRating: req.body.rating,
+        feedbackAt: new Date(),
+        status: 'CLOSED',
+      },
+      include: baseInclude('CLIENT'),
+    });
+    const admins = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'ANALYST'] } }, select: { id: true } });
+    await Promise.all(admins.map(a =>
+      prisma.serviceNotification.create({
+        data: {
+          userId: a.id,
+          requestId: req.params.id,
+          type: 'STATUS_CHANGE',
+          title: 'Client Feedback Received',
+          message: `${req.user.name} left ${req.body.rating}★ feedback on: ${existing.title}`,
+        }
+      })
+    ));
+    getIo().to(`request:${req.params.id}`).emit('request-updated', updated);
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to submit feedback' });
   }
 });
 
