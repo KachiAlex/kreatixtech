@@ -57,27 +57,23 @@ console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
 
 const get = (name) => routeImports.find(r => r.name === name)?.module;
 
-const authRoutes        = get('auth')?.default;
-const assessmentRoutes  = get('assessments')?.default;
-const serviceRequestRoutes = get('serviceRequests')?.default;
-const serviceMessageRoutes = get('serviceMessages')?.default;
-const serviceFindingRoutes = get('serviceFindings')?.default;
-const serviceUploadRoutes  = get('serviceUploads')?.default;
-const messageRoutes     = get('messages')?.default;
-const notificationRoutes= get('notifications')?.default;
-const contactRoutes     = get('contact')?.default;
-const findingRoutes     = get('findings')?.default;
-const blogRoutes        = get('blog')?.default;
-const testimonialRoutes = get('testimonials')?.default;
-const auditRoutes       = get('audit')?.default;
-const invitationRoutes  = get('invitations')?.default;
-const uploadRoutes      = get('uploads')?.default;
-const projectRoutes     = get('projects')?.default;
-const requestRoutes     = get('requests')?.default;
+const authRoutes         = get('auth')?.default;
+const assessmentRoutes   = get('assessments')?.default;
+const messageRoutes      = get('messages')?.default;
+const notificationRoutes = get('notifications')?.default;
+const contactRoutes      = get('contact')?.default;
+const findingRoutes      = get('findings')?.default;
+const blogRoutes         = get('blog')?.default;
+const testimonialRoutes  = get('testimonials')?.default;
+const auditRoutes        = get('audit')?.default;
+const invitationRoutes   = get('invitations')?.default;
+const uploadRoutes       = get('uploads')?.default;
+const projectRoutes      = get('projects')?.default;
+const requestRoutes      = get('requests')?.default;
 const serviceUploadRoutes = get('serviceUploads')?.default;
-const authMiddleware    = get('authMiddleware');
-const authenticateToken = authMiddleware?.authenticateToken;
-const requireAdmin      = authMiddleware?.requireAdmin;
+const authMiddleware     = get('authMiddleware');
+const authenticateToken  = authMiddleware?.authenticateToken;
+const requireAdmin       = authMiddleware?.requireAdmin;
 
 const app = express();
 const httpServer = createServer(app);
@@ -121,27 +117,21 @@ app.use('/api/auth/register',        authLimiter);
 app.use('/api/auth/forgot-password', strictLimiter);
 app.use('/api/auth/reset-password',  strictLimiter);
 
-if (authRoutes)         app.use('/api/auth',          authRoutes);
-if (contactRoutes)      app.use('/api/contact',        contactRoutes);
-// /api/invitations/accept is called without a JWT (token is in the body)
-// so mount it before the authenticateToken middleware
-if (invitationRoutes)   app.use('/api/invitations/accept', invitationRoutes);
-if (assessmentRoutes)   app.use('/api/assessments',    authenticateToken, assessmentRoutes);
-if (serviceRequestRoutes) app.use('/api/service-requests', authenticateToken, serviceRequestRoutes);
-if (serviceMessageRoutes) app.use('/api/service-messages', authenticateToken, serviceMessageRoutes);
-if (serviceFindingRoutes) app.use('/api/service-findings', authenticateToken, serviceFindingRoutes);
-if (serviceUploadRoutes)  app.use('/api/service-uploads',  authenticateToken, serviceUploadRoutes);
-if (messageRoutes)      app.use('/api/messages',       authenticateToken, messageRoutes);
-if (notificationRoutes) app.use('/api/notifications',  authenticateToken, notificationRoutes);
-if (findingRoutes)      app.use('/api/findings',       authenticateToken, findingRoutes);
-if (uploadRoutes)       app.use('/api/uploads',        authenticateToken, uploadRoutes);
-if (blogRoutes)         app.use('/api/blog',           blogRoutes);
-if (testimonialRoutes)  app.use('/api/testimonials',   testimonialRoutes);
-if (projectRoutes)      app.use('/api/projects',        projectRoutes);
-if (requestRoutes)      app.use('/api/requests',        authenticateToken, requestRoutes);
-if (serviceUploadRoutes) app.use('/api/service-uploads', authenticateToken, serviceUploadRoutes);
-if (auditRoutes)        app.use('/api/audit',          authenticateToken, auditRoutes);
-if (invitationRoutes)   app.use('/api/invitations',    authenticateToken, invitationRoutes);
+if (authRoutes)          app.use('/api/auth',              authRoutes);
+if (contactRoutes)       app.use('/api/contact',           contactRoutes);
+if (invitationRoutes)    app.use('/api/invitations/accept',invitationRoutes);
+if (assessmentRoutes)    app.use('/api/assessments',       authenticateToken, assessmentRoutes);
+if (messageRoutes)       app.use('/api/messages',          authenticateToken, messageRoutes);
+if (notificationRoutes)  app.use('/api/notifications',     authenticateToken, notificationRoutes);
+if (findingRoutes)       app.use('/api/findings',          authenticateToken, findingRoutes);
+if (uploadRoutes)        app.use('/api/uploads',           authenticateToken, uploadRoutes);
+if (blogRoutes)          app.use('/api/blog',              blogRoutes);
+if (testimonialRoutes)   app.use('/api/testimonials',      testimonialRoutes);
+if (projectRoutes)       app.use('/api/projects',          projectRoutes);
+if (requestRoutes)       app.use('/api/requests',          authenticateToken, requestRoutes);
+if (serviceUploadRoutes) app.use('/api/service-uploads',   authenticateToken, serviceUploadRoutes);
+if (auditRoutes)         app.use('/api/audit',             authenticateToken, auditRoutes);
+if (invitationRoutes)    app.use('/api/invitations',       authenticateToken, invitationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString(), uptime: process.uptime() });
