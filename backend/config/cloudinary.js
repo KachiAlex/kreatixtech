@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
+import { Readable } from 'stream';
 
 // Parse Cloudinary URL if provided (format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME)
 function parseCloudinaryUrl(url) {
@@ -8,11 +8,7 @@ function parseCloudinaryUrl(url) {
   try {
     const match = url.match(/cloudinary:\/\/([^:]+):([^@]+)@(.+)/);
     if (match) {
-      return {
-        api_key: match[1],
-        api_secret: match[2],
-        cloud_name: match[3]
-      };
+      return { api_key: match[1], api_secret: match[2], cloud_name: match[3] };
     }
   } catch (err) {
     console.error('Error parsing Cloudinary URL:', err);
@@ -20,48 +16,43 @@ function parseCloudinaryUrl(url) {
   return null;
 }
 
-const cloudinaryUrl = process.env.CLOUDINARY_URL;
-const parsedConfig = parseCloudinaryUrl(cloudinaryUrl);
-
+const parsedConfig = parseCloudinaryUrl(process.env.CLOUDINARY_URL);
 if (parsedConfig) {
   cloudinary.config(parsedConfig);
 } else {
-  // Fallback to individual env vars
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+    api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 }
 
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'kreatix-vapt',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt', 'csv'],
-    transformation: [{ quality: 'auto' }]
-  }
-});
+// All uploads go through memory storage — we pipe to Cloudinary manually
+const memoryStorage = multer.memoryStorage();
 
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
-});
-
-const portfolioStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'kreatix-portfolio',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-    transformation: [{ width: 1200, height: 630, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
-  },
+const upload = multer({
+  storage: memoryStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 const uploadPortfolioImage = multer({
-  storage: portfolioStorage,
+  storage: memoryStorage,
   limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
 });
 
-export { cloudinary, upload, uploadPortfolioImage };
+// Helper: upload a buffer to Cloudinary and return the result
+function uploadBufferToCloudinary(buffer, options = {}) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+    Readable.from(buffer).pipe(stream);
+  });
+}
+
+export { cloudinary, upload, uploadPortfolioImage, uploadBufferToCloudinary };

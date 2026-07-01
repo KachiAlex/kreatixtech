@@ -1,5 +1,5 @@
 import express from 'express';
-import { upload, cloudinary } from '../config/cloudinary.js';
+import { upload, cloudinary, uploadBufferToCloudinary } from '../config/cloudinary.js';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
 
@@ -28,21 +28,25 @@ router.post('/assessment/:assessmentId', upload.array('files', 10), async (req, 
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Create attachments with Cloudinary URLs
+    // Upload buffers to Cloudinary then create DB records
     const attachments = await Promise.all(
-      files.map(file =>
-        prisma.attachment.create({
+      files.map(async file => {
+        const result = await uploadBufferToCloudinary(file.buffer, {
+          folder: 'kreatix-vapt',
+          resource_type: 'auto',
+        });
+        return prisma.attachment.create({
           data: {
             assessmentId,
-            fileUrl: file.path, // Cloudinary URL
+            fileUrl: result.secure_url,
             fileName: file.originalname,
             fileSize: file.size,
             mimeType: file.mimetype,
             uploadedBy: req.user.id,
-            storageProvider: 'CLOUDINARY'
-          }
-        })
-      )
+            storageProvider: 'CLOUDINARY',
+          },
+        });
+      })
     );
 
     // Only create a FILE_UPLOAD message if not attaching to an existing message

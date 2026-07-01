@@ -2,7 +2,7 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { requireAdmin, authenticateToken } from '../middleware/auth.js';
-import { uploadPortfolioImage } from '../config/cloudinary.js';
+import { uploadPortfolioImage, uploadBufferToCloudinary } from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -42,7 +42,11 @@ router.get('/:id', [param('id').isUUID()], async (req, res) => {
 router.post('/upload-image', authenticateToken, requireAdmin, uploadPortfolioImage.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image file provided' });
-    res.json({ url: req.file.path });
+    const result = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: 'kreatix-portfolio',
+      transformation: [{ width: 1200, height: 630, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+    });
+    res.json({ url: result.secure_url });
   } catch (err) {
     console.error('Image upload error:', err);
     res.status(500).json({ error: 'Failed to upload image' });
