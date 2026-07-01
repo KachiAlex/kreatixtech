@@ -17,5 +17,5 @@ COPY backend/ .
 
 EXPOSE 5000
 
-# Push schema changes to DB in background, then start server immediately
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss --skip-generate & node start.mjs"]
+# Run schema sync then start server
+CMD ["sh", "-c", "node migrate.mjs && node start.mjs"]
