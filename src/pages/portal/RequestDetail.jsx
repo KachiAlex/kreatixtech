@@ -207,9 +207,20 @@ export default function RequestDetail() {
   const [showReportPanel, setShowReportPanel] = useState(false);
   const [expandedFindings, setExpandedFindings] = useState({});
   const [expandedMilestone, setExpandedMilestone] = useState(null);
+  const [timeline, setTimeline]         = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef   = useRef(null);
   const typingTimer    = useRef(null);
+
+  const fetchTimeline = useCallback(async () => {
+    setTimelineLoading(true);
+    try {
+      const r = await apiCall(`/api/requests/${id}/timeline`);
+      if (r.ok) setTimeline(await r.json());
+    } catch (e) { console.error(e); }
+    finally { setTimelineLoading(false); }
+  }, [apiCall, id]);
 
   const fetchRequest = useCallback(async () => {
     try {
@@ -376,11 +387,12 @@ export default function RequestDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: tabs */}
           <div className="lg:col-span-2 flex flex-col">
-            <div className="flex border-b border-[#E8E5E0] bg-white rounded-t-xl px-4">
+            <div className="flex border-b border-[#E8E5E0] bg-white rounded-t-xl px-2 overflow-x-auto scrollbar-none">
               {[['messages','Messages'],['milestones','Milestones'],
-                ...(request.serviceType==='CYBERSECURITY'?[['findings','Findings']]:[])]
+                ...(request.serviceType==='CYBERSECURITY'?[['findings','Findings']]:[]),
+                ['timeline','Timeline']]
                 .map(([k,l])=>(
-                  <button key={k} onClick={()=>setActiveTab(k)}
+                  <button key={k} onClick={()=>{ setActiveTab(k); if(k==='timeline') fetchTimeline(); }}
                     className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${activeTab===k?'border-[#F2782E] text-[#F2782E]':'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>
                     {l}
                     {k==='findings'&&findings.length>0&&<span className="text-xs bg-[#F2782E] text-white rounded-full w-5 h-5 flex items-center justify-center">{findings.length}</span>}
@@ -388,6 +400,39 @@ export default function RequestDetail() {
                   </button>
               ))}
             </div>
+
+            {/* Timeline */}
+            {activeTab==='timeline' && (
+              <div className="bg-white border border-[#E8E5E0] border-t-0 rounded-b-xl p-5 overflow-y-auto" style={{maxHeight:'calc(100vh - 240px)'}}>
+                {timelineLoading ? (
+                  <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-4 border-[#F2782E] border-t-transparent"/></div>
+                ) : timeline.length === 0 ? (
+                  <div className="text-center py-10 text-[#6B6F76] text-sm">No activity yet.</div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-4 top-0 bottom-0 w-px bg-[#E8E5E0]"/>
+                    <div className="space-y-4">
+                      {timeline.map(ev => {
+                        const icons = { CREATED:'🟠', MESSAGE:'💬', FILE:'📎', MILESTONE:'🏁', MILESTONE_DONE:'✅', FINDING:'🔴', FINDING_RESOLVED:'🟢', REPORT:'📦' };
+                        const colors = { CREATED:'bg-[#F2782E]', MESSAGE:'bg-blue-500', FILE:'bg-purple-500', MILESTONE:'bg-amber-500', MILESTONE_DONE:'bg-green-500', FINDING:'bg-red-500', FINDING_RESOLVED:'bg-green-600', REPORT:'bg-[#0E0E0F]' };
+                        return (
+                          <div key={ev.id} className="flex gap-4 items-start relative">
+                            <div className={`w-8 h-8 rounded-full ${colors[ev.type]||'bg-gray-400'} flex items-center justify-center text-white text-xs flex-shrink-0 z-10 shadow`}>
+                              <span>{icons[ev.type]||'•'}</span>
+                            </div>
+                            <div className="flex-1 min-w-0 pb-2">
+                              <p className="text-sm font-semibold text-[#0E0E0F]">{ev.title}</p>
+                              {ev.description && <p className="text-xs text-[#6B6F76] mt-0.5 line-clamp-2">{ev.description}</p>}
+                              <p className="text-[10px] text-[#9CA3AF] mt-1">{new Date(ev.at).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Messages */}
             {activeTab==='messages' && (

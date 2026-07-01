@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { sendEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -213,6 +214,73 @@ router.get('/org/members', async (req, res) => {
   } catch (error) {
     console.error('Get members error:', error);
     res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Admin: list members of any org by orgId
+router.get('/admin/org/:orgId/members', requireAdmin, async (req, res) => {
+  try {
+    const members = await prisma.user.findMany({
+      where: { orgId: req.params.orgId },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(members);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Admin: change a user's role
+router.patch('/admin/users/:userId/role', requireAdmin, [
+  body('role').isIn(['CLIENT', 'ANALYST', 'ADMIN']),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.params.userId },
+      data: { role: req.body.role },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update role' });
+  }
+});
+
+// Admin: remove a user from their org (deactivate by clearing orgId is not possible without schema change — instead delete)
+router.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
+  try {
+    if (req.params.userId === req.user.userId) return res.status(400).json({ error: 'Cannot remove yourself' });
+    await prisma.user.delete({ where: { id: req.params.userId } });
+    res.json({ message: 'User removed' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to remove user' });
+  }
+});
+
+// Admin: resend invitation
+router.post('/admin/:invitationId/resend', requireAdmin, async (req, res) => {
+  try {
+    const inv = await prisma.invitation.findUnique({
+      where: { id: req.params.invitationId },
+      include: { organization: true },
+    });
+    if (!inv) return res.status(404).json({ error: 'Invitation not found' });
+    const newToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await prisma.invitation.update({ where: { id: inv.id }, data: { token: newToken, expiresAt } });
+    const inviteUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app'}/portal/accept-invite?token=${newToken}`;
+    await sendEmail({
+      to: inv.email,
+      subject: `Invitation reminder: join ${inv.organization.name} on Kreatix Technologies`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px"><h2 style="color:#F2782E">Invitation Reminder</h2><p>You were invited to join <strong>${inv.organization.name}</strong>.</p><p><a href="${inviteUrl}" style="background:#F2782E;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block">Accept Invitation</a></p><p style="color:#666;margin-top:16px">Link expires in 7 days.</p></div>`,
+      text: `Join ${inv.organization.name}: ${inviteUrl}`,
+    }).catch(() => {});
+    res.json({ message: 'Invitation resent' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to resend invitation' });
   }
 });
 

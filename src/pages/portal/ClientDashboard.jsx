@@ -3,10 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   Plus, FileText, MessageSquare, Clock, CheckCircle, 
   AlertCircle, ChevronRight, LogOut, Bell, Building2,
-  Shield, Code2, Cloud
+  Shield, Code2, Cloud, Search
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
+import { Settings as SettingsIcon } from 'lucide-react';
 
 const SERVICE_ICONS = { SOFTWARE_DEV: Code2, CYBERSECURITY: Shield, CLOUD: Cloud, CONSULTING: MessageSquare };
 const SERVICE_LABELS = { SOFTWARE_DEV: 'Software Dev', CYBERSECURITY: 'Cybersecurity', CLOUD: 'Cloud', CONSULTING: 'Consulting' };
@@ -32,6 +33,9 @@ const statusLabels = {
 export default function ClientDashboard() {
   const [requests, setRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -80,6 +84,14 @@ export default function ClientDashboard() {
     navigate('/portal/login');
   };
 
+  const filteredRequests = requests.filter(r => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || r.title.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q);
+    const matchStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchType = typeFilter === 'all' || r.serviceType === typeFilter;
+    return matchSearch && matchStatus && matchType;
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-offwhite flex items-center justify-center">
@@ -99,6 +111,9 @@ export default function ClientDashboard() {
           <div className="flex items-center gap-2 ml-auto">
             <NotifBell />
             <span className="hidden sm:block text-sm text-gray-400 max-w-[120px] truncate">{user?.name}</span>
+            <Link to="/portal/settings" className="p-2 text-gray-400 hover:text-white transition-colors" title="Settings">
+              <SettingsIcon className="h-4 w-4" />
+            </Link>
             <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Logout">
               <LogOut className="h-4 w-4" />
             </button>
@@ -152,36 +167,54 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-ink">Your Requests</h2>
-          <Link
-            to="/portal/request/new"
-            className="inline-flex items-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep transition-colors"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            New Request
-          </Link>
+        {/* ── Filter / search bar ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+          <h2 className="text-xl font-bold text-ink flex-1">Your Requests</h2>
+          <div className="flex gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-grey" />
+              <input type="text" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
+                className="pl-9 pr-4 py-2 border border-border rounded-xl text-sm focus:ring-2 focus:ring-orange focus:border-transparent w-full sm:w-44" />
+            </div>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-border rounded-xl text-sm bg-white focus:ring-2 focus:ring-orange focus:border-transparent">
+              <option value="all">All Status</option>
+              {Object.entries(statusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+              className="px-3 py-2 border border-border rounded-xl text-sm bg-white focus:ring-2 focus:ring-orange focus:border-transparent">
+              <option value="all">All Types</option>
+              {Object.entries(SERVICE_LABELS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <Link to="/portal/request/new"
+              className="inline-flex items-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep transition-colors whitespace-nowrap">
+              <Plus className="h-4 w-4 mr-1.5" /> New Request
+            </Link>
+          </div>
         </div>
 
-        {requests.length === 0 ? (
+        {filteredRequests.length === 0 && requests.length === 0 ? (
           <div className="bg-white rounded-xl border border-border p-12 text-center">
-            <AlertCircle className="h-12 w-12 text-grey mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-ink mb-2">No requests yet</h3>
-            <p className="text-grey mb-6">
-              Get started by creating your first service request
-            </p>
-            <Link
-              to="/portal/request/new"
-              className="inline-flex items-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Create Request
+            <div className="w-16 h-16 bg-orange/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-orange" />
+            </div>
+            <h3 className="text-lg font-bold text-ink mb-2">No requests yet</h3>
+            <p className="text-grey mb-2">Submit your first service request and we'll get back to you quickly.</p>
+            <p className="text-sm text-grey mb-6">You can request Cybersecurity, Software Development, Cloud Services, or Consulting.</p>
+            <Link to="/portal/request/new"
+              className="inline-flex items-center px-5 py-2.5 bg-orange text-white rounded-xl font-bold hover:bg-orange-deep transition-colors">
+              <Plus className="h-5 w-5 mr-2" /> Create First Request
             </Link>
+          </div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="bg-white rounded-xl border border-border p-10 text-center">
+            <AlertCircle className="h-10 w-10 text-grey mx-auto mb-3 opacity-50" />
+            <p className="text-grey">No requests match your filters.</p>
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-border overflow-hidden">
             <div className="divide-y divide-border">
-              {requests.map((request) => {
+              {filteredRequests.map((request) => {
                 const ServiceIcon = SERVICE_ICONS[request.serviceType] || FileText;
                 return (
                 <Link

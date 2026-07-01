@@ -28,6 +28,7 @@ const AssessmentDetail = lazy(() => import('./pages/portal/AssessmentDetail'));
 const ReportViewer = lazy(() => import('./pages/portal/ReportViewer'));
 const NewRequest = lazy(() => import('./pages/portal/NewRequest'));
 const RequestDetail = lazy(() => import('./pages/portal/RequestDetail'));
+const Settings = lazy(() => import('./pages/portal/Settings'));
 
 function ProtectedPortalRoute({ children, requireAdmin = false }) {
   const { isAuthenticated, isAdmin, isLoading } = usePortal();
@@ -111,6 +112,14 @@ function PortalRoutes() {
         element={
           <ProtectedPortalRoute>
             <RequestDetail />
+          </ProtectedPortalRoute>
+        }
+      />
+      <Route
+        path="settings"
+        element={
+          <ProtectedPortalRoute>
+            <Settings />
           </ProtectedPortalRoute>
         }
       />

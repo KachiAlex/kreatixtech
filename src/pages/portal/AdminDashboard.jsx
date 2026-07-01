@@ -4,7 +4,7 @@ import {
   Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
-  Image, Globe, X, Save, Mail, Star, Menu
+  Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
@@ -66,6 +66,10 @@ export default function AdminDashboard() {
   const [projects, setProjects]         = useState([]);
   const [companies, setCompanies]       = useState([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [team, setTeam]                 = useState([]);
+  const [teamLoading, setTeamLoading]   = useState(false);
+  const [pendingInvites, setPendingInvites] = useState([]);
+  const [showInviteForm, setShowInviteForm] = useState(false);
   const [isLoading, setIsLoading]       = useState(true);
   const [error, setError]               = useState(null);
   const [filter, setFilter]             = useState('all');
@@ -88,6 +92,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (isAdmin && activeSection === 'companies') fetchCompanies();
+    if (isAdmin && activeSection === 'team') fetchTeam();
   }, [isAdmin, activeSection]);
 
   useEffect(() => {
@@ -123,6 +128,19 @@ export default function AdminDashboard() {
       if (r.ok) setProjects(await r.json());
     } catch (e) { console.error(e); }
   }, []);
+
+  const fetchTeam = useCallback(async () => {
+    setTeamLoading(true);
+    try {
+      const [membersRes, invitesRes] = await Promise.all([
+        apiCall('/api/invitations/org/members'),
+        apiCall('/api/invitations/org'),
+      ]);
+      if (membersRes.ok) { const d = await membersRes.json(); setTeam(Array.isArray(d) ? d : (d.members || [])); }
+      if (invitesRes.ok) setPendingInvites(await invitesRes.json());
+    } catch (e) { console.error(e); }
+    finally { setTeamLoading(false); }
+  }, [apiCall]);
 
   const fetchCompanies = useCallback(async () => {
     setCompaniesLoading(true);
@@ -202,6 +220,9 @@ export default function AdminDashboard() {
               <span className="text-sm text-gray-400 max-w-[120px] truncate">{user?.name}</span>
               <span className="px-2 py-0.5 bg-[#F2782E] text-white text-xs font-bold rounded-full">{user?.role}</span>
             </div>
+            <Link to="/portal/settings" className="p-2 text-gray-400 hover:text-white transition-colors" title="Settings">
+              <Settings className="h-4 w-4" />
+            </Link>
             <button onClick={() => { logout(); navigate('/portal/login'); }} className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Logout">
               <LogOut className="h-4 w-4" />
             </button>
@@ -244,7 +265,7 @@ export default function AdminDashboard() {
 
         {/* ── Section tabs ── */}
         <div className="flex gap-1 mb-6 border-b border-[#E8E5E0] overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-          {[['requests','Service Requests'],['companies','Companies'],['projects','Portfolio Projects']].map(([key,label]) => (
+          {[['requests','Service Requests'],['companies','Companies'],['team','Team'],['projects','Portfolio Projects']].map(([key,label]) => (
             <button key={key} onClick={() => setActiveSection(key)}
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeSection === key ? 'border-[#F2782E] text-[#F2782E]' : 'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>
               {label}
@@ -335,6 +356,16 @@ export default function AdminDashboard() {
         {/* ── Companies section ── */}
         {activeSection === 'companies' && (
           <CompaniesPanel companies={companies} loading={companiesLoading} onRefresh={fetchCompanies} />
+        )}
+
+        {/* ── Team section ── */}
+        {activeSection === 'team' && (
+          <TeamPanel
+            team={team} pendingInvites={pendingInvites}
+            loading={teamLoading} onRefresh={fetchTeam}
+            showInviteForm={showInviteForm} setShowInviteForm={setShowInviteForm}
+            apiCall={apiCall} currentUserId={user?.id}
+          />
         )}
 
         {/* ── Projects section ── */}
@@ -489,6 +520,149 @@ function NotificationBell() {
                 {!n.read && <div className="w-2 h-2 rounded-full bg-[#F2782E] flex-shrink-0 mt-1.5" />}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Team panel ───────────────────────────────────────────────────────────────
+const ROLE_COLORS = { ADMIN: 'bg-red-50 text-red-700', ANALYST: 'bg-blue-50 text-blue-700', CLIENT: 'bg-gray-50 text-gray-700' };
+
+function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, setShowInviteForm, apiCall, currentUserId }) {
+  const [inviteForm, setInviteForm] = useState({ email: '', name: '', role: 'ANALYST' });
+  const [inviting, setInviting] = useState(false);
+  const [inviteErr, setInviteErr] = useState('');
+  const [inviteOk, setInviteOk] = useState('');
+
+  const sendInvite = async (e) => {
+    e.preventDefault(); setInviting(true); setInviteErr(''); setInviteOk('');
+    try {
+      const r = await apiCall('/api/invitations', { method: 'POST', body: JSON.stringify(inviteForm) });
+      const d = await r.json();
+      if (r.ok) { setInviteOk(`Invitation sent to ${inviteForm.email}`); setInviteForm({ email: '', name: '', role: 'ANALYST' }); onRefresh(); }
+      else setInviteErr(d.error || 'Failed to send invite');
+    } catch { setInviteErr('Network error'); }
+    finally { setInviting(false); }
+  };
+
+  const changeRole = async (userId, role) => {
+    await apiCall(`/api/invitations/admin/users/${userId}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+    onRefresh();
+  };
+
+  const removeUser = async (userId) => {
+    if (!window.confirm('Remove this user?')) return;
+    await apiCall(`/api/invitations/admin/users/${userId}`, { method: 'DELETE' });
+    onRefresh();
+  };
+
+  const resendInvite = async (id) => {
+    await apiCall(`/api/invitations/admin/${id}/resend`, { method: 'POST' });
+    onRefresh();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-[#0E0E0F]">Team Members ({team.length})</h2>
+        <div className="flex gap-2">
+          <button onClick={onRefresh} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] transition-colors"><RefreshCw className="h-4 w-4"/></button>
+          <button onClick={() => setShowInviteForm(v => !v)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] transition-colors">
+            <UserPlus className="h-4 w-4"/> Invite Member
+          </button>
+        </div>
+      </div>
+
+      {showInviteForm && (
+        <div className="bg-white rounded-2xl border border-[#E8E5E0] p-6">
+          <h3 className="font-bold text-[#0E0E0F] mb-4">Send Invitation</h3>
+          {inviteErr && <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-xl text-sm">{inviteErr}</div>}
+          {inviteOk && <div className="mb-3 bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-xl text-sm">{inviteOk}</div>}
+          <form onSubmit={sendInvite} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#6B6F76] mb-1">Full Name *</label>
+              <input required value={inviteForm.name} onChange={e => setInviteForm(f => ({ ...f, name: e.target.value }))}
+                className="w-full px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Jane Smith"/>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B6F76] mb-1">Email *</label>
+              <input required type="email" value={inviteForm.email} onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))}
+                className="w-full px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="jane@example.com"/>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B6F76] mb-1">Role *</label>
+              <select value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value }))}
+                className="w-full px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#F2782E] focus:border-transparent">
+                <option value="ANALYST">Analyst</option>
+                <option value="ADMIN">Admin</option>
+                <option value="CLIENT">Client</option>
+              </select>
+            </div>
+            <div className="sm:col-span-3 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowInviteForm(false)} className="px-4 py-2 text-sm text-[#6B6F76] hover:text-[#0E0E0F]">Cancel</button>
+              <button type="submit" disabled={inviting}
+                className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors">
+                {inviting ? 'Sending…' : 'Send Invite'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-10 w-10 border-4 border-[#F2782E] border-t-transparent"/></div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-[#E8E5E0] overflow-hidden">
+          <div className="divide-y divide-[#E8E5E0]">
+            {team.map(m => (
+              <div key={m.id} className="p-4 flex items-center gap-4">
+                <div className="w-9 h-9 rounded-full bg-[#F7F5F2] flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-[#F2782E]">{m.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#0E0E0F] truncate">{m.name} {m.id === currentUserId && <span className="text-xs text-[#6B6F76] font-normal">(you)</span>}</p>
+                  <p className="text-xs text-[#6B6F76] truncate">{m.email}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <select value={m.role} onChange={e => changeRole(m.id, e.target.value)}
+                    disabled={m.id === currentUserId}
+                    className={`text-xs font-bold px-2.5 py-1 rounded-full border-0 cursor-pointer ${ROLE_COLORS[m.role]} disabled:opacity-60 disabled:cursor-default`}>
+                    <option value="ADMIN">Admin</option>
+                    <option value="ANALYST">Analyst</option>
+                    <option value="CLIENT">Client</option>
+                  </select>
+                  {m.id !== currentUserId && (
+                    <button onClick={() => removeUser(m.id)} className="p-1.5 text-[#6B6F76] hover:text-red-500 transition-colors" title="Remove user">
+                      <Trash className="h-4 w-4"/>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendingInvites.length > 0 && (
+        <div>
+          <h3 className="font-bold text-[#0E0E0F] mb-3">Pending Invitations ({pendingInvites.length})</h3>
+          <div className="bg-white rounded-2xl border border-[#E8E5E0] overflow-hidden">
+            <div className="divide-y divide-[#E8E5E0]">
+              {pendingInvites.map(inv => (
+                <div key={inv.id} className="p-4 flex items-center gap-4">
+                  <Mail className="h-5 w-5 text-[#6B6F76] flex-shrink-0"/>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#0E0E0F] truncate">{inv.email}</p>
+                    <p className="text-xs text-[#6B6F76]">Expires {new Date(inv.expiresAt).toLocaleDateString()}</p>
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ROLE_COLORS[inv.role] || 'bg-gray-50 text-gray-700'}`}>{inv.role}</span>
+                  <button onClick={() => resendInvite(inv.id)} className="text-xs text-[#F2782E] hover:underline font-semibold">Resend</button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

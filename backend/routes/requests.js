@@ -513,6 +513,53 @@ router.delete('/:requestId/findings/:findingId', requireAdmin, async (req, res) 
   } catch (e) { res.status(500).json({ error: 'Failed' }); }
 });
 
+// ── Activity timeline ────────────────────────────────────────────────────────
+router.get('/:id/timeline', [param('id').isUUID()], async (req, res) => {
+  try {
+    const request = await prisma.serviceRequest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        messages: { include: { sender: { select: { id: true, name: true, role: true } } }, orderBy: { createdAt: 'asc' } },
+        attachments: { orderBy: { createdAt: 'asc' } },
+        milestones: { orderBy: { createdAt: 'asc' } },
+        findings: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!request) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role === 'CLIENT' && request.orgId !== req.user.orgId) return res.status(403).json({ error: 'Forbidden' });
+
+    const events = [];
+
+    events.push({ id: `created-${request.id}`, type: 'CREATED', title: 'Request submitted', description: request.title, actor: null, at: request.createdAt });
+
+    request.messages.forEach(m => {
+      if (m.messageType === 'INTERNAL_NOTE') return;
+      events.push({ id: `msg-${m.id}`, type: 'MESSAGE', title: `Message from ${m.sender?.name || 'Unknown'}`, description: m.content.substring(0, 120) + (m.content.length > 120 ? '…' : ''), actor: m.sender?.name, at: m.createdAt });
+    });
+
+    request.attachments.forEach(a => {
+      events.push({ id: `att-${a.id}`, type: 'FILE', title: 'File uploaded', description: a.fileName || a.fileUrl?.split('/').pop() || 'Attachment', actor: null, at: a.createdAt });
+    });
+
+    request.milestones.forEach(m => {
+      events.push({ id: `ms-${m.id}`, type: 'MILESTONE', title: `Milestone: ${m.title}`, description: m.status, actor: null, at: m.createdAt });
+      if (m.completedAt) events.push({ id: `ms-done-${m.id}`, type: 'MILESTONE_DONE', title: `Milestone completed: ${m.title}`, description: null, actor: null, at: m.completedAt });
+    });
+
+    request.findings.forEach(f => {
+      events.push({ id: `finding-${f.id}`, type: 'FINDING', title: `Finding added: ${f.title}`, description: `${f.severity} severity`, actor: null, at: f.createdAt });
+      if (f.resolvedAt) events.push({ id: `finding-resolved-${f.id}`, type: 'FINDING_RESOLVED', title: `Finding resolved: ${f.title}`, description: null, actor: null, at: f.resolvedAt });
+    });
+
+    if (request.reportUrl) {
+      events.push({ id: `report-${request.id}`, type: 'REPORT', title: 'Deliverable uploaded', description: 'Report/deliverable is ready for review', actor: null, at: request.updatedAt });
+    }
+
+    events.sort((a, b) => new Date(a.at) - new Date(b.at));
+    res.json(events);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch timeline' }); }
+});
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 router.get('/notifications/mine', async (req, res) => {
   try {

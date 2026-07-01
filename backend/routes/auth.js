@@ -243,7 +243,58 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Password reset: request token
+// Update own profile (name, email, password)
+router.patch('/profile', [
+  body('name').optional().trim().isLength({ min: 2 }),
+  body('email').optional().isEmail().normalizeEmail(),
+  body('currentPassword').optional(),
+  body('newPassword').optional().isLength({ min: 6 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const { name, email, currentPassword, newPassword } = req.body;
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const updateData = {};
+
+    if (name) updateData.name = name;
+
+    if (email && email !== user.email) {
+      const exists = await prisma.user.findUnique({ where: { email } });
+      if (exists) return res.status(400).json({ error: 'Email already in use' });
+      updateData.email = email;
+    }
+
+    if (newPassword) {
+      if (!currentPassword) return res.status(400).json({ error: 'Current password required' });
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return res.status(400).json({ error: 'Current password incorrect' });
+      updateData.passwordHash = await bcrypt.hash(newPassword, 10);
+    }
+
+    if (Object.keys(updateData).length === 0)
+      return res.status(400).json({ error: 'Nothing to update' });
+
+    const updated = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: updateData,
+      include: { organization: true },
+    });
+
+    const token = generateToken(updated);
+    res.json({
+      token,
+      user: { id: updated.id, email: updated.email, name: updated.name, role: updated.role, organization: updated.organization },
+    });
+  } catch (e) {
+    console.error('Profile update error:', e);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 router.post('/forgot-password', [
   body('email').isEmail().normalizeEmail()
 ], async (req, res) => {
