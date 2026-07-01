@@ -146,8 +146,8 @@ router.post('/', [
     }
 
     await Promise.all(
-      notificationRecipients.map(userId =>
-        prisma.serviceNotification.create({
+      notificationRecipients.map(async (userId) => {
+        const notif = await prisma.serviceNotification.create({
           data: {
             userId,
             requestId,
@@ -155,8 +155,9 @@ router.post('/', [
             title: 'New Message',
             message: `${req.user.name}: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`
           }
-        })
-      )
+        });
+        getIo().to(`user:${userId}`).emit('new-notification', notif);
+      })
     );
 
     getIo().to(`request:${requestId}`).emit('new-message', newMessage);

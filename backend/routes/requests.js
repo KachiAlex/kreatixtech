@@ -3,8 +3,22 @@ import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
 import { requireAdmin, authenticateToken } from '../middleware/auth.js';
+import {
+  sendNewRequestEmail, sendRequestStatusEmail,
+  sendRequestAssignedEmail, sendDeliverableReadyEmail,
+  sendFeedbackReceivedEmail,
+} from '../services/email.js';
 
 const router = express.Router();
+
+// Creates a ServiceNotification and emits it in real-time to that user's socket room
+async function notify(userId, requestId, type, title, message) {
+  const notif = await prisma.serviceNotification.create({
+    data: { userId, requestId, type, title, message }
+  });
+  getIo().to(`user:${userId}`).emit('new-notification', notif);
+  return notif;
+}
 
 // ── Shared include shape ─────────────────────────────────────────────────────
 const baseInclude = (userRole) => ({
@@ -145,16 +159,14 @@ router.post('/', [
     // Notify all admins
     const admins = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'ANALYST'] } }, select: { id: true, email: true } });
     await Promise.all(admins.map(a =>
-      prisma.serviceNotification.create({
-        data: {
-          userId: a.id,
-          requestId: request.id,
-          type: 'ASSESSMENT_CREATED',
-          title: 'New Service Request',
-          message: `${request.organization.name} submitted: ${title} (${serviceType.replace('_',' ')})`,
-        }
-      })
+      notify(a.id, request.id, 'ASSESSMENT_CREATED', 'New Service Request', `${request.organization.name} submitted: ${title} (${serviceType.replace('_',' ')})`)
     ));
+
+    // Email all admins
+    try {
+      const adminEmails = admins.map(a => a.email);
+      if (adminEmails.length) await sendNewRequestEmail({ to: adminEmails, orgName: request.organization.name, title, serviceType, requestId: request.id });
+    } catch (e) { console.error('Email(new-request):', e.message); }
 
     res.status(201).json(request);
   } catch (e) {
@@ -188,20 +200,16 @@ router.put('/:id', [param('id').isUUID()], async (req, res) => {
     getIo().to(`request:${req.params.id}`).emit('request-updated', updated);
     getIo().to(`org:${updated.orgId}`).emit('request-updated', updated);
 
-    // Status change notification
+    // Status change notification + email
     if (data.status && data.status !== existing.status) {
-      const orgUsers = await prisma.user.findMany({ where: { orgId: existing.orgId }, select: { id: true } });
+      const orgUsers = await prisma.user.findMany({ where: { orgId: existing.orgId }, select: { id: true, email: true } });
       await Promise.all(orgUsers.map(u =>
-        prisma.serviceNotification.create({
-          data: {
-            userId: u.id,
-            requestId: existing.id,
-            type: 'STATUS_CHANGE',
-            title: 'Request Updated',
-            message: `Your request "${existing.title}" status changed to ${data.status.replace(/_/g,' ')}`,
-          }
-        })
+        notify(u.id, existing.id, 'STATUS_CHANGE', 'Request Updated', `Your request "${existing.title}" status changed to ${data.status.replace(/_/g,' ')}`)
       ));
+      try {
+        const emails = orgUsers.map(u => u.email);
+        if (emails.length) await sendRequestStatusEmail({ to: emails, title: existing.title, oldStatus: existing.status, newStatus: data.status, requestId: existing.id });
+      } catch (e) { console.error('Email(status-change):', e.message); }
     }
 
     res.json(updated);
@@ -225,17 +233,18 @@ router.post('/:id/assign', requireAdmin, [param('id').isUUID(), body('adminId').
       include: baseInclude('ADMIN'),
     });
 
-    await prisma.serviceNotification.create({
-      data: {
-        userId: req.body.adminId,
-        requestId: req.params.id,
-        type: 'ASSESSMENT_ASSIGNED',
-        title: 'Request Assigned',
-        message: `You have been assigned to: ${updated.title}`,
-      }
-    });
+    await notify(req.body.adminId, req.params.id, 'ASSESSMENT_ASSIGNED', 'Request Assigned', `You have been assigned to: ${updated.title}`);
+
+    // Also notify client org
+    const orgUsers = await prisma.user.findMany({ where: { orgId: updated.organization?.id || updated.orgId }, select: { id: true, email: true } });
+    await Promise.all(orgUsers.map(u =>
+      notify(u.id, req.params.id, 'ASSESSMENT_ASSIGNED', 'Request Assigned', `Your request "${updated.title}" has been assigned to ${admin.name}`)
+    ));
 
     getIo().to(`request:${req.params.id}`).emit('request-updated', updated);
+    try {
+      await sendRequestAssignedEmail({ to: admin.email, title: updated.title, adminName: admin.name, requestId: req.params.id });
+    } catch (e) { console.error('Email(assign):', e.message); }
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: 'Failed to assign request' });
@@ -255,19 +264,15 @@ router.put('/:id/report', requireAdmin, [param('id').isUUID()], async (req, res)
       },
       include: baseInclude('ADMIN'),
     });
-    const orgUsers = await prisma.user.findMany({ where: { orgId: updated.orgId }, select: { id: true } });
+    const orgUsers = await prisma.user.findMany({ where: { orgId: updated.orgId }, select: { id: true, email: true } });
     await Promise.all(orgUsers.map(u =>
-      prisma.serviceNotification.create({
-        data: {
-          userId: u.id,
-          requestId: req.params.id,
-          type: 'STATUS_CHANGE',
-          title: 'Deliverable Ready',
-          message: `A deliverable is ready for your request: ${updated.title}`,
-        }
-      })
+      notify(u.id, req.params.id, 'STATUS_CHANGE', 'Deliverable Ready', `A deliverable is ready for your request: ${updated.title}`)
     ));
     getIo().to(`request:${req.params.id}`).emit('request-updated', updated);
+    try {
+      const emails = orgUsers.map(u => u.email);
+      if (emails.length) await sendDeliverableReadyEmail({ to: emails, title: updated.title, requestId: req.params.id });
+    } catch (e) { console.error('Email(deliverable):', e.message); }
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: 'Failed to update report' });
@@ -302,19 +307,15 @@ router.post('/:id/feedback', [
       },
       include: baseInclude('CLIENT'),
     });
-    const admins = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'ANALYST'] } }, select: { id: true } });
+    const admins = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'ANALYST'] } }, select: { id: true, email: true } });
     await Promise.all(admins.map(a =>
-      prisma.serviceNotification.create({
-        data: {
-          userId: a.id,
-          requestId: req.params.id,
-          type: 'STATUS_CHANGE',
-          title: 'Client Feedback Received',
-          message: `${req.user.name} left ${req.body.rating}★ feedback on: ${existing.title}`,
-        }
-      })
+      notify(a.id, req.params.id, 'STATUS_CHANGE', 'Client Feedback Received', `${req.user.name} left ${req.body.rating}★ feedback on: ${existing.title}`)
     ));
     getIo().to(`request:${req.params.id}`).emit('request-updated', updated);
+    try {
+      const adminEmails = admins.map(a => a.email);
+      if (adminEmails.length) await sendFeedbackReceivedEmail({ to: adminEmails, clientName: req.user.name, title: existing.title, rating: req.body.rating, feedback: req.body.feedback, requestId: req.params.id });
+    } catch (e) { console.error('Email(feedback):', e.message); }
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: 'Failed to submit feedback' });

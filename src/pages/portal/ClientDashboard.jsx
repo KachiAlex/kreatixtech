@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Plus, FileText, MessageSquare, Clock, CheckCircle, 
@@ -99,16 +99,10 @@ export default function ClientDashboard() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-grey hover:text-ink">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-orange rounded-full"></span>
-              </button>
+              <NotifBell />
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-grey-dark">{user?.name}</span>
-                <button 
-                  onClick={handleLogout}
-                  className="p-2 text-grey hover:text-red-600"
-                >
+                <button onClick={handleLogout} className="p-2 text-grey hover:text-red-600">
                   <LogOut className="h-5 w-5" />
                 </button>
               </div>
@@ -245,6 +239,61 @@ export default function ClientDashboard() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+const TYPE_ICON = { NEW_MESSAGE: '💬', STATUS_CHANGE: '🔄', ASSESSMENT_ASSIGNED: '📋', ASSESSMENT_CREATED: '📥', FILE_UPLOAD: '📎' };
+
+function NotifBell() {
+  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead, refreshNotifications } = usePortal();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => { if (open) refreshNotifications(); }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(v => !v)} className="relative p-2 text-[#6B6F76] hover:text-[#0E0E0F] transition-colors">
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-[#F2782E] rounded-full text-[10px] font-bold flex items-center justify-center text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-[#E8E5E0] z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E8E5E0]">
+            <p className="font-bold text-sm text-[#0E0E0F]">Notifications</p>
+            {unreadCount > 0 && (
+              <button onClick={markAllNotificationsRead} className="text-xs text-[#F2782E] hover:underline font-semibold">Mark all read</button>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto divide-y divide-[#F7F5F2]">
+            {notifications.length === 0 ? (
+              <div className="py-10 text-center text-sm text-[#6B6F76]">No notifications</div>
+            ) : notifications.slice(0, 20).map(n => (
+              <div key={n.id} onClick={() => { if (!n.read) markNotificationRead(n.id); }}
+                className={`px-4 py-3 flex gap-3 cursor-pointer transition-colors hover:bg-[#F7F5F2] ${n.read ? 'opacity-60' : ''}`}>
+                <span className="text-lg flex-shrink-0 mt-0.5">{TYPE_ICON[n.type] || '🔔'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm leading-snug ${n.read ? 'text-[#6B6F76]' : 'font-semibold text-[#0E0E0F]'}`}>{n.title}</p>
+                  <p className="text-xs text-[#6B6F76] mt-0.5 line-clamp-2">{n.message}</p>
+                  <p className="text-[10px] text-[#9CA3AF] mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                </div>
+                {!n.read && <div className="w-2 h-2 rounded-full bg-[#F2782E] flex-shrink-0 mt-1.5" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

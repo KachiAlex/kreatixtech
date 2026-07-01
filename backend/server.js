@@ -197,6 +197,7 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log(`User ${socket.userId} connected`);
   connectedUsers.set(socket.userId, { socketId: socket.id, userId: socket.userId, orgId: socket.orgId, lastSeen: new Date() });
+  socket.join(`user:${socket.userId}`);
   socket.join(`org:${socket.orgId}`);
   socket.to(`org:${socket.orgId}`).emit('user-online', { userId: socket.userId, status: 'online' });
 
