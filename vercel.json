@@ -1,4 +1,7 @@
 {
+  "redirects": [
+    { "source": "/webmail", "destination": "https://server2.globalhosting247.com:2096/", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
