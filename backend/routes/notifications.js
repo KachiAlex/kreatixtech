@@ -13,27 +13,42 @@ router.get('/', async (req, res) => {
       ...(unreadOnly === 'true' && { read: false })
     };
 
-    const [notifications, total, unreadCount] = await Promise.all([
+    const [notifications, serviceNotifications, total, serviceTotal, unreadCount, serviceUnreadCount] = await Promise.all([
       prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: parseInt(limit)
       }),
+      prisma.serviceNotification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: parseInt(limit)
+      }),
       prisma.notification.count({ where }),
+      prisma.serviceNotification.count({ where }),
       prisma.notification.count({
+        where: { userId: req.user.id, read: false }
+      }),
+      prisma.serviceNotification.count({
         where: { userId: req.user.id, read: false }
       })
     ]);
 
+    // Merge and sort by createdAt desc
+    const merged = [...notifications, ...serviceNotifications]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, parseInt(limit));
+
     res.json({
-      notifications,
-      unreadCount,
+      notifications: merged,
+      unreadCount: unreadCount + serviceUnreadCount,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
-        totalPages: Math.ceil(total / parseInt(limit))
+        total: total + serviceTotal,
+        totalPages: Math.ceil((total + serviceTotal) / parseInt(limit))
       }
     });
   } catch (error) {
@@ -46,9 +61,15 @@ router.put('/:id/read', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const notification = await prisma.notification.findUnique({
+    let notification = await prisma.notification.findUnique({
       where: { id }
     });
+
+    if (!notification) {
+      notification = await prisma.serviceNotification.findUnique({
+        where: { id }
+      });
+    }
 
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
@@ -58,10 +79,17 @@ router.put('/:id/read', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    await prisma.notification.update({
-      where: { id },
-      data: { read: true }
-    });
+    if (notification.assessmentId) {
+      await prisma.notification.update({
+        where: { id },
+        data: { read: true }
+      });
+    } else {
+      await prisma.serviceNotification.update({
+        where: { id },
+        data: { read: true }
+      });
+    }
 
     res.json({ message: 'Notification marked as read' });
   } catch (error) {
@@ -72,13 +100,22 @@ router.put('/:id/read', async (req, res) => {
 
 router.put('/read-all', async (req, res) => {
   try {
-    await prisma.notification.updateMany({
-      where: {
-        userId: req.user.id,
-        read: false
-      },
-      data: { read: true }
-    });
+    await Promise.all([
+      prisma.notification.updateMany({
+        where: {
+          userId: req.user.id,
+          read: false
+        },
+        data: { read: true }
+      }),
+      prisma.serviceNotification.updateMany({
+        where: {
+          userId: req.user.id,
+          read: false
+        },
+        data: { read: true }
+      })
+    ]);
 
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
@@ -91,9 +128,15 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const notification = await prisma.notification.findUnique({
+    let notification = await prisma.notification.findUnique({
       where: { id }
     });
+
+    if (!notification) {
+      notification = await prisma.serviceNotification.findUnique({
+        where: { id }
+      });
+    }
 
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
@@ -103,9 +146,15 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    await prisma.notification.delete({
-      where: { id }
-    });
+    if (notification.assessmentId) {
+      await prisma.notification.delete({
+        where: { id }
+      });
+    } else {
+      await prisma.serviceNotification.delete({
+        where: { id }
+      });
+    }
 
     res.json({ message: 'Notification deleted' });
   } catch (error) {

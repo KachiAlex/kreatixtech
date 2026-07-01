@@ -40,7 +40,7 @@ export default function ReportViewer() {
 
   const fetchFindings = async () => {
     try {
-      const response = await apiCall(`/api/findings/assessment/${id}`);
+      const response = await apiCall(`/api/service-findings/request/${id}`);
       const data = await response.json();
       setFindings(data);
     } catch (err) {
@@ -50,7 +50,7 @@ export default function ReportViewer() {
 
   const fetchSummary = async () => {
     try {
-      const response = await apiCall(`/api/findings/assessment/${id}/summary`);
+      const response = await apiCall(`/api/service-findings/request/${id}/summary`);
       const data = await response.json();
       setSummary(data);
     } catch (err) {
@@ -62,7 +62,7 @@ export default function ReportViewer() {
 
   const updateStatus = async (findingId, newStatus) => {
     try {
-      const response = await apiCall(`/api/findings/${findingId}`, {
+      const response = await apiCall(`/api/service-findings/${findingId}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus })
       });
@@ -100,9 +100,9 @@ export default function ReportViewer() {
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="flex items-center gap-3 mb-2">
             <Shield className="h-6 w-6 text-orange" />
-            <h1 className="text-2xl font-bold text-ink">VAPT Report</h1>
+            <h1 className="text-2xl font-bold text-ink">Service Report</h1>
           </div>
-          <p className="text-grey text-sm">Assessment ID: {id.slice(0, 8)}</p>
+          <p className="text-grey text-sm">Request ID: {id.slice(0, 8)}</p>
 
           {/* Summary Cards */}
           {summary && (

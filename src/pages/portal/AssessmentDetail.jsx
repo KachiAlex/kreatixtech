@@ -12,18 +12,19 @@ import { usePortal } from '../../contexts/PortalContext';
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 const STATUS_COLORS = {
-  PENDING:    'bg-yellow-100 text-yellow-800',
-  IN_REVIEW:  'bg-blue-100 text-blue-800',
-  APPROVED:   'bg-emerald-100 text-emerald-800',
+  SUBMITTED:    'bg-yellow-100 text-yellow-800',
+  REVIEWED:  'bg-blue-100 text-blue-800',
+  SCOPED:   'bg-emerald-100 text-emerald-800',
   IN_PROGRESS:'bg-purple-100 text-purple-800',
-  REPORTING:  'bg-orange-100 text-orange-800',
-  COMPLETE:   'bg-green-100 text-green-800',
+  REVIEW:  'bg-orange-100 text-orange-800',
+  DELIVERED:   'bg-green-100 text-green-800',
+  CLOSED:   'bg-gray-100 text-gray-800',
   ON_HOLD:    'bg-gray-100 text-gray-800',
 };
 const STATUS_LABELS = {
-  PENDING:'Pending Review', IN_REVIEW:'In Review', APPROVED:'Scope Approved',
-  IN_PROGRESS:'Testing In Progress', REPORTING:'Report Generation',
-  COMPLETE:'Complete', ON_HOLD:'On Hold',
+  SUBMITTED:'Pending Review', REVIEWED:'In Review', SCOPED:'Scope Approved',
+  IN_PROGRESS:'In Progress', REVIEW:'Under Review',
+  DELIVERED:'Delivered', CLOSED:'Closed', ON_HOLD:'On Hold',
 };
 const SEV_CONFIG = {
   CRITICAL:{ bar:'bg-red-600',  badge:'bg-red-50 text-red-700 border-red-200',   icon: AlertTriangle },
@@ -44,7 +45,7 @@ const EMPTY_FINDING = {
   category:'', affectedUrl:'', remediation:'', evidence:''
 };
 
-function FindingForm({ assessmentId, onCreated, onClose }) {
+function FindingForm({ requestId, onCreated, onClose }) {
   const [form, setForm] = useState(EMPTY_FINDING);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -53,9 +54,9 @@ function FindingForm({ assessmentId, onCreated, onClose }) {
   const handleSubmit = async e => {
     e.preventDefault(); setSaving(true); setErr('');
     try {
-      const r = await apiCall('/api/findings', {
+      const r = await apiCall('/api/service-findings', {
         method: 'POST',
-        body: JSON.stringify({ ...form, assessmentId, cvssScore: form.cvssScore || undefined }),
+        body: JSON.stringify({ ...form, requestId, cvssScore: form.cvssScore || undefined }),
       });
       if (r.ok) { onCreated(); onClose(); }
       else { const d = await r.json(); setErr(d.error || 'Failed'); }
@@ -123,8 +124,8 @@ function FindingForm({ assessmentId, onCreated, onClose }) {
 }
 
 // ── Report upload panel (admin) ──────────────────────────────────────────────
-function ReportPanel({ assessmentId, current, onUpdated, onClose }) {
-  const [url, setUrl] = useState(current?.reportPdfUrl || '');
+function ReportPanel({ requestId, current, onUpdated, onClose }) {
+  const [url, setUrl] = useState(current?.reportUrl || '');
   const [summary, setSummary] = useState(current?.reportSummary || '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
@@ -133,9 +134,9 @@ function ReportPanel({ assessmentId, current, onUpdated, onClose }) {
   const handleSave = async e => {
     e.preventDefault(); setSaving(true); setErr('');
     try {
-      const r = await apiCall(`/api/assessments/${assessmentId}/report`, {
+      const r = await apiCall(`/api/service-requests/${requestId}/report`, {
         method: 'PUT',
-        body: JSON.stringify({ reportPdfUrl: url || undefined, reportSummary: summary || undefined }),
+        body: JSON.stringify({ reportUrl: url || undefined, reportSummary: summary || undefined }),
       });
       if (r.ok) { onUpdated(); onClose(); }
       else { const d = await r.json(); setErr(d.error || 'Failed'); }
@@ -180,7 +181,7 @@ export default function AssessmentDetail() {
   const navigate = useNavigate();
   const { apiCall, socket, user, isAdmin } = usePortal();
 
-  const [assessment, setAssessment] = useState(null);
+  const [request, setRequest] = useState(null);
   const [messages, setMessages] = useState([]);
   const [findings, setFindings] = useState([]);
   const [activeTab, setActiveTab] = useState('messages'); // 'messages' | 'findings'
@@ -201,12 +202,12 @@ export default function AssessmentDetail() {
   const typingTimerRef = useRef(null);
 
   // ── Data fetching ────────────────────────────────────────────────────────
-  const fetchAssessment = useCallback(async () => {
+  const fetchRequest = useCallback(async () => {
     try {
-      const r = await apiCall(`/api/assessments/${id}`);
+      const r = await apiCall(`/api/service-requests/${id}`);
       if (r.ok) {
         const data = await r.json();
-        setAssessment(data);
+        setRequest(data);
         setMessages(data.messages || []);
       } else navigate(isAdmin ? '/portal/admin' : '/portal/dashboard');
     } catch (e) { console.error(e); }
@@ -215,23 +216,23 @@ export default function AssessmentDetail() {
 
   const fetchFindings = useCallback(async () => {
     try {
-      const r = await apiCall(`/api/findings/assessment/${id}`);
+      const r = await apiCall(`/api/service-findings/request/${id}`);
       if (r.ok) setFindings(await r.json());
     } catch (e) { console.error(e); }
   }, [apiCall, id]);
 
-  useEffect(() => { fetchAssessment(); fetchFindings(); }, [fetchAssessment, fetchFindings]);
+  useEffect(() => { fetchRequest(); fetchFindings(); }, [fetchRequest, fetchFindings]);
 
   // ── Socket ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!socket || !id) return;
-    socket.emit('join-assessment', id);
+    socket.emit('join-request', id);
     setConnStatus('connected');
 
     const handlers = {
       'new-message':       msg  => setMessages(p => [...p, msg]),
-      'assessment-updated':data => setAssessment(p => ({ ...p, ...data })),
-      'files-uploaded':    ()   => fetchAssessment(),
+      'request-updated':   data => setRequest(p => ({ ...p, ...data })),
+      'files-uploaded':    ()   => fetchRequest(),
       'user-typing':       data => {
         setTypingUsers(p => [...p.filter(u => u.userId !== data.userId), { ...data }]);
         clearTimeout(typingTimerRef.current);
@@ -244,19 +245,19 @@ export default function AssessmentDetail() {
     };
     Object.entries(handlers).forEach(([ev, fn]) => socket.on(ev, fn));
     return () => {
-      socket.emit('leave-assessment', id);
+      socket.emit('leave-request', id);
       Object.keys(handlers).forEach(ev => socket.off(ev));
       clearTimeout(typingTimerRef.current);
     };
-  }, [socket, id, fetchAssessment]);
+  }, [socket, id, fetchRequest]);
 
   // Polling fallback
   useEffect(() => {
     if (socket || !id) return;
     setConnStatus('polling');
-    const t = setInterval(fetchAssessment, 10000);
+    const t = setInterval(fetchRequest, 10000);
     return () => clearInterval(t);
-  }, [socket, id, fetchAssessment]);
+  }, [socket, id, fetchRequest]);
 
   useEffect(() => {
     if (activeTab === 'messages') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -268,10 +269,10 @@ export default function AssessmentDetail() {
     if (!newMessage.trim() && pendingAttachments.length === 0) return;
     setIsSending(true);
     try {
-      const r = await apiCall('/api/messages', {
+      const r = await apiCall('/api/service-messages', {
         method: 'POST',
         body: JSON.stringify({
-          assessmentId: id,
+          requestId: id,
           message: newMessage.trim() || `Sent ${pendingAttachments.length} file(s)`,
           messageType: isInternal ? 'INTERNAL_NOTE' : 'TEXT',
           attachmentIds: pendingAttachments.map(a => a.id),
@@ -288,10 +289,10 @@ export default function AssessmentDetail() {
 
   const handleTyping = () => {
     if (!socket) return;
-    socket.emit('typing', { assessmentId: id, name: user.name });
+    socket.emit('typing', { requestId: id, name: user.name });
     clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() =>
-      socket.emit('stop-typing', { assessmentId: id }), 2000);
+      socket.emit('stop-typing', { requestId: id }), 2000);
   };
 
   const handleFileUpload = async e => {
@@ -301,7 +302,7 @@ export default function AssessmentDetail() {
     const fd = new FormData();
     for (const f of files) fd.append('files', f);
     try {
-      const r = await fetch(`${API_URL}/api/uploads/assessment/${id}?skipMessage=true`, {
+      const r = await fetch(`${API_URL}/api/service-uploads/request/${id}?skipMessage=true`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${localStorage.getItem('portalToken')}` },
         body: fd,
@@ -317,23 +318,23 @@ export default function AssessmentDetail() {
   const handleStatusChange = async status => {
     setShowStatusMenu(false);
     try {
-      const r = await apiCall(`/api/assessments/${id}`, {
+      const r = await apiCall(`/api/service-requests/${id}`, {
         method: 'PUT', body: JSON.stringify({ status }),
       });
-      if (r.ok) setAssessment(p => ({ ...p, status }));
+      if (r.ok) setRequest(p => ({ ...p, status }));
     } catch (e) { console.error(e); }
   };
 
   const updateFindingStatus = async (fid, status) => {
     try {
-      const r = await apiCall(`/api/findings/${fid}`, {
+      const r = await apiCall(`/api/service-findings/${fid}`, {
         method: 'PUT', body: JSON.stringify({ status }),
       });
       if (r.ok) fetchFindings();
     } catch (e) { console.error(e); }
   };
 
-  if (isLoading || !assessment) {
+  if (isLoading || !request) {
     return (
       <div className="min-h-screen bg-[#F7F5F2] flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#F2782E] border-t-transparent" />
@@ -354,10 +355,10 @@ export default function AssessmentDetail() {
     <div className="min-h-screen bg-[#F7F5F2]">
       {/* Modals */}
       {showFindingForm && (
-        <FindingForm assessmentId={id} onCreated={fetchFindings} onClose={() => setShowFindingForm(false)} />
+        <FindingForm requestId={id} onCreated={fetchFindings} onClose={() => setShowFindingForm(false)} />
       )}
       {showReportPanel && (
-        <ReportPanel assessmentId={id} current={assessment} onUpdated={fetchAssessment} onClose={() => setShowReportPanel(false)} />
+        <ReportPanel requestId={id} current={request} onUpdated={fetchRequest} onClose={() => setShowReportPanel(false)} />
       )}
 
       {/* ── Header ── */}
@@ -370,10 +371,10 @@ export default function AssessmentDetail() {
                 <ArrowLeft className="h-4 w-4" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-base font-bold text-[#0E0E0F] truncate">{assessment.title}</h1>
+                <h1 className="text-base font-bold text-[#0E0E0F] truncate">{request.title}</h1>
                 <div className="flex items-center gap-2 text-xs text-[#6B6F76]">
                   <Building2 className="h-3 w-3" />
-                  <span>{assessment.organization?.name}</span>
+                  <span>{request.organization?.name}</span>
                   <span className="flex items-center gap-1">{connIcon}
                     <span className="hidden sm:inline">{connStatus}</span>
                   </span>
@@ -381,8 +382,8 @@ export default function AssessmentDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[assessment.status]}`}>
-                {STATUS_LABELS[assessment.status]}
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[request.status]}`}>
+                {STATUS_LABELS[request.status]}
               </span>
               {isAdmin && (
                 <>
@@ -395,7 +396,7 @@ export default function AssessmentDetail() {
                       <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E8E5E0] rounded-xl shadow-lg z-20 py-1">
                         {Object.entries(STATUS_LABELS).map(([v, l]) => (
                           <button key={v} onClick={() => handleStatusChange(v)}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-[#F7F5F2] ${assessment.status === v ? 'font-bold text-[#F2782E]' : 'text-[#0E0E0F]'}`}>
+                            className={`w-full text-left px-4 py-2 text-sm hover:bg-[#F7F5F2] ${request.status === v ? 'font-bold text-[#F2782E]' : 'text-[#0E0E0F]'}`}>
                             {l}
                           </button>
                         ))}
@@ -628,9 +629,9 @@ export default function AssessmentDetail() {
           <div className="space-y-4">
             {/* Status + report link */}
             <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
-              <h3 className="text-sm font-bold text-[#0E0E0F] mb-3">Assessment</h3>
-              {assessment.reportPdfUrl && (
-                <a href={assessment.reportPdfUrl} target="_blank" rel="noopener noreferrer"
+              <h3 className="text-sm font-bold text-[#0E0E0F] mb-3">Service Request</h3>
+              {request.reportUrl && (
+                <a href={request.reportUrl} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 w-full mb-4 p-3 bg-[#F2782E]/5 border border-[#F2782E]/20 rounded-xl text-sm font-semibold text-[#F2782E] hover:bg-[#F2782E]/10 transition-colors">
                   <FileText className="h-4 w-4" /> Download PDF Report
                 </a>
@@ -639,18 +640,18 @@ export default function AssessmentDetail() {
                 className="flex items-center gap-2 w-full mb-4 p-3 bg-[#F7F5F2] border border-[#E8E5E0] rounded-xl text-sm font-semibold text-[#0E0E0F] hover:border-[#F2782E] transition-colors">
                 <Eye className="h-4 w-4 text-[#F2782E]" /> View Online Report
               </Link>
-              {assessment.reportSummary && (
+              {request.reportSummary && (
                 <div className="mb-4 p-3 bg-[#F7F5F2] rounded-xl text-sm text-[#6B6F76] leading-relaxed">
                   <p className="text-xs font-bold text-[#0E0E0F] mb-1">Executive Summary</p>
-                  <p className="whitespace-pre-wrap">{assessment.reportSummary}</p>
+                  <p className="whitespace-pre-wrap">{request.reportSummary}</p>
                 </div>
               )}
               <div className="space-y-3 text-sm">
                 {[
-                  ['Status',       STATUS_LABELS[assessment.status]],
-                  ['Testing Type', assessment.testingType?.replace(/_/g,' ')],
-                  ['Created',      new Date(assessment.createdAt).toLocaleDateString()],
-                  ['Assigned To',  assessment.assignedAdmin?.name || '—'],
+                  ['Status',       STATUS_LABELS[request.status]],
+                  ['Service Type', request.serviceType?.replace(/_/g,' ')],
+                  ['Created',      new Date(request.createdAt).toLocaleDateString()],
+                  ['Assigned To',  request.assignedAdmin?.name || '—'],
                 ].map(([label, val]) => (
                   <div key={label} className="flex justify-between">
                     <span className="text-[#6B6F76]">{label}</span>
@@ -663,15 +664,15 @@ export default function AssessmentDetail() {
             {/* Scope */}
             <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
               <h3 className="text-sm font-bold text-[#0E0E0F] mb-2">Scope</h3>
-              <p className="text-sm text-[#6B6F76] whitespace-pre-wrap leading-relaxed">{assessment.scopeDescription}</p>
+              <p className="text-sm text-[#6B6F76] whitespace-pre-wrap leading-relaxed">{request.description}</p>
             </div>
 
             {/* Target URLs */}
-            {assessment.targetUrls?.length > 0 && (
+            {request.metadata?.targetUrls?.length > 0 && (
               <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
                 <h3 className="text-sm font-bold text-[#0E0E0F] mb-3">Target URLs</h3>
                 <ul className="space-y-1.5">
-                  {assessment.targetUrls.map((url, i) => (
+                  {request.metadata.targetUrls.map((url, i) => (
                     <li key={i}>
                       <a href={url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-sm text-[#F2782E] hover:underline">
@@ -683,12 +684,24 @@ export default function AssessmentDetail() {
               </div>
             )}
 
+            {/* IP Ranges */}
+            {request.metadata?.ipRanges?.length > 0 && (
+              <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
+                <h3 className="text-sm font-bold text-[#0E0E0F] mb-3">IP Ranges</h3>
+                <ul className="space-y-1.5">
+                  {request.metadata.ipRanges.map((ip, i) => (
+                    <li key={i} className="text-sm text-[#6B6F76]">{ip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Attachments */}
-            {assessment.attachments?.length > 0 && (
+            {request.attachments?.length > 0 && (
               <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
                 <h3 className="text-sm font-bold text-[#0E0E0F] mb-3">Files</h3>
                 <ul className="space-y-1.5">
-                  {assessment.attachments.map(att => (
+                  {request.attachments.map(att => (
                     <li key={att.id}>
                       <a href={`${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-sm text-[#F2782E] hover:underline">
@@ -703,10 +716,10 @@ export default function AssessmentDetail() {
             )}
 
             {/* Special requirements */}
-            {assessment.specialReqs && (
+            {request.metadata?.specialReqs && (
               <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
                 <h3 className="text-sm font-bold text-[#0E0E0F] mb-2">Special Requirements</h3>
-                <p className="text-sm text-[#6B6F76] whitespace-pre-wrap">{assessment.specialReqs}</p>
+                <p className="text-sm text-[#6B6F76] whitespace-pre-wrap">{request.metadata.specialReqs}</p>
               </div>
             )}
           </div>

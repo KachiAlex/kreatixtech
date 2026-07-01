@@ -50,7 +50,6 @@ await tryImport('invitations',   './routes/invitations.js');
 await tryImport('uploads',       './routes/uploads.js');
 await tryImport('projects',      './routes/projects.js');
 await tryImport('requests',      './routes/requests.js');
-await tryImport('serviceUploads','./routes/service-uploads.js');
 await tryImport('authMiddleware','./middleware/auth.js');
 
 console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
@@ -76,6 +75,7 @@ const authenticateToken  = authMiddleware?.authenticateToken;
 const requireAdmin       = authMiddleware?.requireAdmin;
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
 // CORS — FRONTEND_URL can be comma-separated for multiple origins
@@ -133,6 +133,26 @@ if (serviceUploadRoutes) app.use('/api/service-uploads',   authenticateToken, se
 if (auditRoutes)         app.use('/api/audit',             authenticateToken, auditRoutes);
 if (invitationRoutes)    app.use('/api/invitations',       authenticateToken, invitationRoutes);
 
+// Log mounted routes
+console.log('Mounted API routes:');
+[
+  ['auth', authRoutes, '/api/auth'],
+  ['assessments', assessmentRoutes, '/api/assessments'],
+  ['requests', requestRoutes, '/api/requests'],
+  ['messages', messageRoutes, '/api/messages'],
+  ['notifications', notificationRoutes, '/api/notifications'],
+  ['findings', findingRoutes, '/api/findings'],
+  ['uploads', uploadRoutes, '/api/uploads'],
+  ['service-uploads', serviceUploadRoutes, '/api/service-uploads'],
+  ['projects', projectRoutes, '/api/projects'],
+  ['blog', blogRoutes, '/api/blog'],
+  ['testimonials', testimonialRoutes, '/api/testimonials'],
+  ['audit', auditRoutes, '/api/audit'],
+  ['invitations', invitationRoutes, '/api/invitations'],
+].forEach(([name, route, path]) => {
+  console.log(`  ${route ? '✅' : '❌'} ${path} (${name})`);
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
@@ -145,6 +165,17 @@ app.get('/api/debug/db', async (req, res) => {
   } catch (err) {
     res.status(500).json({ dbConnected: false, error: err.message });
   }
+});
+
+// 404 handler — returns JSON so the frontend never gets HTML parse errors
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Global error handler — returns JSON for any unhandled errors
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error', detail: err.message });
 });
 
 // Socket.io auth middleware
@@ -180,16 +211,6 @@ io.on('connection', (socket) => {
   });
 
   // Service request rooms
-  socket.on('join-request', (requestId) => {
-    socket.join(`request:${requestId}`);
-    socket.to(`request:${requestId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });
-  });
-
-  socket.on('leave-request', (requestId) => {
-    socket.leave(`request:${requestId}`);
-    socket.to(`request:${requestId}`).emit('user-left', { userId: socket.userId, timestamp: new Date() });
-  });
-
   socket.on('join-request', (requestId) => {
     socket.join(`request:${requestId}`);
     socket.to(`request:${requestId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });

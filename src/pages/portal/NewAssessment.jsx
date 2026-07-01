@@ -41,7 +41,7 @@ export default function NewAssessment() {
     };
 
     try {
-      const response = await apiCall('/api/assessments', {
+      const response = await apiCall('/api/service-requests', {
         method: 'POST',
         body: JSON.stringify(data)
       });
@@ -51,7 +51,7 @@ export default function NewAssessment() {
       if (response.ok) {
         navigate(`/portal/assessment/${result.id}`);
       } else {
-        setError(result.error || 'Failed to create assessment');
+        setError(result.error || 'Failed to create service request');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -125,9 +125,9 @@ export default function NewAssessment() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-ink">New VAPT Assessment</h1>
+          <h1 className="text-3xl font-extrabold text-ink">New Service Request</h1>
           <p className="mt-2 text-grey-dark">
-            Provide details about the scope of your security assessment
+            Provide details about your service request
           </p>
         </div>
 
@@ -313,7 +313,7 @@ export default function NewAssessment() {
               disabled={isLoading}
               className="px-6 py-3 bg-orange text-white font-medium rounded-xl hover:bg-orange-deep disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Creating...' : 'Create Assessment'}
+              {isLoading ? 'Creating...' : 'Create Request'}
             </button>
           </div>
         </form>

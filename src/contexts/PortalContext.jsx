@@ -51,7 +51,11 @@ export function PortalProvider({ children }) {
       });
 
       newSocket.on('assessment-updated', (data) => {
-        // Handle assessment updates
+        // Handle legacy assessment updates
+      });
+
+      newSocket.on('request-updated', (data) => {
+        // Handle service request updates
       });
 
       setSocket(newSocket);
