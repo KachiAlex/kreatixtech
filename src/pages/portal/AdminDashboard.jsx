@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [analysts, setAnalysts]         = useState([]);
   const [projects, setProjects]         = useState([]);
   const [isLoading, setIsLoading]       = useState(true);
+  const [error, setError]               = useState(null);
   const [filter, setFilter]             = useState('all');
   const [typeFilter, setTypeFilter]     = useState('all');
   const [search, setSearch]             = useState('');
@@ -89,8 +90,14 @@ export default function AdminDashboard() {
   const fetchStats = useCallback(async () => {
     try {
       const r = await apiCall('/api/requests/stats/summary');
-      if (r.ok) setStats(await r.json());
-    } catch (e) { console.error(e); }
+      if (r.ok) {
+        setStats(await r.json());
+        setError(null);
+      } else {
+        const data = await r.json().catch(() => ({}));
+        setError(data.error || `Stats failed: ${r.status}`);
+      }
+    } catch (e) { console.error(e); setError('Network error loading stats'); }
   }, [apiCall]);
 
   const fetchAnalysts = useCallback(async () => {
@@ -128,8 +135,12 @@ export default function AdminDashboard() {
         const data = await r.json();
         setRequests(data.requests);
         setTotalPages(data.pagination.totalPages || 1);
+        setError(null);
+      } else {
+        const data = await r.json().catch(() => ({}));
+        setError(data.error || `Requests failed: ${r.status}`);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setError('Network error loading requests'); }
     finally { setIsLoading(false); }
   }, [apiCall, filter, typeFilter, page]);
 
@@ -140,7 +151,8 @@ export default function AdminDashboard() {
         body: JSON.stringify({ adminId }),
       });
       if (r.ok) { fetchRequests(); fetchStats(); }
-    } catch (e) { console.error(e); }
+      else { const data = await r.json().catch(() => ({})); setError(data.error || 'Assignment failed'); }
+    } catch (e) { console.error(e); setError('Network error during assignment'); }
   };
 
   const handleStatusChange = async (requestId, status) => {
@@ -150,7 +162,8 @@ export default function AdminDashboard() {
         body: JSON.stringify({ status }),
       });
       if (r.ok) { fetchRequests(); fetchStats(); }
-    } catch (e) { console.error(e); }
+      else { const data = await r.json().catch(() => ({})); setError(data.error || 'Status update failed'); }
+    } catch (e) { console.error(e); setError('Network error during status update'); }
   };
 
   const filtered = requests.filter(a => {
@@ -192,6 +205,12 @@ export default function AdminDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center justify-between">
+            <span className="font-medium">{error}</span>
+            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-800 font-bold">×</button>
+          </div>
+        )}
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-[#0E0E0F]">Admin Dashboard</h1>
           <p className="mt-1 text-[#6B6F76]">Manage service requests across all disciplines</p>
