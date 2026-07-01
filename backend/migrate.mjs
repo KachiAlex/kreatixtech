@@ -1,15 +1,19 @@
-// Runs prisma db push with a timeout, then exits so the main server can start.
-// Used as a pre-start step in the Dockerfile CMD.
-import { execSync } from 'child_process';
+// Runs prisma db push then starts the actual server.
+// Used as the CMD entrypoint so schema sync happens before the app starts.
+import { execSync, spawn } from 'child_process';
 
-console.log('Running prisma db push...');
+console.log('[migrate] Running prisma db push...');
 try {
   execSync('npx prisma db push --accept-data-loss --skip-generate', {
     stdio: 'inherit',
-    timeout: 60000, // 60s max
+    timeout: 60000,
   });
-  console.log('prisma db push complete');
+  console.log('[migrate] prisma db push complete');
 } catch (e) {
-  console.warn('prisma db push failed (non-fatal):', e.message);
-  // Don't exit — let the server start anyway (tables may already exist)
+  console.warn('[migrate] prisma db push failed (non-fatal):', e.message);
+  // Continue anyway — tables likely already exist
 }
+
+console.log('[migrate] Starting server...');
+const server = spawn('node', ['start.mjs'], { stdio: 'inherit' });
+server.on('exit', code => process.exit(code ?? 0));
