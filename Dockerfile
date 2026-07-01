@@ -17,5 +17,4 @@ COPY backend/ .
 
 EXPOSE 5000
 
-# Run schema sync then start server
-CMD ["sh", "-c", "node migrate.mjs && node start.mjs"]
+CMD ["node", "start.mjs"]
