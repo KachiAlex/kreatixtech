@@ -67,9 +67,12 @@ const testimonialRoutes  = get('testimonials')?.default;
 const auditRoutes        = get('audit')?.default;
 const invitationRoutes   = get('invitations')?.default;
 const uploadRoutes       = get('uploads')?.default;
-const projectRoutes      = get('projects')?.default;
-const requestRoutes      = get('requests')?.default;
-const serviceUploadRoutes = get('serviceUploads')?.default;
+const projectRoutes         = get('projects')?.default;
+const requestRoutes         = get('requests')?.default;
+const serviceUploadRoutes   = get('serviceUploads')?.default;
+const serviceRequestRoutes  = get('serviceRequests')?.default;
+const serviceMessageRoutes  = get('serviceMessages')?.default;
+const serviceFindingRoutes  = get('serviceFindings')?.default;
 const authMiddleware     = get('authMiddleware');
 const authenticateToken  = authMiddleware?.authenticateToken;
 const requireAdmin       = authMiddleware?.requireAdmin;
@@ -128,10 +131,13 @@ if (uploadRoutes)        app.use('/api/uploads',           authenticateToken, up
 if (blogRoutes)          app.use('/api/blog',              blogRoutes);
 if (testimonialRoutes)   app.use('/api/testimonials',      testimonialRoutes);
 if (projectRoutes)       app.use('/api/projects',          projectRoutes);
-if (requestRoutes)       app.use('/api/requests',          authenticateToken, requestRoutes);
-if (serviceUploadRoutes) app.use('/api/service-uploads',   authenticateToken, serviceUploadRoutes);
-if (auditRoutes)         app.use('/api/audit',             authenticateToken, auditRoutes);
-if (invitationRoutes)    app.use('/api/invitations',       authenticateToken, invitationRoutes);
+if (requestRoutes)        app.use('/api/requests',          authenticateToken, requestRoutes);
+if (serviceUploadRoutes)  app.use('/api/service-uploads',   authenticateToken, serviceUploadRoutes);
+if (serviceRequestRoutes) app.use('/api/service-requests',  authenticateToken, serviceRequestRoutes);
+if (serviceMessageRoutes) app.use('/api/service-messages',  authenticateToken, serviceMessageRoutes);
+if (serviceFindingRoutes) app.use('/api/service-findings',  authenticateToken, serviceFindingRoutes);
+if (auditRoutes)          app.use('/api/audit',             authenticateToken, auditRoutes);
+if (invitationRoutes)     app.use('/api/invitations',       authenticateToken, invitationRoutes);
 
 // Log mounted routes
 console.log('Mounted API routes:');
@@ -139,6 +145,9 @@ console.log('Mounted API routes:');
   ['auth', authRoutes, '/api/auth'],
   ['assessments', assessmentRoutes, '/api/assessments'],
   ['requests', requestRoutes, '/api/requests'],
+  ['service-requests', serviceRequestRoutes, '/api/service-requests'],
+  ['service-messages', serviceMessageRoutes, '/api/service-messages'],
+  ['service-findings', serviceFindingRoutes, '/api/service-findings'],
   ['messages', messageRoutes, '/api/messages'],
   ['notifications', notificationRoutes, '/api/notifications'],
   ['findings', findingRoutes, '/api/findings'],
