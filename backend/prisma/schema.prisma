@@ -213,7 +213,7 @@ model ServiceRequest {
   attachments     ServiceAttachment[]
   findings        ServiceFinding[]
   milestones      Milestone[]
-  notifications   ServiceNotification[]
+  notifications   ServiceNotification[] @relation("RequestNotifications")
 
   @@map("service_requests")
 }
@@ -300,7 +300,8 @@ model ServiceNotification {
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
 
-  user      User           @relation("ServiceNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  user      User             @relation("ServiceNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  request   ServiceRequest?  @relation("RequestNotifications", fields: [requestId], references: [id], onDelete: Cascade)
 
   @@map("service_notifications")
 }
