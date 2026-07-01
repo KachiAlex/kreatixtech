@@ -78,12 +78,12 @@ export default function PortalLogin() {
             <Logo size="lg" linkTo="/" className="text-[#0E0E0F]" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-ink">
-            {isLogin ? 'Portal Login' : 'Request Assessment'}
+            {isLogin ? 'Portal Login' : 'Create an Account'}
           </h2>
           <p className="mt-2 text-sm text-grey-dark">
             {isLogin 
-              ? 'Access your security assessment dashboard' 
-              : 'Create an account to submit your scope'}
+              ? 'Access your client dashboard' 
+              : 'Register to submit service requests and track progress'}
           </p>
         </div>
 
@@ -248,7 +248,7 @@ export default function PortalLogin() {
             className="text-sm text-orange hover:text-orange-deep font-medium"
           >
             {isLogin 
-              ? "Don't have an account? Request assessment" 
+              ? "Don't have an account? Register" 
               : "Already have an account? Sign in"}
           </button>
         </div>
