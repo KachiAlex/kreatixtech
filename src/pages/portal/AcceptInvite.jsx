@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Link } from 'react-router-dom';
-import { Shield, Lock, Eye, EyeOff, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { Lock, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
+import Logo from '../../components/Logo';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -53,9 +53,9 @@ export default function AcceptInvite() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-offwhite flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg border border-border text-center">
-          <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+      <div className="min-h-screen bg-offwhite flex items-center justify-center py-8 px-4">
+        <div className="max-w-md w-full bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-border text-center">
+          <div className="flex justify-center mb-4"><Logo size="lg" linkTo="/" className="text-[#0E0E0F]" /></div>
           <h2 className="text-xl font-bold text-ink">Invalid Invitation</h2>
           <p className="mt-2 text-sm text-grey">This invitation link is missing or invalid.</p>
         </div>
@@ -64,13 +64,13 @@ export default function AcceptInvite() {
   }
 
   return (
-    <div className="min-h-screen bg-offwhite flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-border">
+    <div className="min-h-screen bg-offwhite flex items-center justify-center py-8 px-4">
+      <div className="max-w-md w-full space-y-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-border">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-orange/10 rounded-xl flex items-center justify-center">
-            <Shield className="h-6 w-6 text-orange" />
+          <div className="flex justify-center mb-4">
+            <Logo size="lg" linkTo="/" className="text-[#0E0E0F]" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-ink">Join Organization</h2>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-ink">Join Organization</h2>
           <p className="mt-2 text-sm text-grey-dark">
             Set your password to accept the invitation
           </p>

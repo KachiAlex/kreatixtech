@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Code2, Shield, Cloud, MessageSquare, AlertCircle, Plus, X, Server, ExternalLink } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
+import Logo from '../../components/Logo';
 
 // ── Service type definitions ─────────────────────────────────────────────────
 const SERVICE_TYPES = [
@@ -47,7 +48,7 @@ function MetadataFields({ serviceType, metadata, onChange }) {
     <div className="space-y-5">
       <div>
         <label className="block text-sm font-semibold text-[#0E0E0F] mb-2">Testing Type *</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[['BLACK_BOX','Black Box','No prior knowledge'],['GREY_BOX','Grey Box','Limited knowledge'],['WHITE_BOX','White Box','Full knowledge']].map(([v,l,d]) => (
             <label key={v} className={`flex flex-col p-3 border-2 rounded-xl cursor-pointer transition-colors ${metadata.testingType===v ? 'border-[#F2782E] bg-orange-50' : 'border-[#E8E5E0] hover:border-[#F2782E]/50'}`}>
               <input type="radio" name="testingType" value={v} checked={metadata.testingType===v} onChange={e=>set('testingType',e.target.value)} className="sr-only"/>
@@ -105,7 +106,7 @@ function MetadataFields({ serviceType, metadata, onChange }) {
 
   if (serviceType === 'CLOUD') return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold text-[#0E0E0F] mb-2">Current provider</label>
           <select value={metadata.currentProvider||''} onChange={e=>set('currentProvider',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#F2782E] focus:border-transparent">
@@ -222,19 +223,18 @@ export default function NewRequest() {
   return (
     <div className="min-h-screen bg-[#F7F5F2]">
       {/* Header */}
-      <div className="bg-white border-b border-[#E8E5E0]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <button onClick={() => step === 1 ? navigate(backPath) : setStep(1)} className="p-2 text-[#6B6F76] hover:text-[#0E0E0F]">
+      <div className="bg-[#0E0E0F] text-white sticky top-0 z-40 shadow">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
+          <button onClick={() => step === 1 ? navigate(backPath) : setStep(1)} className="p-2 text-white/60 hover:text-white flex-shrink-0">
             <ArrowLeft className="h-4 w-4"/>
           </button>
-          <div>
-            <h1 className="text-base font-bold text-[#0E0E0F]">{step === 1 ? 'New Service Request' : `${selectedType?.label} Request`}</h1>
-            <p className="text-xs text-[#6B6F76]">Step {step} of 2</p>
+          <Logo size="sm" linkTo={null} className="text-white" />
+          <div className="flex-1 min-w-0 ml-1">
+            <p className="text-xs text-white/50 truncate">{step === 1 ? 'New Service Request' : selectedType?.label}</p>
           </div>
-          {/* Progress */}
-          <div className="flex-1 flex gap-2 ml-4">
+          <div className="flex gap-1.5 flex-shrink-0">
             {[1,2].map(s => (
-              <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= step ? 'bg-[#F2782E]' : 'bg-[#E8E5E0]'}`}/>
+              <div key={s} className={`h-1.5 w-8 rounded-full transition-colors ${s <= step ? 'bg-[#F2782E]' : 'bg-white/20'}`}/>
             ))}
           </div>
         </div>
@@ -303,7 +303,7 @@ export default function NewRequest() {
                     className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
                     placeholder="Describe what you need, the systems or context involved, and any constraints…"/>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-[#0E0E0F] mb-1.5">Budget range <span className="text-[#6B6F76] font-normal">(optional)</span></label>
                     <input value={form.budget} onChange={e=>setForm(f=>({...f,budget:e.target.value}))}

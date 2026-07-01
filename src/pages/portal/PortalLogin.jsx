@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, Mail, Lock, Eye, EyeOff, Building2, User } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Building2, User } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
+import Logo from '../../components/Logo';
 
 export default function PortalLogin() {
   const [isLogin, setIsLogin] = useState(true);
@@ -70,14 +71,14 @@ export default function PortalLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-offwhite flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-lg border border-border">
+    <div className="min-h-screen bg-offwhite flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-border">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-orange/10 rounded-xl flex items-center justify-center">
-            <Shield className="h-6 w-6 text-orange" />
+          <div className="flex justify-center mb-4">
+            <Logo size="lg" linkTo="/" className="text-[#0E0E0F]" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-ink">
-            {isLogin ? 'VAPT Portal Login' : 'Request VAPT Assessment'}
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-ink">
+            {isLogin ? 'Portal Login' : 'Request Assessment'}
           </h2>
           <p className="mt-2 text-sm text-grey-dark">
             {isLogin 
@@ -92,7 +93,7 @@ export default function PortalLogin() {
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-4 space-y-5" onSubmit={handleSubmit}>
           {!isLogin && (
             <>
               <div>
@@ -137,7 +138,7 @@ export default function PortalLogin() {
                 <label htmlFor="subdomain" className="block text-sm font-medium text-ink">
                   Portal Subdomain
                 </label>
-                <div className="mt-1 relative">
+                <div className="mt-1">
                   <input
                     id="subdomain"
                     name="subdomain"
@@ -148,9 +149,7 @@ export default function PortalLogin() {
                     className="appearance-none block w-full px-3 py-3 border border-border rounded-xl placeholder-grey focus:outline-none focus:ring-2 focus:ring-orange focus:border-transparent"
                     placeholder="your-company"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-grey text-sm">
-                    .portal.kreatixtech.com
-                  </span>
+                  <p className="mt-1 text-xs text-grey">{formData.subdomain || 'your-company'}.portal.kreatixtech.com</p>
                 </div>
                 <p className="mt-1 text-xs text-grey">
                   Lowercase letters, numbers, and hyphens only

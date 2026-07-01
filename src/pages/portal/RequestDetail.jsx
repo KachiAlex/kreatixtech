@@ -7,6 +7,7 @@ import {
   AlertTriangle, AlertCircle, Info, Eye, Star
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
+import Logo from '../../components/Logo';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -132,7 +133,7 @@ function FindingForm({ requestId, onCreated, onClose }) {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {err && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{err}</div>}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2"><label className="block text-sm font-semibold mb-1">Title *</label><input required value={form.title} onChange={e=>f('title',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"/></div>
             <div><label className="block text-sm font-semibold mb-1">Severity *</label><select required value={form.severity} onChange={e=>f('severity',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#F2782E] focus:border-transparent">{['CRITICAL','HIGH','MEDIUM','LOW','INFO'].map(s=><option key={s}>{s}</option>)}</select></div>
             <div><label className="block text-sm font-semibold mb-1">CVSS Score</label><input type="number" min="0" max="10" step="0.1" value={form.cvssScore} onChange={e=>f('cvssScore',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="0.0–10.0"/></div>
@@ -337,26 +338,24 @@ export default function RequestDetail() {
       {showReportPanel && <ReportPanel requestId={id} current={request} onUpdated={fetchRequest} onClose={()=>setShowReportPanel(false)}/>}
 
       {/* Header */}
-      <div className="bg-white border-b border-[#E8E5E0] sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <button onClick={()=>navigate(isAdmin?'/portal/admin':'/portal/dashboard')} className="p-2 text-[#6B6F76] hover:text-[#0E0E0F] flex-shrink-0"><ArrowLeft className="h-4 w-4"/></button>
-              <div className={`p-2 rounded-xl flex-shrink-0 ${SERVICE_COLORS[request.serviceType]}`}><ServiceIcon className="h-4 w-4"/></div>
-              <div className="min-w-0">
-                <h1 className="text-base font-bold text-[#0E0E0F] truncate">{request.title}</h1>
-                <div className="flex items-center gap-2 text-xs text-[#6B6F76]">
-                  <span>{request.organization?.name}</span>
-                  <span>·</span><span>{connIcon}</span>
-                </div>
+      <div className="bg-[#0E0E0F] text-white sticky top-0 z-40 shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="h-14 flex items-center gap-3">
+            <button onClick={()=>navigate(isAdmin?'/portal/admin':'/portal/dashboard')} className="p-2 text-white/60 hover:text-white flex-shrink-0"><ArrowLeft className="h-4 w-4"/></button>
+            <Logo size="sm" linkTo={null} className="text-white flex-shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm font-bold text-white truncate">{request.title}</h1>
+              <div className="flex items-center gap-1.5 text-xs text-white/50">
+                <span className="truncate max-w-[120px]">{request.organization?.name}</span>
+                <span>·</span><span>{connIcon}</span>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[request.status]}`}>{STATUS_LABELS[request.status]}</span>
+              <span className={`hidden sm:inline text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[request.status]}`}>{STATUS_LABELS[request.status]}</span>
               {isAdmin && (
                 <>
                   <div className="relative">
-                    <button onClick={()=>setShowStatusMenu(v=>!v)} className="px-3 py-1.5 text-xs font-semibold border border-[#E8E5E0] rounded-xl hover:border-[#0E0E0F] text-[#6B6F76] transition-colors">Status ▾</button>
+                    <button onClick={()=>setShowStatusMenu(v=>!v)} className="px-2.5 py-1.5 text-xs font-semibold border border-white/20 rounded-xl hover:border-white/60 text-white/70 transition-colors">Status ▾</button>
                     {showStatusMenu && (
                       <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E8E5E0] rounded-xl shadow-lg z-20 py-1">
                         {Object.entries(STATUS_LABELS).map(([v,l])=>(
@@ -365,7 +364,7 @@ export default function RequestDetail() {
                       </div>
                     )}
                   </div>
-                  <button onClick={()=>setShowReportPanel(true)} className="px-3 py-1.5 text-xs font-semibold bg-[#0E0E0F] text-white rounded-xl hover:bg-[#F2782E] transition-colors">Deliver</button>
+                  <button onClick={()=>setShowReportPanel(true)} className="px-2.5 py-1.5 text-xs font-semibold bg-[#F2782E] text-white rounded-xl hover:bg-[#D9601A] transition-colors">Deliver</button>
                 </>
               )}
             </div>
@@ -392,7 +391,7 @@ export default function RequestDetail() {
 
             {/* Messages */}
             {activeTab==='messages' && (
-              <div className="bg-white border border-[#E8E5E0] border-t-0 rounded-b-xl flex flex-col" style={{height:'calc(100vh - 260px)'}}>
+              <div className="bg-white border border-[#E8E5E0] border-t-0 rounded-b-xl flex flex-col" style={{height:'min(calc(100vh - 220px), 600px)', minHeight:'320px'}}>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages.length===0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-[#6B6F76]"><Shield className="h-10 w-10 mb-3 opacity-30"/><p className="text-sm">No messages yet. Start the conversation.</p></div>

@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
-  Image, Globe, X, Save, Mail, Star
+  Image, Globe, X, Save, Mail, Star, Menu
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
-import { useRef } from 'react';
+import Logo from '../../components/Logo';
 
 const STATUS_COLORS = {
   SUBMITTED:    'bg-yellow-100 text-yellow-800',
@@ -193,22 +193,18 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-[#F7F5F2]">
       {/* ── Nav ── */}
       <nav className="bg-[#0E0E0F] text-white sticky top-0 z-50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#F2782E] flex items-center justify-center">
-              <Shield className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold">Kreatix VAPT Admin</span>
-          </div>
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+          <Logo size="md" linkTo="/portal/admin" className="text-white" />
+          <span className="hidden sm:block text-xs font-semibold text-white/40 uppercase tracking-widest">Admin</span>
+          <div className="flex items-center gap-2 ml-auto">
             <NotificationBell />
-            <div className="flex items-center gap-2 pl-4 border-l border-white/10">
-              <span className="text-sm text-gray-400">{user?.name}</span>
+            <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-white/10">
+              <span className="text-sm text-gray-400 max-w-[120px] truncate">{user?.name}</span>
               <span className="px-2 py-0.5 bg-[#F2782E] text-white text-xs font-bold rounded-full">{user?.role}</span>
-              <button onClick={() => { logout(); navigate('/portal/login'); }} className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Logout">
-                <LogOut className="h-4 w-4" />
-              </button>
             </div>
+            <button onClick={() => { logout(); navigate('/portal/login'); }} className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Logout">
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </nav>
@@ -247,7 +243,7 @@ export default function AdminDashboard() {
         )}
 
         {/* ── Section tabs ── */}
-        <div className="flex gap-1 mb-6 border-b border-[#E8E5E0]">
+        <div className="flex gap-1 mb-6 border-b border-[#E8E5E0] overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
           {[['requests','Service Requests'],['companies','Companies'],['projects','Portfolio Projects']].map(([key,label]) => (
             <button key={key} onClick={() => setActiveSection(key)}
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeSection === key ? 'border-[#F2782E] text-[#F2782E]' : 'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>

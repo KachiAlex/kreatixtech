@@ -6,6 +6,7 @@ import {
   Shield, Code2, Cloud
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
+import Logo from '../../components/Logo';
 
 const SERVICE_ICONS = { SOFTWARE_DEV: Code2, CYBERSECURITY: Shield, CLOUD: Cloud, CONSULTING: MessageSquare };
 const SERVICE_LABELS = { SOFTWARE_DEV: 'Software Dev', CYBERSECURITY: 'Cybersecurity', CLOUD: 'Cloud', CONSULTING: 'Consulting' };
@@ -89,24 +90,18 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-offwhite">
-      <nav className="bg-white border-b border-border sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <Building2 className="h-8 w-8 text-orange" />
-              <span className="ml-2 text-xl font-bold text-ink">
-                {user?.organization?.name || 'VAPT Portal'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <NotifBell />
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-grey-dark">{user?.name}</span>
-                <button onClick={handleLogout} className="p-2 text-grey hover:text-red-600">
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+      <nav className="bg-[#0E0E0F] text-white sticky top-0 z-50 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+          <Logo size="md" linkTo="/portal/dashboard" className="text-white" />
+          <span className="hidden sm:block text-sm font-semibold text-white/60 truncate max-w-[160px]">
+            {user?.organization?.name}
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <NotifBell />
+            <span className="hidden sm:block text-sm text-gray-400 max-w-[120px] truncate">{user?.name}</span>
+            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Logout">
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </nav>
