@@ -2,6 +2,19 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { requireAdmin, authenticateToken } from '../middleware/auth.js';
+import { cloudinary } from '../config/cloudinary.js';
+import multer from 'multer';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+
+const imageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: 'kreatix-portfolio',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ width: 1200, height: 630, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+  },
+});
+const imageUpload = multer({ storage: imageStorage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
 
@@ -34,6 +47,40 @@ router.get('/:id', [param('id').isUUID()], async (req, res) => {
     res.json(project);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch project' });
+  }
+});
+
+// ── Admin: upload preview image ─────────────────────────────────────────────
+router.post('/upload-image', authenticateToken, requireAdmin, imageUpload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+    res.json({ url: req.file.path });
+  } catch (err) {
+    console.error('Image upload error:', err);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+// ── Admin: fetch OG image from a URL ─────────────────────────────────────────
+router.post('/fetch-og', authenticateToken, requireAdmin, [
+  body('url').isURL(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ error: 'Invalid URL' });
+  try {
+    const response = await fetch(req.body.url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KreatixBot/1.0)' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return res.status(422).json({ error: 'Could not fetch the page' });
+    const html = await response.text();
+    const match =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (!match) return res.status(404).json({ error: 'No OG image found on that page' });
+    res.json({ url: match[1] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch OG image' });
   }
 });
 

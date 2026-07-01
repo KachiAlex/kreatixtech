@@ -797,6 +797,10 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
     : EMPTY_PROJECT);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
+  const [ogFetching, setOgFetching] = useState(false);
+  const [imageMsg, setImageMsg] = useState('');
+  const imageInputRef = React.useRef(null);
   const isEdit = !!initial?.id;
 
   const handleSubmit = async e => {
@@ -854,11 +858,76 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
               <input type="url" value={form.liveUrl} onChange={e=>f('liveUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://…"/>
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-semibold mb-1 flex items-center gap-1"><Image className="h-3.5 w-3.5"/> Preview Image URL</label>
-              <input type="url" value={form.previewUrl} onChange={e=>f('previewUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://… (screenshot or cover image)"/>
-              <p className="text-xs text-[#6B6F76] mt-1">Paste a direct image URL — this will show as the project preview on the homepage.</p>
-              {form.previewUrl && (
-                <img src={form.previewUrl} alt="preview" className="mt-2 h-24 w-full object-cover object-top rounded-lg border border-[#E8E5E0]" onError={e=>e.target.style.display='none'}/>
+              <label className="block text-sm font-semibold mb-1 flex items-center gap-1"><Image className="h-3.5 w-3.5"/> Preview Image</label>
+
+              {/* File picker */}
+              <div className="flex gap-2 mb-2">
+                <button type="button" onClick={() => imageInputRef.current?.click()}
+                  disabled={imageUploading}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-[#E8E5E0] rounded-xl text-sm text-[#0E0E0F] hover:border-[#F2782E] hover:text-[#F2782E] disabled:opacity-50 transition-colors">
+                  {imageUploading
+                    ? <><RefreshCw className="h-3.5 w-3.5 animate-spin"/> Uploading…</>
+                    : <><Image className="h-3.5 w-3.5"/> Upload Image</>}
+                </button>
+                {form.liveUrl && (
+                  <button type="button" onClick={async () => {
+                    setOgFetching(true); setImageMsg('');
+                    try {
+                      const r = await apiCall('/api/projects/fetch-og', { method: 'POST', body: JSON.stringify({ url: form.liveUrl }) });
+                      const d = await r.json();
+                      if (r.ok) { f('previewUrl', d.url); setImageMsg('OG image found ✓'); }
+                      else setImageMsg(d.error || 'No OG image found');
+                    } catch { setImageMsg('Could not fetch OG image'); }
+                    finally { setOgFetching(false); }
+                  }} disabled={ogFetching}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-[#E8E5E0] rounded-xl text-sm text-[#6B6F76] hover:border-[#F2782E] hover:text-[#F2782E] disabled:opacity-50 transition-colors">
+                  {ogFetching ? <><RefreshCw className="h-3.5 w-3.5 animate-spin"/> Fetching…</> : <>✨ Auto-fetch from Live URL</>}
+                </button>
+                )}
+              </div>
+              <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
+                onChange={async e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setImageUploading(true); setImageMsg('');
+                  try {
+                    const fd = new FormData();
+                    fd.append('image', file);
+                    const token = localStorage.getItem('portalToken');
+                    const API_BASE = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+                    const r = await fetch(`${API_BASE}/api/projects/upload-image`, {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${token}` },
+                      body: fd,
+                    });
+                    const d = await r.json();
+                    if (r.ok) { f('previewUrl', d.url); setImageMsg('Image uploaded ✓'); }
+                    else setImageMsg(d.error || 'Upload failed');
+                  } catch { setImageMsg('Upload failed'); }
+                  finally { setImageUploading(false); e.target.value = ''; }
+                }}
+              />
+
+              {imageMsg && (
+                <p className={`text-xs mt-1 ${imageMsg.includes('✓') ? 'text-green-600' : 'text-red-500'}`}>{imageMsg}</p>
+              )}
+
+              {form.previewUrl ? (
+                <div className="mt-2 relative group">
+                  <img src={form.previewUrl} alt="preview"
+                    className="h-32 w-full object-cover object-top rounded-xl border border-[#E8E5E0]"
+                    onError={e => e.target.parentElement.style.display='none'}/>
+                  <button type="button" onClick={() => { f('previewUrl', ''); setImageMsg(''); }}
+                    className="absolute top-2 right-2 p-1 bg-white rounded-lg shadow text-[#6B6F76] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="h-3.5 w-3.5"/>
+                  </button>
+                </div>
+              ) : (
+                <div onClick={() => imageInputRef.current?.click()}
+                  className="mt-2 h-24 border-2 border-dashed border-[#E8E5E0] rounded-xl flex flex-col items-center justify-center gap-1 text-[#6B6F76] hover:border-[#F2782E] hover:text-[#F2782E] cursor-pointer transition-colors">
+                  <Image className="h-5 w-5"/>
+                  <span className="text-xs">Click to upload or drag an image here</span>
+                </div>
               )}
             </div>
             <div className="flex items-center gap-4">
