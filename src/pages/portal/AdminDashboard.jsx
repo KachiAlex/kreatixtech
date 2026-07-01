@@ -9,44 +9,63 @@ import {
 import { usePortal } from '../../contexts/PortalContext';
 
 const STATUS_COLORS = {
-  PENDING:    'bg-yellow-100 text-yellow-800',
-  IN_REVIEW:  'bg-blue-100 text-blue-800',
-  APPROVED:   'bg-emerald-100 text-emerald-800',
+  SUBMITTED:    'bg-yellow-100 text-yellow-800',
+  REVIEWED:  'bg-blue-100 text-blue-800',
+  SCOPED:   'bg-emerald-100 text-emerald-800',
   IN_PROGRESS:'bg-purple-100 text-purple-800',
-  REPORTING:  'bg-orange-100 text-orange-800',
-  COMPLETE:   'bg-green-100 text-green-800',
+  REVIEW:  'bg-orange-100 text-orange-800',
+  DELIVERED:   'bg-green-100 text-green-800',
+  CLOSED:   'bg-gray-100 text-gray-800',
   ON_HOLD:    'bg-gray-100 text-gray-800',
 };
 
 const STATUS_LABELS = {
-  PENDING:    'Pending',
-  IN_REVIEW:  'In Review',
-  APPROVED:   'Approved',
+  SUBMITTED:    'Pending',
+  REVIEWED:  'In Review',
+  SCOPED:   'Approved',
   IN_PROGRESS:'In Progress',
-  REPORTING:  'Reporting',
-  COMPLETE:   'Complete',
+  REVIEW:  'Review',
+  DELIVERED:   'Delivered',
+  CLOSED:   'Closed',
   ON_HOLD:    'On Hold',
 };
 
 const FILTER_OPTIONS = [
-  { value: 'all',        label: 'All Status' },
-  { value: 'PENDING',    label: 'Pending' },
-  { value: 'IN_REVIEW',  label: 'In Review' },
-  { value: 'APPROVED',   label: 'Approved' },
-  { value: 'IN_PROGRESS',label: 'In Progress' },
-  { value: 'REPORTING',  label: 'Reporting' },
-  { value: 'COMPLETE',   label: 'Complete' },
-  { value: 'ON_HOLD',    label: 'On Hold' },
+  { value: 'all',         label: 'All Status' },
+  { value: 'SUBMITTED',   label: 'Submitted' },
+  { value: 'REVIEWED',    label: 'In Review' },
+  { value: 'SCOPED',      label: 'Scoped' },
+  { value: 'IN_PROGRESS', label: 'In Progress' },
+  { value: 'REVIEW',      label: 'Ready for Review' },
+  { value: 'DELIVERED',   label: 'Delivered' },
+  { value: 'CLOSED',      label: 'Closed' },
+  { value: 'ON_HOLD',     label: 'On Hold' },
 ];
 
+const TYPE_OPTIONS = [
+  { value: 'all',           label: 'All Services' },
+  { value: 'SOFTWARE_DEV',  label: 'Software Dev' },
+  { value: 'CYBERSECURITY', label: 'Cybersecurity' },
+  { value: 'CLOUD',         label: 'Cloud' },
+  { value: 'CONSULTING',    label: 'Consulting' },
+];
+
+const SERVICE_COLORS = {
+  SOFTWARE_DEV: 'bg-blue-100 text-blue-700',
+  CYBERSECURITY: 'bg-orange-100 text-[#F2782E]',
+  CLOUD: 'bg-purple-100 text-purple-700',
+  CONSULTING: 'bg-green-100 text-green-700',
+};
+
 export default function AdminDashboard() {
-  const [activeSection, setActiveSection]   = useState('assessments'); // 'assessments' | 'projects'
-  const [assessments, setAssessments]   = useState([]);
+  const [activeSection, setActiveSection]   = useState('requests'); // 'requests' | 'projects'
+  const [requests, setRequests]   = useState([]);
   const [stats, setStats]               = useState(null);
   const [analysts, setAnalysts]         = useState([]);
   const [projects, setProjects]         = useState([]);
   const [isLoading, setIsLoading]       = useState(true);
   const [filter, setFilter]             = useState('all');
+  const [typeFilter, setTypeFilter]     = useState('all');
   const [search, setSearch]             = useState('');
   const [page, setPage]                 = useState(1);
   const [totalPages, setTotalPages]     = useState(1);
@@ -64,12 +83,12 @@ export default function AdminDashboard() {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (isAdmin) fetchAssessments();
-  }, [filter, page, isAdmin]);
+    if (isAdmin) fetchRequests();
+  }, [filter, typeFilter, page, isAdmin]);
 
   const fetchStats = useCallback(async () => {
     try {
-      const r = await apiCall('/api/assessments/stats/summary');
+      const r = await apiCall('/api/requests/stats/summary');
       if (r.ok) setStats(await r.json());
     } catch (e) { console.error(e); }
   }, [apiCall]);
@@ -99,41 +118,42 @@ export default function AdminDashboard() {
     } catch (e) { console.error(e); }
   };
 
-  const fetchAssessments = useCallback(async () => {
+  const fetchRequests = useCallback(async () => {
     setIsLoading(true);
     try {
       const statusParam = filter !== 'all' ? `&status=${filter}` : '';
-      const r = await apiCall(`/api/assessments?page=${page}&limit=15${statusParam}`);
+      const typeParam = typeFilter !== 'all' ? `&serviceType=${typeFilter}` : '';
+      const r = await apiCall(`/api/requests?page=${page}&limit=15${statusParam}${typeParam}`);
       if (r.ok) {
         const data = await r.json();
-        setAssessments(data.assessments);
+        setRequests(data.requests);
         setTotalPages(data.pagination.totalPages || 1);
       }
     } catch (e) { console.error(e); }
     finally { setIsLoading(false); }
-  }, [apiCall, filter, page]);
+  }, [apiCall, filter, typeFilter, page]);
 
-  const handleAssign = async (assessmentId, adminId) => {
+  const handleAssign = async (requestId, adminId) => {
     try {
-      const r = await apiCall(`/api/assessments/${assessmentId}/assign`, {
+      const r = await apiCall(`/api/requests/${requestId}/assign`, {
         method: 'POST',
         body: JSON.stringify({ adminId }),
       });
-      if (r.ok) { fetchAssessments(); fetchStats(); }
+      if (r.ok) { fetchRequests(); fetchStats(); }
     } catch (e) { console.error(e); }
   };
 
-  const handleStatusChange = async (assessmentId, status) => {
+  const handleStatusChange = async (requestId, status) => {
     try {
-      const r = await apiCall(`/api/assessments/${assessmentId}`, {
+      const r = await apiCall(`/api/requests/${requestId}`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
       });
-      if (r.ok) { fetchAssessments(); fetchStats(); }
+      if (r.ok) { fetchRequests(); fetchStats(); }
     } catch (e) { console.error(e); }
   };
 
-  const filtered = assessments.filter(a => {
+  const filtered = requests.filter(a => {
     const q = search.toLowerCase();
     return !q || a.title.toLowerCase().includes(q) || a.organization?.name.toLowerCase().includes(q);
   });
@@ -174,24 +194,24 @@ export default function AdminDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-[#0E0E0F]">Admin Dashboard</h1>
-          <p className="mt-1 text-[#6B6F76]">Manage VAPT assessments and client communications</p>
+          <p className="mt-1 text-[#6B6F76]">Manage service requests across all disciplines</p>
         </div>
 
         {/* ── Stats ── */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             {[
-              { label: 'Total',       value: stats.total,      icon: FileText,    bg: 'bg-blue-50',   ic: 'text-blue-600' },
-              { label: 'Pending',     value: stats.pending,    icon: Clock,       bg: 'bg-yellow-50', ic: 'text-yellow-600' },
-              { label: 'In Progress', value: stats.inProgress + stats.inReview + stats.approved + stats.reporting, icon: TrendingUp, bg: 'bg-purple-50', ic: 'text-purple-600' },
-              { label: 'Complete',    value: stats.complete,   icon: CheckCircle, bg: 'bg-green-50',  ic: 'text-green-600' },
-              { label: 'Clients',     value: stats.clients,    icon: Users,       bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
+              { label: 'Total',       value: stats.total,                                       icon: FileText,    bg: 'bg-blue-50',   ic: 'text-blue-600' },
+              { label: 'New',         value: stats.statuses?.SUBMITTED || 0,                    icon: Clock,       bg: 'bg-yellow-50', ic: 'text-yellow-600' },
+              { label: 'In Progress', value: (stats.statuses?.IN_PROGRESS||0)+(stats.statuses?.SCOPED||0)+(stats.statuses?.REVIEWED||0), icon: TrendingUp, bg: 'bg-purple-50', ic: 'text-purple-600' },
+              { label: 'Delivered',   value: (stats.statuses?.DELIVERED||0)+(stats.statuses?.CLOSED||0), icon: CheckCircle, bg: 'bg-green-50', ic: 'text-green-600' },
+              { label: 'Clients',     value: stats.clients,                                     icon: Users,       bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
             ].map(s => (
               <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-5">
                 <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center mb-3`}>
                   <s.icon className={`h-5 w-5 ${s.ic}`} />
                 </div>
-                <p className="text-2xl font-bold text-[#0E0E0F]">{s.value}</p>
+                <p className="text-2xl font-bold text-[#0E0E0F]">{s.value ?? 0}</p>
                 <p className="text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
               </div>
             ))}
@@ -200,7 +220,7 @@ export default function AdminDashboard() {
 
         {/* ── Section tabs ── */}
         <div className="flex gap-1 mb-6 border-b border-[#E8E5E0]">
-          {[['assessments','Assessments'],['projects','Portfolio Projects']].map(([key,label]) => (
+          {[['requests','Service Requests'],['projects','Portfolio Projects']].map(([key,label]) => (
             <button key={key} onClick={() => setActiveSection(key)}
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeSection === key ? 'border-[#F2782E] text-[#F2782E]' : 'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>
               {label}
@@ -208,10 +228,10 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
-        <div className={activeSection === 'assessments' ? 'block' : 'hidden'}>
+        <div className={activeSection === 'requests' ? 'block' : 'hidden'}>
         <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
           <div className="p-5 border-b border-[#E8E5E0] flex flex-col sm:flex-row sm:items-center gap-4">
-            <h2 className="text-lg font-bold text-[#0E0E0F] flex-1">All Assessments</h2>
+            <h2 className="text-lg font-bold text-[#0E0E0F] flex-1">All Requests</h2>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
@@ -231,7 +251,16 @@ export default function AdminDashboard() {
                   {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
-              <button onClick={() => { fetchAssessments(); fetchStats(); }} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] hover:border-[#0E0E0F] transition-colors" title="Refresh">
+              <div className="relative">
+                <select
+                  value={typeFilter}
+                  onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
+                  className="px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm bg-white appearance-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                >
+                  {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <button onClick={() => { fetchRequests(); fetchStats(); }} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] hover:border-[#0E0E0F] transition-colors" title="Refresh">
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>
@@ -244,13 +273,13 @@ export default function AdminDashboard() {
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
               <AlertCircle className="h-10 w-10 text-[#6B6F76] mx-auto mb-3" />
-              <p className="text-[#6B6F76]">{search ? 'No results for that search' : 'No assessments match this filter'}</p>
+              <p className="text-[#6B6F76]">{search ? 'No results for that search' : 'No requests match this filter'}</p>
             </div>
           ) : (
             <div className="divide-y divide-[#E8E5E0]">
               {filtered.map(a => (
-                <AssessmentRow
-                  key={a.id} assessment={a}
+                <RequestRow
+                  key={a.id} request={a}
                   analysts={analysts}
                   onAssign={handleAssign}
                   onStatusChange={handleStatusChange}
@@ -276,7 +305,7 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
-        </div>{/* end assessments section */}
+        </div>{/* end requests section */}
 
         {/* ── Projects section ── */}
         {activeSection === 'projects' && (
@@ -292,8 +321,8 @@ export default function AdminDashboard() {
   );
 }
 
-// ── Assessment row with inline assign + status controls ─────────────────────
-function AssessmentRow({ assessment: a, analysts, onAssign, onStatusChange }) {
+// ── Request row with inline assign + status controls ─────────────────────
+function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -302,7 +331,10 @@ function AssessmentRow({ assessment: a, analysts, onAssign, onStatusChange }) {
         {/* Left: info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <Link to={`/portal/assessment/${a.id}`} className="text-base font-semibold text-[#0E0E0F] hover:text-[#F2782E] transition-colors">
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SERVICE_COLORS[a.serviceType] || 'bg-gray-100 text-gray-700'}`}>
+              {a.serviceType?.replace('_',' ')}
+            </span>
+            <Link to={`/portal/request/${a.id}`} className="text-base font-semibold text-[#0E0E0F] hover:text-[#F2782E] transition-colors">
               {a.title}
             </Link>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[a.status]}`}>
@@ -344,7 +376,7 @@ function AssessmentRow({ assessment: a, analysts, onAssign, onStatusChange }) {
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Link to={`/portal/assessment/${a.id}`}
+          <Link to={`/portal/request/${a.id}`}
             className="px-3 py-1.5 text-xs font-semibold bg-[#0E0E0F] text-white rounded-lg hover:bg-[#F2782E] transition-colors">
             Open
           </Link>

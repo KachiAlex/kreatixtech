@@ -18,6 +18,7 @@ model Organization {
 
   users        User[]
   assessments  VaptAssessment[]
+  serviceRequests ServiceRequest[]
   invitations  Invitation[]
 
   @@map("organizations")
@@ -38,7 +39,10 @@ model User {
   organization    Organization      @relation(fields: [orgId], references: [id])
   sentMessages    Message[]         @relation("SentMessages")
   assessments     VaptAssessment[]  @relation("AssignedAssessments")
+  assignedRequests ServiceRequest[] @relation("AssignedRequests")
+  sentServiceMessages ServiceMessage[] @relation("SentServiceMessages")
   notifications   Notification[]
+  serviceNotifications ServiceNotification[] @relation("ServiceNotifications")
   auditLogs       AuditLog[]
   sentInvitations Invitation[]      @relation("SentInvitations")
 
@@ -159,6 +163,146 @@ enum NotificationType {
   FILE_UPLOAD
   ASSESSMENT_ASSIGNED
   ASSESSMENT_CREATED
+}
+
+// ─── Service Requests (all services) ────────────────────────────────────────
+
+enum ServiceType {
+  SOFTWARE_DEV
+  CYBERSECURITY
+  CLOUD
+  CONSULTING
+}
+
+enum RequestStatus {
+  SUBMITTED
+  REVIEWED
+  SCOPED
+  IN_PROGRESS
+  REVIEW
+  DELIVERED
+  CLOSED
+  ON_HOLD
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETE
+}
+
+model ServiceRequest {
+  id              String        @id @default(uuid())
+  orgId           String
+  serviceType     ServiceType
+  title           String
+  description     String
+  metadata        Json          @default("{}")
+  status          RequestStatus @default(SUBMITTED)
+  assignedAdminId String?
+  reportUrl       String?
+  reportSummary   String?
+  budget          String?
+  deadline        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization    Organization  @relation(fields: [orgId], references: [id])
+  assignedAdmin   User?         @relation("AssignedRequests", fields: [assignedAdminId], references: [id])
+  messages        ServiceMessage[]
+  attachments     ServiceAttachment[]
+  findings        ServiceFinding[]
+  milestones      Milestone[]
+  notifications   ServiceNotification[]
+
+  @@map("service_requests")
+}
+
+model ServiceMessage {
+  id          String      @id @default(uuid())
+  requestId   String
+  senderId    String
+  message     String
+  messageType MessageType @default(TEXT)
+  createdAt   DateTime    @default(now())
+
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sender      User           @relation("SentServiceMessages", fields: [senderId], references: [id])
+  attachments ServiceAttachment[]
+
+  @@map("service_messages")
+}
+
+model ServiceAttachment {
+  id              String          @id @default(uuid())
+  requestId       String?
+  messageId       String?
+  fileUrl         String
+  fileName        String
+  fileSize        Int
+  mimeType        String
+  uploadedBy      String
+  storageProvider StorageProvider @default(LOCAL)
+  createdAt       DateTime        @default(now())
+
+  request         ServiceRequest?  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  message         ServiceMessage?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("service_attachments")
+}
+
+model ServiceFinding {
+  id           String        @id @default(uuid())
+  requestId    String
+  title        String
+  description  String
+  severity     Severity
+  cvssScore    Float?
+  category     String
+  affectedUrl  String?
+  remediation  String
+  evidence     String?
+  status       FindingStatus @default(OPEN)
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  request      ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("service_findings")
+}
+
+model Milestone {
+  id          String          @id @default(uuid())
+  requestId   String
+  title       String
+  description String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  status      MilestoneStatus @default(PENDING)
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
+}
+
+model ServiceNotification {
+  id        String           @id @default(uuid())
+  userId    String
+  requestId String?
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User           @relation("ServiceNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("service_notifications")
 }
 
 // ─── VAPT Report Findings ───

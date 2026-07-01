@@ -35,6 +35,10 @@ const tryImport = async (name, path) => {
 
 await tryImport('auth',          './routes/auth.js');
 await tryImport('assessments',   './routes/assessments.js');
+await tryImport('serviceRequests','./routes/service-requests.js');
+await tryImport('serviceMessages','./routes/service-messages.js');
+await tryImport('serviceFindings','./routes/service-findings.js');
+await tryImport('serviceUploads', './routes/service-uploads.js');
 await tryImport('messages',      './routes/messages.js');
 await tryImport('notifications', './routes/notifications.js');
 await tryImport('contact',       './routes/contact.js');
@@ -45,6 +49,8 @@ await tryImport('audit',         './routes/audit.js');
 await tryImport('invitations',   './routes/invitations.js');
 await tryImport('uploads',       './routes/uploads.js');
 await tryImport('projects',      './routes/projects.js');
+await tryImport('requests',      './routes/requests.js');
+await tryImport('serviceUploads','./routes/service-uploads.js');
 await tryImport('authMiddleware','./middleware/auth.js');
 
 console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
@@ -53,6 +59,10 @@ const get = (name) => routeImports.find(r => r.name === name)?.module;
 
 const authRoutes        = get('auth')?.default;
 const assessmentRoutes  = get('assessments')?.default;
+const serviceRequestRoutes = get('serviceRequests')?.default;
+const serviceMessageRoutes = get('serviceMessages')?.default;
+const serviceFindingRoutes = get('serviceFindings')?.default;
+const serviceUploadRoutes  = get('serviceUploads')?.default;
 const messageRoutes     = get('messages')?.default;
 const notificationRoutes= get('notifications')?.default;
 const contactRoutes     = get('contact')?.default;
@@ -63,6 +73,8 @@ const auditRoutes       = get('audit')?.default;
 const invitationRoutes  = get('invitations')?.default;
 const uploadRoutes      = get('uploads')?.default;
 const projectRoutes     = get('projects')?.default;
+const requestRoutes     = get('requests')?.default;
+const serviceUploadRoutes = get('serviceUploads')?.default;
 const authMiddleware    = get('authMiddleware');
 const authenticateToken = authMiddleware?.authenticateToken;
 const requireAdmin      = authMiddleware?.requireAdmin;
@@ -115,6 +127,10 @@ if (contactRoutes)      app.use('/api/contact',        contactRoutes);
 // so mount it before the authenticateToken middleware
 if (invitationRoutes)   app.use('/api/invitations/accept', invitationRoutes);
 if (assessmentRoutes)   app.use('/api/assessments',    authenticateToken, assessmentRoutes);
+if (serviceRequestRoutes) app.use('/api/service-requests', authenticateToken, serviceRequestRoutes);
+if (serviceMessageRoutes) app.use('/api/service-messages', authenticateToken, serviceMessageRoutes);
+if (serviceFindingRoutes) app.use('/api/service-findings', authenticateToken, serviceFindingRoutes);
+if (serviceUploadRoutes)  app.use('/api/service-uploads',  authenticateToken, serviceUploadRoutes);
 if (messageRoutes)      app.use('/api/messages',       authenticateToken, messageRoutes);
 if (notificationRoutes) app.use('/api/notifications',  authenticateToken, notificationRoutes);
 if (findingRoutes)      app.use('/api/findings',       authenticateToken, findingRoutes);
@@ -122,6 +138,8 @@ if (uploadRoutes)       app.use('/api/uploads',        authenticateToken, upload
 if (blogRoutes)         app.use('/api/blog',           blogRoutes);
 if (testimonialRoutes)  app.use('/api/testimonials',   testimonialRoutes);
 if (projectRoutes)      app.use('/api/projects',        projectRoutes);
+if (requestRoutes)      app.use('/api/requests',        authenticateToken, requestRoutes);
+if (serviceUploadRoutes) app.use('/api/service-uploads', authenticateToken, serviceUploadRoutes);
 if (auditRoutes)        app.use('/api/audit',          authenticateToken, auditRoutes);
 if (invitationRoutes)   app.use('/api/invitations',    authenticateToken, invitationRoutes);
 
@@ -171,16 +189,43 @@ io.on('connection', (socket) => {
     socket.to(`assessment:${assessmentId}`).emit('user-left', { userId: socket.userId, timestamp: new Date() });
   });
 
+  // Service request rooms
+  socket.on('join-request', (requestId) => {
+    socket.join(`request:${requestId}`);
+    socket.to(`request:${requestId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });
+  });
+
+  socket.on('leave-request', (requestId) => {
+    socket.leave(`request:${requestId}`);
+    socket.to(`request:${requestId}`).emit('user-left', { userId: socket.userId, timestamp: new Date() });
+  });
+
+  socket.on('join-request', (requestId) => {
+    socket.join(`request:${requestId}`);
+    socket.to(`request:${requestId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });
+  });
+
+  socket.on('leave-request', (requestId) => {
+    socket.leave(`request:${requestId}`);
+    socket.to(`request:${requestId}`).emit('user-left', { userId: socket.userId, timestamp: new Date() });
+  });
+
   socket.on('typing', (data) => {
-    socket.to(`assessment:${data.assessmentId}`).emit('user-typing', { userId: socket.userId, name: data.name, timestamp: new Date() });
+    const roomId = data.assessmentId || data.requestId;
+    const roomPrefix = data.assessmentId ? 'assessment' : 'request';
+    socket.to(`${roomPrefix}:${roomId}`).emit('user-typing', { userId: socket.userId, name: data.name, timestamp: new Date() });
   });
 
   socket.on('stop-typing', (data) => {
-    socket.to(`assessment:${data.assessmentId}`).emit('user-stop-typing', { userId: socket.userId });
+    const roomId = data.assessmentId || data.requestId;
+    const roomPrefix = data.assessmentId ? 'assessment' : 'request';
+    socket.to(`${roomPrefix}:${roomId}`).emit('user-stop-typing', { userId: socket.userId });
   });
 
   socket.on('message-read', (data) => {
-    socket.to(`assessment:${data.assessmentId}`).emit('message-read-receipt', { messageId: data.messageId, userId: socket.userId, readAt: new Date() });
+    const roomId = data.assessmentId || data.requestId;
+    const roomPrefix = data.assessmentId ? 'assessment' : 'request';
+    socket.to(`${roomPrefix}:${roomId}`).emit('message-read-receipt', { messageId: data.messageId, userId: socket.userId, readAt: new Date() });
   });
 
   socket.on('disconnect', () => {

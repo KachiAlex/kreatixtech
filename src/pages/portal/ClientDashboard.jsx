@@ -2,32 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Plus, FileText, MessageSquare, Clock, CheckCircle, 
-  AlertCircle, ChevronRight, LogOut, Bell, Building2 
+  AlertCircle, ChevronRight, LogOut, Bell, Building2,
+  Shield, Code2, Cloud
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
+const SERVICE_ICONS = { SOFTWARE_DEV: Code2, CYBERSECURITY: Shield, CLOUD: Cloud, CONSULTING: MessageSquare };
+const SERVICE_LABELS = { SOFTWARE_DEV: 'Software Dev', CYBERSECURITY: 'Cybersecurity', CLOUD: 'Cloud', CONSULTING: 'Consulting' };
+const SERVICE_COLORS = { SOFTWARE_DEV: 'bg-blue-100 text-blue-700', CYBERSECURITY: 'bg-orange-100 text-[#F2782E]', CLOUD: 'bg-purple-100 text-purple-700', CONSULTING: 'bg-green-100 text-green-700' };
+
 const statusColors = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  IN_REVIEW: 'bg-blue-100 text-blue-800',
-  APPROVED: 'bg-green-100 text-green-800',
+  SUBMITTED: 'bg-yellow-100 text-yellow-800',
+  REVIEWED: 'bg-blue-100 text-blue-800',
+  SCOPED: 'bg-indigo-100 text-indigo-800',
   IN_PROGRESS: 'bg-purple-100 text-purple-800',
-  REPORTING: 'bg-orange-100 text-orange-800',
-  COMPLETE: 'bg-green-100 text-green-800',
+  REVIEW: 'bg-orange-100 text-orange-800',
+  DELIVERED: 'bg-green-100 text-green-800',
+  CLOSED: 'bg-gray-100 text-gray-800',
   ON_HOLD: 'bg-gray-100 text-gray-800'
 };
 
 const statusLabels = {
-  PENDING: 'Pending Review',
-  IN_REVIEW: 'In Review',
-  APPROVED: 'Scope Approved',
-  IN_PROGRESS: 'Testing In Progress',
-  REPORTING: 'Report Generation',
-  COMPLETE: 'Complete',
-  ON_HOLD: 'On Hold'
+  SUBMITTED: 'Submitted', REVIEWED: 'In Review', SCOPED: 'Scoped',
+  IN_PROGRESS: 'In Progress', REVIEW: 'Ready for Review',
+  DELIVERED: 'Delivered', CLOSED: 'Closed', ON_HOLD: 'On Hold'
 };
 
 export default function ClientDashboard() {
-  const [assessments, setAssessments] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     total: 0,
@@ -47,26 +49,26 @@ export default function ClientDashboard() {
       navigate('/portal/admin');
       return;
     }
-    fetchAssessments();
+    fetchRequests();
   }, [isClient, isAdmin, navigate]);
 
-  const fetchAssessments = async () => {
+  const fetchRequests = async () => {
     try {
-      const response = await apiCall('/api/assessments');
+      const response = await apiCall('/api/requests');
       const data = await response.json();
       
       if (response.ok) {
-        setAssessments(data.assessments);
+        setRequests(data.requests);
         setStats({
           total: data.pagination.total,
-          active: data.assessments.filter(a => 
-            ['PENDING', 'IN_REVIEW', 'APPROVED', 'IN_PROGRESS', 'REPORTING'].includes(a.status)
+          active: data.requests.filter(a => 
+            ['SUBMITTED', 'REVIEWED', 'SCOPED', 'IN_PROGRESS', 'REVIEW'].includes(a.status)
           ).length,
-          completed: data.assessments.filter(a => a.status === 'COMPLETE').length
+          completed: data.requests.filter(a => a.status === 'DELIVERED' || a.status === 'CLOSED').length
         });
       }
     } catch (error) {
-      console.error('Failed to fetch assessments:', error);
+      console.error('Failed to fetch service requests:', error);
     } finally {
       setIsLoading(false);
     }
@@ -117,9 +119,9 @@ export default function ClientDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-ink">Assessment Dashboard</h1>
+          <h1 className="text-3xl font-extrabold text-ink">Service Request Dashboard</h1>
           <p className="mt-2 text-grey-dark">
-            Manage your vulnerability assessment and penetration testing requests
+            Manage your service requests and project engagements
           </p>
         </div>
 
@@ -130,7 +132,7 @@ export default function ClientDashboard() {
                 <FileText className="h-6 w-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Total Assessments</p>
+                <p className="text-sm font-medium text-grey">Total Requests</p>
                 <p className="text-2xl font-bold text-ink">{stats.total}</p>
               </div>
             </div>
@@ -162,68 +164,74 @@ export default function ClientDashboard() {
         </div>
 
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-ink">Your Assessments</h2>
+          <h2 className="text-xl font-bold text-ink">Your Requests</h2>
           <Link
-            to="/portal/assessment/new"
+            to="/portal/request/new"
             className="inline-flex items-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep transition-colors"
           >
             <Plus className="h-5 w-5 mr-2" />
-            New Assessment
+            New Request
           </Link>
         </div>
 
-        {assessments.length === 0 ? (
+        {requests.length === 0 ? (
           <div className="bg-white rounded-xl border border-border p-12 text-center">
             <AlertCircle className="h-12 w-12 text-grey mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-ink mb-2">No assessments yet</h3>
+            <h3 className="text-lg font-medium text-ink mb-2">No requests yet</h3>
             <p className="text-grey mb-6">
-              Get started by creating your first VAPT assessment request
+              Get started by creating your first service request
             </p>
             <Link
-              to="/portal/assessment/new"
+              to="/portal/request/new"
               className="inline-flex items-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep"
             >
               <Plus className="h-5 w-5 mr-2" />
-              Create Assessment
+              Create Request
             </Link>
           </div>
         ) : (
           <div className="bg-white rounded-xl border border-border overflow-hidden">
             <div className="divide-y divide-border">
-              {assessments.map((assessment) => (
+              {requests.map((request) => {
+                const ServiceIcon = SERVICE_ICONS[request.serviceType] || FileText;
+                return (
                 <Link
-                  key={assessment.id}
-                  to={`/portal/assessment/${assessment.id}`}
+                  key={request.id}
+                  to={`/portal/request/${request.id}`}
                   className="block p-6 hover:bg-offwhite transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center mb-2">
-                        <h3 className="text-lg font-semibold text-ink mr-3">
-                          {assessment.title}
+                      <div className="flex items-center mb-2 gap-2 flex-wrap">
+                        <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${SERVICE_COLORS[request.serviceType]}`}>
+                          <ServiceIcon className="h-3 w-3" />
+                          {SERVICE_LABELS[request.serviceType]}
+                        </span>
+                        <h3 className="text-lg font-semibold text-ink">
+                          {request.title}
                         </h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[assessment.status]}`}>
-                          {statusLabels[assessment.status]}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[request.status]}`}>
+                          {statusLabels[request.status]}
                         </span>
                       </div>
                       <p className="text-sm text-grey mb-3 line-clamp-2">
-                        {assessment.scopeDescription}
+                        {request.description}
                       </p>
                       <div className="flex items-center text-sm text-grey space-x-4">
                         <span className="flex items-center">
                           <Clock className="h-4 w-4 mr-1" />
-                          {new Date(assessment.createdAt).toLocaleDateString()}
+                          {new Date(request.createdAt).toLocaleDateString()}
                         </span>
-                        {assessment._count.messages > 0 && (
+                        {request._count?.messages > 0 && (
                           <span className="flex items-center">
                             <MessageSquare className="h-4 w-4 mr-1" />
-                            {assessment._count.messages} messages
+                            {request._count.messages} messages
                           </span>
                         )}
-                        {assessment._count.attachments > 0 && (
+                        {request._count?.attachments > 0 && (
                           <span className="flex items-center">
                             <FileText className="h-4 w-4 mr-1" />
-                            {assessment._count.attachments} files
+                            {request._count.attachments} files
                           </span>
                         )}
                       </div>
@@ -231,7 +239,8 @@ export default function ClientDashboard() {
                     <ChevronRight className="h-5 w-5 text-grey ml-4" />
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
