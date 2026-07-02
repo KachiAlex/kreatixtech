@@ -718,23 +718,25 @@ function CompaniesPanel({ companies, loading, onRefresh }) {
             return (
               <div key={c.id} className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
                 <div
-                  className="p-5 flex items-center gap-4 cursor-pointer hover:bg-[#F7F5F2] transition-colors"
+                  className="p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-4 cursor-pointer hover:bg-[#F7F5F2] transition-colors"
                   onClick={() => setExpanded(isOpen ? null : c.id)}
                 >
-                  <div className="w-10 h-10 bg-[#F2782E]/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Building2 className="h-5 w-5 text-[#F2782E]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[#0E0E0F] truncate">{c.name}</p>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="flex items-center gap-1 text-xs text-[#6B6F76]">
-                        <Mail className="h-3 w-3" />{c.contactEmail}
-                      </span>
-                      <span className="text-[#E8E5E0]">·</span>
-                      <span className="text-xs text-[#6B6F76]">Joined {new Date(c.createdAt).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-10 h-10 bg-[#F2782E]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Building2 className="h-5 w-5 text-[#F2782E]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[#0E0E0F] truncate">{c.name}</p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                        <span className="flex items-center gap-1 text-xs text-[#6B6F76] truncate">
+                          <Mail className="h-3 w-3 flex-shrink-0" />{c.contactEmail}
+                        </span>
+                        <span className="text-[#E8E5E0] hidden sm:inline">·</span>
+                        <span className="text-xs text-[#6B6F76]">Joined {new Date(c.createdAt).toLocaleDateString()}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 flex-shrink-0 text-right">
+                  <div className="flex items-center gap-4 sm:gap-3 md:gap-4 flex-shrink-0 text-right sm:ml-auto">
                     <div>
                       <p className="text-lg font-bold text-[#0E0E0F]">{reqCount}</p>
                       <p className="text-xs text-[#6B6F76]">Requests</p>
