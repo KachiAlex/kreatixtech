@@ -792,9 +792,15 @@ const EMPTY_PROJECT = {
 };
 
 function ProjectForm({ initial, apiCall, onSaved, onClose }) {
-  const [form, setForm] = useState(initial
-    ? { ...initial, tags: (initial.tags || []).join(', ') }
-    : EMPTY_PROJECT);
+  const DRAFT_KEY = 'projectFormDraft';
+  const [form, setForm] = useState(() => {
+    if (initial) return { ...initial, tags: (initial.tags || []).join(', ') };
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) return { ...EMPTY_PROJECT, ...JSON.parse(saved) };
+    } catch {}
+    return EMPTY_PROJECT;
+  });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
@@ -802,6 +808,17 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
   const [imageMsg, setImageMsg] = useState('');
   const imageInputRef = React.useRef(null);
   const isEdit = !!initial?.id;
+
+  // Auto-save draft on every change (debounced)
+  useEffect(() => {
+    if (isEdit) return;
+    const t = setTimeout(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [form, isEdit]);
+
+  const clearDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch {} };
 
   const handleSubmit = async e => {
     e.preventDefault(); setSaving(true); setErr('');
@@ -815,7 +832,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
         isEdit ? `/api/projects/${initial.id}` : '/api/projects',
         { method: isEdit ? 'PUT' : 'POST', body: JSON.stringify(payload) }
       );
-      if (r.ok) { onSaved(); onClose(); }
+      if (r.ok) { clearDraft(); onSaved(); onClose(); }
       else { const d = await r.json(); setErr(d.error || 'Failed to save'); }
     } catch { setErr('Network error'); }
     finally { setSaving(false); }
