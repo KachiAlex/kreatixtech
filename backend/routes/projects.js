@@ -48,8 +48,8 @@ router.post('/upload-image', authenticateToken, requireAdmin, uploadPortfolioIma
     });
     res.json({ url: result.secure_url });
   } catch (err) {
-    console.error('Image upload error:', err);
-    res.status(500).json({ error: 'Failed to upload image' });
+    console.error('Image upload error:', err.message || err, err.stack || '');
+    res.status(500).json({ error: err.message || 'Failed to upload image' });
   }
 });
 
@@ -72,7 +72,8 @@ router.post('/fetch-og', authenticateToken, requireAdmin, [
     if (!match) return res.status(404).json({ error: 'No OG image found on that page' });
     res.json({ url: match[1] });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch OG image' });
+    console.error('fetch-og error:', err.message || err, err.stack || '');
+    res.status(500).json({ error: err.message || 'Failed to fetch OG image' });
   }
 });
 
