@@ -251,7 +251,7 @@ export default function HomePage() {
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section
         ref={heroRef}
-        className="min-h-screen bg-[#0E0E0F] text-white flex flex-col justify-center px-6 md:px-12 pt-28 pb-24 relative overflow-hidden"
+        className="min-h-[85vh] md:min-h-screen bg-[#0E0E0F] text-white flex flex-col px-6 md:px-12 pt-28 pb-10 md:pb-16 relative overflow-hidden"
       >
         {/* grid bg */}
         <div className="absolute inset-0 pointer-events-none"
@@ -267,15 +267,15 @@ export default function HomePage() {
         <div className="absolute -bottom-40 -left-10 w-[500px] h-[500px] rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle,rgba(242,120,46,0.08) 0%,transparent 65%)' }} />
 
-        <div className={`relative z-10 max-w-6xl mx-auto w-full fade-in-up ${heroVisible ? 'visible' : ''}`}>
+        <div className={`relative z-10 max-w-6xl mx-auto w-full flex-1 flex flex-col justify-center fade-in-up ${heroVisible ? 'visible' : ''}`}>
           {/* eyebrow */}
-          <div className="inline-flex items-center gap-2.5 text-[#F2782E] text-xs font-bold tracking-[0.14em] uppercase mb-8">
+          <div className="inline-flex items-center gap-2.5 text-[#F2782E] text-xs font-bold tracking-[0.14em] uppercase mb-6 md:mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-[#F2782E] shadow-[0_0_10px_#F2782E]" />
             Innovation meets creativity
           </div>
 
           {/* headline */}
-          <h1 className="text-[clamp(52px,8vw,96px)] font-extrabold leading-[1.0] tracking-tight mb-0">
+          <h1 className="text-[clamp(40px,8vw,96px)] font-extrabold leading-[1.05] tracking-tight">
             <span className="block">
               We{' '}
               <span
@@ -289,17 +289,17 @@ export default function HomePage() {
           </h1>
 
           {/* body row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-14 items-end">
-            <p className="text-[18px] leading-[1.75]" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 mt-8 md:mt-14 items-end">
+            <p className="text-[16px] md:text-[18px] leading-[1.75]" style={{ color: 'rgba(255,255,255,0.55)' }}>
               Kreatix Technologies architects software and secures infrastructure for organisations that demand both rigorous engineering and inventive design — across software development, cybersecurity and cloud.
             </p>
-            <div className="flex flex-col gap-4 md:items-end">
+            <div className="flex flex-col gap-3 md:gap-4 md:items-end">
               <Link to="/portal/login"
-                className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)] whitespace-nowrap">
+                className="inline-flex items-center justify-center gap-2.5 bg-[#F2782E] text-white px-6 md:px-9 py-4 md:py-[18px] rounded-full font-bold text-sm md:text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]">
                 Request a VAPT assessment →
               </Link>
               <Link to="/portfolio"
-                className="inline-flex items-center gap-2.5 border text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-white/5 whitespace-nowrap"
+                className="inline-flex items-center justify-center gap-2.5 border text-white px-6 md:px-9 py-4 md:py-[18px] rounded-full font-bold text-sm md:text-[15px] transition-all hover:bg-white/5"
                 style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
                 View our work
               </Link>
@@ -308,14 +308,14 @@ export default function HomePage() {
         </div>
 
         {/* pills row */}
-        <div className="absolute bottom-10 left-6 md:left-12 right-6 md:right-12 flex gap-3 flex-wrap z-10">
+        <div className="relative z-10 mt-6 md:mt-10 flex gap-2 md:gap-3 flex-wrap">
           {['Zero-trust architecture', 'Custom software', 'Cloud infrastructure', 'Penetration testing', 'API security'].map(p => (
-            <div key={p} className="flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold backdrop-blur-sm"
+            <div key={p} className="flex items-center gap-2 rounded-full px-4 md:px-5 py-2 md:py-2.5 text-[11px] md:text-[13px] font-semibold backdrop-blur-sm"
               style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-[#F2782E]" />{p}
             </div>
           ))}
-          <div className="ml-auto flex items-center gap-2.5 text-[11px] font-bold tracking-widest uppercase"
+          <div className="hidden md:flex ml-auto items-center gap-2.5 text-[11px] font-bold tracking-widest uppercase"
             style={{ color: 'rgba(255,255,255,0.3)' }}>Scroll ↓</div>
         </div>
       </section>
