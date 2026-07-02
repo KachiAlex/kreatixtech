@@ -61,7 +61,7 @@ function useInView(threshold = 0.15) {
 }
 
 // ── API_URL (same pattern as portal) ─────────────────────────────────────────
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
 
 // ── Marquee items ────────────────────────────────────────────────────────────
 const MARQUEE = [
