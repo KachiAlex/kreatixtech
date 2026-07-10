@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 import Logo from '../../components/Logo';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');

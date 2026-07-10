@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
 
 const STATUS_COLORS = {
   SUBMITTED:    'bg-yellow-100 text-yellow-800',

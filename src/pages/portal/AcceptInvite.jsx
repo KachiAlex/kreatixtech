@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
 import Logo from '../../components/Logo';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
 
 export default function AcceptInvite() {
   const [searchParams] = useSearchParams();

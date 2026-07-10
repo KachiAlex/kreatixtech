@@ -60,7 +60,8 @@ router.post('/', [
       }
     });
 
-    const inviteUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app'}/portal/accept-invite?token=${token}`;
+    const baseUrl = (process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app').replace(/\/+$/, '');
+    const inviteUrl = `${baseUrl}/portal/accept-invite?token=${token}`;
 
     try {
       await sendEmail({
@@ -271,7 +272,8 @@ router.post('/admin/:invitationId/resend', requireAdmin, async (req, res) => {
     const newToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await prisma.invitation.update({ where: { id: inv.id }, data: { token: newToken, expiresAt } });
-    const inviteUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app'}/portal/accept-invite?token=${newToken}`;
+    const baseUrl = (process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app').replace(/\/+$/, '');
+    const inviteUrl = `${baseUrl}/portal/accept-invite?token=${newToken}`;
     await sendEmail({
       to: inv.email,
       subject: `Invitation reminder: join ${inv.organization.name} on Kreatix Technologies`,
