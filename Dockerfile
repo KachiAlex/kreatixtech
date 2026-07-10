@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20-bullseye-slim
 
 RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
