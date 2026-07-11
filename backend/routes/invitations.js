@@ -95,6 +95,7 @@ router.post('/', [
 
     res.status(201).json({
       message: 'Invitation sent',
+      inviteUrl,
       invitation: {
         id: invitation.id,
         email: invitation.email,
@@ -280,7 +281,7 @@ router.post('/admin/:invitationId/resend', requireAdmin, async (req, res) => {
       html: `<div style="font-family:Arial,sans-serif;max-width:600px"><h2 style="color:#F2782E">Invitation Reminder</h2><p>You were invited to join <strong>${inv.organization.name}</strong>.</p><p><a href="${inviteUrl}" style="background:#F2782E;color:white;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block">Accept Invitation</a></p><p style="color:#666;margin-top:16px">Link expires in 7 days.</p></div>`,
       text: `Join ${inv.organization.name}: ${inviteUrl}`,
     }).catch(() => {});
-    res.json({ message: 'Invitation resent' });
+    res.json({ message: 'Invitation resent', inviteUrl });
   } catch (e) {
     res.status(500).json({ error: 'Failed to resend invitation' });
   }

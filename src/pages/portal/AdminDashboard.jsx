@@ -4,7 +4,8 @@ import {
   Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
-  Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash
+  Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
+  Copy, Check, Link2
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
@@ -535,16 +536,35 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
   const [inviting, setInviting] = useState(false);
   const [inviteErr, setInviteErr] = useState('');
   const [inviteOk, setInviteOk] = useState('');
+  const [inviteLink, setInviteLink] = useState('');
+  const [copiedId, setCopiedId] = useState('');
 
   const sendInvite = async (e) => {
-    e.preventDefault(); setInviting(true); setInviteErr(''); setInviteOk('');
+    e.preventDefault(); setInviting(true); setInviteErr(''); setInviteOk(''); setInviteLink('');
     try {
       const r = await apiCall('/api/invitations', { method: 'POST', body: JSON.stringify(inviteForm) });
       const d = await r.json();
-      if (r.ok) { setInviteOk(`Invitation sent to ${inviteForm.email}`); setInviteForm({ email: '', name: '', role: 'ANALYST' }); onRefresh(); }
-      else setInviteErr(d.error || 'Failed to send invite');
+      if (r.ok) {
+        setInviteOk(`Invitation sent to ${inviteForm.email}`);
+        if (d.inviteUrl) setInviteLink(d.inviteUrl);
+        setInviteForm({ email: '', name: '', role: 'ANALYST' });
+        onRefresh();
+      } else setInviteErr(d.error || 'Failed to send invite');
     } catch { setInviteErr('Network error'); }
     finally { setInviting(false); }
+  };
+
+  const copyToClipboard = async (text, id) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(''), 2000);
+    } catch {}
+  };
+
+  const buildInviteUrl = (token) => {
+    const base = window.location.origin;
+    return `${base}/portal/accept-invite?token=${token}`;
   };
 
   const changeRole = async (userId, role) => {
@@ -559,7 +579,15 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
   };
 
   const resendInvite = async (id) => {
-    await apiCall(`/api/invitations/admin/${id}/resend`, { method: 'POST' });
+    setInviteErr(''); setInviteOk(''); setInviteLink('');
+    try {
+      const r = await apiCall(`/api/invitations/admin/${id}/resend`, { method: 'POST' });
+      const d = await r.json();
+      if (r.ok && d.inviteUrl) {
+        setInviteLink(d.inviteUrl);
+        setInviteOk('Invitation resent');
+      }
+    } catch {}
     onRefresh();
   };
 
@@ -609,6 +637,23 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
               </button>
             </div>
           </form>
+          {inviteLink && (
+            <div className="mt-4 p-4 bg-[#F7F5F2] rounded-xl border border-[#E8E5E0]">
+              <div className="flex items-center gap-2 mb-2">
+                <Link2 className="h-4 w-4 text-[#F2782E]"/>
+                <span className="text-xs font-bold text-[#0E0E0F]">Invitation Link</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input readOnly value={inviteLink} onClick={e => e.target.select()}
+                  className="flex-1 px-3 py-2 bg-white border border-[#E8E5E0] rounded-lg text-xs text-[#6B6F76] font-mono truncate"/>
+                <button onClick={() => copyToClipboard(inviteLink, 'new')}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#F2782E] text-white text-xs font-bold rounded-lg hover:bg-[#D9601A] transition-colors whitespace-nowrap">
+                  {copiedId === 'new' ? <><Check className="h-3.5 w-3.5"/> Copied</> : <><Copy className="h-3.5 w-3.5"/> Copy</>}
+                </button>
+              </div>
+              <p className="text-xs text-[#6B6F76] mt-2">Share this link directly with the invitee. They can set their password and join.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -651,17 +696,29 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
           <h3 className="font-bold text-[#0E0E0F] mb-3">Pending Invitations ({pendingInvites.length})</h3>
           <div className="bg-white rounded-2xl border border-[#E8E5E0] overflow-hidden">
             <div className="divide-y divide-[#E8E5E0]">
-              {pendingInvites.map(inv => (
-                <div key={inv.id} className="p-4 flex items-center gap-4">
-                  <Mail className="h-5 w-5 text-[#6B6F76] flex-shrink-0"/>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#0E0E0F] truncate">{inv.email}</p>
-                    <p className="text-xs text-[#6B6F76]">Expires {new Date(inv.expiresAt).toLocaleDateString()}</p>
+              {pendingInvites.map(inv => {
+                const invUrl = buildInviteUrl(inv.token);
+                return (
+                <div key={inv.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Mail className="h-5 w-5 text-[#6B6F76] flex-shrink-0"/>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#0E0E0F] truncate">{inv.email}</p>
+                      <p className="text-xs text-[#6B6F76]">Expires {new Date(inv.expiresAt).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ROLE_COLORS[inv.role] || 'bg-gray-50 text-gray-700'}`}>{inv.role}</span>
-                  <button onClick={() => resendInvite(inv.id)} className="text-xs text-[#F2782E] hover:underline font-semibold">Resend</button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ROLE_COLORS[inv.role] || 'bg-gray-50 text-gray-700'}`}>{inv.role}</span>
+                    <button onClick={() => copyToClipboard(invUrl, inv.id)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-[#6B6F76] hover:text-[#F2782E] border border-[#E8E5E0] rounded-lg transition-colors"
+                      title="Copy invitation link">
+                      {copiedId === inv.id ? <><Check className="h-3.5 w-3.5"/> Copied</> : <><Copy className="h-3.5 w-3.5"/> Copy Link</>}
+                    </button>
+                    <button onClick={() => resendInvite(inv.id)} className="text-xs text-[#F2782E] hover:underline font-semibold">Resend</button>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
