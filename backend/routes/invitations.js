@@ -5,12 +5,12 @@ import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { sendEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdmin, authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Invite user to organization
-router.post('/', [
+router.post('/', authenticateToken, [
   body('email').isEmail().normalizeEmail(),
   body('name').trim().isLength({ min: 2 }),
   body('role').isIn(['CLIENT', 'ANALYST'])
@@ -185,7 +185,7 @@ router.post('/accept', [
 });
 
 // Get pending invitations for org
-router.get('/org', async (req, res) => {
+router.get('/org', authenticateToken, async (req, res) => {
   try {
     const invitations = await prisma.invitation.findMany({
       where: {
@@ -204,7 +204,7 @@ router.get('/org', async (req, res) => {
 });
 
 // Get org members
-router.get('/org/members', async (req, res) => {
+router.get('/org/members', authenticateToken, async (req, res) => {
   try {
     const members = await prisma.user.findMany({
       where: { orgId: req.user.orgId },
@@ -220,7 +220,7 @@ router.get('/org/members', async (req, res) => {
 });
 
 // Admin: list members of any org by orgId
-router.get('/admin/org/:orgId/members', requireAdmin, async (req, res) => {
+router.get('/admin/org/:orgId/members', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const members = await prisma.user.findMany({
       where: { orgId: req.params.orgId },
@@ -234,7 +234,7 @@ router.get('/admin/org/:orgId/members', requireAdmin, async (req, res) => {
 });
 
 // Admin: change a user's role
-router.patch('/admin/users/:userId/role', requireAdmin, [
+router.patch('/admin/users/:userId/role', authenticateToken, requireAdmin, [
   body('role').isIn(['CLIENT', 'ANALYST', 'ADMIN']),
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -252,7 +252,7 @@ router.patch('/admin/users/:userId/role', requireAdmin, [
 });
 
 // Admin: remove a user from their org (deactivate by clearing orgId is not possible without schema change — instead delete)
-router.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
+router.delete('/admin/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (req.params.userId === req.user.userId) return res.status(400).json({ error: 'Cannot remove yourself' });
     await prisma.user.delete({ where: { id: req.params.userId } });
@@ -263,7 +263,7 @@ router.delete('/admin/users/:userId', requireAdmin, async (req, res) => {
 });
 
 // Admin: resend invitation
-router.post('/admin/:invitationId/resend', requireAdmin, async (req, res) => {
+router.post('/admin/:invitationId/resend', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const inv = await prisma.invitation.findUnique({
       where: { id: req.params.invitationId },

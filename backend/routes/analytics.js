@@ -1,5 +1,5 @@
 import express from 'express';
-import { body } from 'express-validator';
+import { body, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { requireAdmin } from '../middleware/auth.js';
 
@@ -12,6 +12,11 @@ router.post('/track', [
   body('label').optional().trim().isLength({ max: 200 }),
   body('sessionId').optional().trim().isLength({ max: 100 }),
 ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
   try {
     const { type, page, label, sessionId } = req.body;
 

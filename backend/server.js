@@ -124,7 +124,6 @@ app.use('/api/auth/reset-password',  strictLimiter);
 
 if (authRoutes)          app.use('/api/auth',              authRoutes);
 if (contactRoutes)       app.use('/api/contact',           contactRoutes);
-if (invitationRoutes)    app.use('/api/invitations/accept',invitationRoutes);
 if (assessmentRoutes)    app.use('/api/assessments',       authenticateToken, assessmentRoutes);
 if (messageRoutes)       app.use('/api/messages',          authenticateToken, messageRoutes);
 if (notificationRoutes)  app.use('/api/notifications',     authenticateToken, notificationRoutes);
@@ -139,7 +138,7 @@ if (serviceRequestRoutes) app.use('/api/service-requests',  authenticateToken, s
 if (serviceMessageRoutes) app.use('/api/service-messages',  authenticateToken, serviceMessageRoutes);
 if (serviceFindingRoutes) app.use('/api/service-findings',  authenticateToken, serviceFindingRoutes);
 if (auditRoutes)          app.use('/api/audit',             authenticateToken, auditRoutes);
-if (invitationRoutes)     app.use('/api/invitations',       authenticateToken, invitationRoutes);
+if (invitationRoutes)     app.use('/api/invitations',       invitationRoutes);
 if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
 
 // Log mounted routes
@@ -161,6 +160,7 @@ console.log('Mounted API routes:');
   ['testimonials', testimonialRoutes, '/api/testimonials'],
   ['audit', auditRoutes, '/api/audit'],
   ['invitations', invitationRoutes, '/api/invitations'],
+  ['analytics', analyticsRoutes, '/api/analytics'],
 ].forEach(([name, route, path]) => {
   console.log(`  ${route ? '✅' : '❌'} ${path} (${name})`);
 });
