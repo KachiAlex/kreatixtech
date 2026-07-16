@@ -1,10 +1,12 @@
-﻿import React, { Suspense, lazy } from 'react';
+﻿import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { PortalProvider, usePortal } from './contexts/PortalContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
+import SplashScreen from './components/SplashScreen';
+import { initPushNotifications, unregisterPushToken } from './services/mobile';
 
 const CybersecurityPage = lazy(() => import('./pages/CybersecurityPage'));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
@@ -164,11 +166,14 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <AppProvider>
       <PortalProvider>
         <BrowserRouter>
           <AppRoutes />
+          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
         </BrowserRouter>
       </PortalProvider>
     </AppProvider>

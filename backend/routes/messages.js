@@ -3,6 +3,7 @@ import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
 import { sendNewMessageEmail } from '../services/email.js';
+import { sendPushToUsers } from '../services/push.js';
 
 const router = express.Router();
 
@@ -186,6 +187,15 @@ router.post('/', [
     } catch (emailErr) {
       console.error('Resend notification failed:', emailErr.message);
     }
+    }
+
+    // Send push notification
+    if (messageType !== 'INTERNAL_NOTE') {
+      sendPushToUsers(notificationRecipients, {
+        title: `New message from ${req.user.name}`,
+        body: message.substring(0, 100),
+        data: { assessmentId },
+      }).catch(() => {});
     }
 
     res.status(201).json(newMessage);

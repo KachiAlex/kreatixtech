@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
+import { initPushNotifications, unregisterPushToken } from '../services/mobile';
 
 const PortalContext = createContext(null);
 
@@ -31,6 +32,9 @@ export function PortalProvider({ children }) {
 
   useEffect(() => {
     if (token && user) {
+      // Initialize native push notifications
+      initPushNotifications(token);
+
       const newSocket = io(SOCKET_URL, {
         auth: { token },
         reconnection: true,
@@ -166,6 +170,7 @@ export function PortalProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    if (token) unregisterPushToken(token);
     localStorage.removeItem('portalToken');
     setToken(null);
     setUser(null);

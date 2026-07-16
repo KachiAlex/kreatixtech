@@ -1,7 +1,39 @@
 import express from 'express';
+import { body } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 
 const router = express.Router();
+
+// ── Device token registration for push notifications ─────────────────────────
+router.post('/device', [
+  body('token').trim().isLength({ min: 10 }),
+  body('platform').optional().trim(),
+], async (req, res) => {
+  try {
+    const { token, platform = 'web' } = req.body;
+    await prisma.deviceToken.upsert({
+      where: { userId_token: { userId: req.user.id, token } },
+      create: { userId: req.user.id, token, platform },
+      update: { platform, updatedAt: new Date() },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Device token registration error:', error);
+    res.status(500).json({ error: 'Failed to register device' });
+  }
+});
+
+router.delete('/device', async (req, res) => {
+  try {
+    await prisma.deviceToken.deleteMany({
+      where: { userId: req.user.id },
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Device token removal error:', error);
+    res.status(500).json({ error: 'Failed to remove device' });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {

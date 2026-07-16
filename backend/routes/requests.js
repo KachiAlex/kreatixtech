@@ -8,6 +8,7 @@ import {
   sendRequestAssignedEmail, sendDeliverableReadyEmail,
   sendFeedbackReceivedEmail, sendRequestMessageEmail,
 } from '../services/email.js';
+import { sendPushToUsers } from '../services/push.js';
 
 const router = express.Router();
 
@@ -417,6 +418,15 @@ router.post('/:id/messages', [param('id').isUUID(), body('message').trim().isLen
       } catch (emailErr) {
         console.error('Email notification failed:', emailErr.message);
       }
+    }
+
+    // Send push notification (skip for internal notes)
+    if (messageType !== 'INTERNAL_NOTE') {
+      sendPushToUsers(recipientIds, {
+        title: `New message from ${req.user.name}`,
+        body: message.substring(0, 100),
+        data: { requestId: req.params.id },
+      }).catch(() => {});
     }
 
     res.status(201).json(msg);
