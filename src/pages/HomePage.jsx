@@ -401,9 +401,14 @@ export default function HomePage() {
           <h2 className="font-extrabold leading-[1.1]" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>
             Find the gaps.<br />Close them.<br />Watch what's left.
           </h2>
-          <p className="text-[17px] leading-[1.75] pt-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            A layered set of services covering assessment, detection and ongoing protection — tailored to your environment and threat profile.
-          </p>
+          <div className="pt-2">
+            <p className="text-[17px] leading-[1.75] mb-6" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              A layered set of services covering assessment, detection and ongoing protection — tailored to your environment and threat profile.
+            </p>
+            <Link to="/services/cybersecurity" className="inline-flex items-center gap-2 font-bold text-sm text-[#F2782E] hover:gap-4 transition-all">
+              Explore cybersecurity →
+            </Link>
+          </div>
         </div>
 
         {/* cyber cards 2×2 */}
@@ -468,7 +473,9 @@ export default function HomePage() {
         <div className={`flex justify-between items-end mb-12 pr-6 md:pr-12 fade-in-up ${workVisible ? 'visible' : ''}`}>
           <div>
             <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-4">Selected work</span>
-            <h2 className="font-extrabold" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>Things we've shipped</h2>
+            <Link to="/portfolio" className="hover:text-[#F2782E] transition-colors">
+              <h2 className="font-extrabold" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>Things we've shipped</h2>
+            </Link>
           </div>
           <Link to="/portfolio" className="text-sm font-bold text-[#F2782E] flex items-center gap-1.5 flex-shrink-0 hover:gap-3 transition-all">
             View all →

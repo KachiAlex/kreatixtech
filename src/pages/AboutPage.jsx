@@ -35,7 +35,12 @@ export default function AboutPage() {
       </section>
       <section className="py-24 border-b border-surface-300">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-10">Core Values.</p>
+          <div className="flex items-end justify-between mb-10">
+            <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest">Core Values.</p>
+            <Link to="/team" className="text-sm font-bold text-coral-500 flex items-center gap-1.5 hover:gap-3 transition-all">
+              Meet the team <ArrowUpRight size={14} />
+            </Link>
+          </div>
           <div className="grid md:grid-cols-3 gap-5">
             {values.map(({ title, body }) => (
               <div key={title} className="card p-8 bg-white">
@@ -48,7 +53,12 @@ export default function AboutPage() {
       </section>
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-10">Our Process.</p>
+          <div className="flex items-end justify-between mb-10">
+            <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest">Our Process.</p>
+            <Link to="/contact" className="text-sm font-bold text-coral-500 flex items-center gap-1.5 hover:gap-3 transition-all">
+              Start a project <ArrowUpRight size={14} />
+            </Link>
+          </div>
           <div className="grid md:grid-cols-2 gap-px bg-surface-300">
             {process.map(({ num, title, body }) => (
               <div key={num} className="bg-surface-50 p-10 hover:bg-surface-100 transition-colors">

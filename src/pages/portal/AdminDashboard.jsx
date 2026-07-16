@@ -1263,10 +1263,11 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {analytics.topPages.map(p => (
-              <div key={p.page} className="flex items-center justify-between p-3 bg-[#F7F5F2] rounded-lg">
-                <span className="text-sm font-semibold text-[#0E0E0F] truncate">{p.page}</span>
+              <a key={p.page} href={p.page} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-between p-3 bg-[#F7F5F2] rounded-lg hover:bg-[#FDF1E8] transition-colors">
+                <span className="text-sm font-semibold text-[#0E0E0F] truncate hover:text-[#F2782E] transition-colors">{p.page}</span>
                 <span className="text-xs font-bold text-[#F2782E] bg-[#FDF1E8] rounded-full px-2.5 py-1 ml-2">{p.count} views</span>
-              </div>
+              </a>
             ))}
           </div>
         )}
