@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import SEO, { organizationSchema, websiteSchema } from '../components/SEO';
 import Testimonials from '../components/Testimonials';
+import { trackClick } from '../services/analytics';
 
 // ── Kinetic headline words ──────────────────────────────────────────────────
 const KINETIC_WORDS = ['build', 'secure', 'scale', 'ship', 'protect'];
@@ -295,7 +296,8 @@ export default function HomePage() {
             </p>
             <div className="flex flex-col gap-3 md:gap-4 md:items-end">
               <Link to="/portal/login"
-                className="inline-flex items-center justify-center gap-2.5 bg-[#F2782E] text-white px-6 md:px-9 py-4 md:py-[18px] rounded-full font-bold text-sm md:text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]">
+                className="inline-flex items-center justify-center gap-2.5 bg-[#F2782E] text-white px-6 md:px-9 py-4 md:py-[18px] rounded-full font-bold text-sm md:text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]"
+                onClick={() => trackClick('Request Assessment')}>
                 Request a VAPT assessment →
               </Link>
               <Link to="/portfolio"
@@ -500,7 +502,8 @@ export default function HomePage() {
             </Link>
             <Link to="/portal/login"
               className="inline-flex items-center gap-2.5 text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-white/5"
-              style={{ border: '1px solid rgba(255,255,255,0.2)' }}>
+              style={{ border: '1px solid rgba(255,255,255,0.2)' }}
+              onClick={() => trackClick('Request Assessment')}>
               Request VAPT assessment
             </Link>
           </div>

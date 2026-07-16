@@ -50,6 +50,7 @@ await tryImport('invitations',   './routes/invitations.js');
 await tryImport('uploads',       './routes/uploads.js');
 await tryImport('projects',      './routes/projects.js');
 await tryImport('requests',      './routes/requests.js');
+await tryImport('analytics',      './routes/analytics.js');
 await tryImport('authMiddleware','./middleware/auth.js');
 
 console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
@@ -73,6 +74,7 @@ const serviceUploadRoutes   = get('serviceUploads')?.default;
 const serviceRequestRoutes  = get('serviceRequests')?.default;
 const serviceMessageRoutes  = get('serviceMessages')?.default;
 const serviceFindingRoutes  = get('serviceFindings')?.default;
+const analyticsRoutes       = get('analytics')?.default;
 const authMiddleware     = get('authMiddleware');
 const authenticateToken  = authMiddleware?.authenticateToken;
 const requireAdmin       = authMiddleware?.requireAdmin;
@@ -138,6 +140,7 @@ if (serviceMessageRoutes) app.use('/api/service-messages',  authenticateToken, s
 if (serviceFindingRoutes) app.use('/api/service-findings',  authenticateToken, serviceFindingRoutes);
 if (auditRoutes)          app.use('/api/audit',             authenticateToken, auditRoutes);
 if (invitationRoutes)     app.use('/api/invitations',       authenticateToken, invitationRoutes);
+if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
 
 // Log mounted routes
 console.log('Mounted API routes:');

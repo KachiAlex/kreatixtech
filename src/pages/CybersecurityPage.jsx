@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import SEO from '../components/SEO';
+import { trackClick } from '../services/analytics';
 
 const services = [
   {
@@ -71,7 +72,7 @@ export default function CybersecurityPage() {
               Identify vulnerabilities before they are exploited. Partner with Kreatix Technologies
               for a comprehensive security assessment.
             </p>
-            <Link to="/portal/login" className="btn-primary">
+            <Link to="/portal/login" className="btn-primary" onClick={() => trackClick('Request Assessment')}>
               Request a VAPT Assessment <ArrowUpRight size={15} />
             </Link>
           </div>

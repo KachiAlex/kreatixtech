@@ -7,6 +7,7 @@ import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
 import SplashScreen from './components/SplashScreen';
 import { initPushNotifications, unregisterPushToken } from './services/mobile';
+import { trackPageView } from './services/analytics';
 
 const CybersecurityPage = lazy(() => import('./pages/CybersecurityPage'));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
@@ -134,6 +135,10 @@ function AppRoutes() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isPortal = location.pathname.startsWith('/portal');
+
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
 
   return (
     <>

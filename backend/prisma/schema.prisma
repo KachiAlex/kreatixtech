@@ -482,3 +482,25 @@ model DeviceToken {
   @@index([userId])
   @@map("device_tokens")
 }
+
+// ─── Analytics Events ───
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  type      String   // PAGE_VIEW, CLICK, CUSTOM
+  page      String   // e.g. "/", "/about", "home"
+  label     String?  // e.g. "Request Assessment"
+  country   String?
+  region    String?
+  city      String?
+  ip        String?
+  userAgent String?
+  referrer  String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([page, createdAt])
+  @@index([country, createdAt])
+  @@map("analytics_events")
+}

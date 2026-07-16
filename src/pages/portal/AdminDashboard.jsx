@@ -5,7 +5,7 @@ import {
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
   Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
-  Copy, Check, Link2
+  Copy, Check, Link2, BarChart3, MapPin, MousePointerClick, Eye
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
@@ -80,6 +80,9 @@ export default function AdminDashboard() {
   const [totalPages, setTotalPages]     = useState(1);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [editingProject, setEditingProject]   = useState(null);
+  const [analytics, setAnalytics]             = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsDays, setAnalyticsDays]     = useState(30);
 
   const { user, logout, apiCall, isAdmin, unreadCount } = usePortal();
   const navigate = useNavigate();
@@ -94,7 +97,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (isAdmin && activeSection === 'companies') fetchCompanies();
     if (isAdmin && activeSection === 'team') fetchTeam();
-  }, [isAdmin, activeSection]);
+    if (isAdmin && activeSection === 'analytics') fetchAnalytics();
+  }, [isAdmin, activeSection, analyticsDays]);
 
   useEffect(() => {
     if (isAdmin) fetchRequests();
@@ -129,6 +133,15 @@ export default function AdminDashboard() {
       if (r.ok) setProjects(await r.json());
     } catch (e) { console.error(e); }
   }, [apiCall]);
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const r = await apiCall(`/api/analytics/summary?days=${analyticsDays}`);
+      if (r.ok) setAnalytics(await r.json());
+    } catch (e) { console.error(e); }
+    finally { setAnalyticsLoading(false); }
+  }, [apiCall, analyticsDays]);
 
   const fetchTeam = useCallback(async () => {
     setTeamLoading(true);
@@ -266,7 +279,7 @@ export default function AdminDashboard() {
 
         {/* ── Section tabs ── */}
         <div className="flex gap-1 mb-6 border-b border-[#E8E5E0] overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-          {[['requests','Service Requests'],['companies','Companies'],['team','Team'],['projects','Portfolio Projects']].map(([key,label]) => (
+          {[['requests','Service Requests'],['companies','Companies'],['team','Team'],['projects','Portfolio Projects'],['analytics','Analytics']].map(([key,label]) => (
             <button key={key} onClick={() => setActiveSection(key)}
               className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeSection === key ? 'border-[#F2782E] text-[#F2782E]' : 'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>
               {label}
@@ -375,6 +388,16 @@ export default function AdminDashboard() {
             projects={projects}
             apiCall={apiCall}
             onRefresh={fetchProjects}
+          />
+        )}
+
+        {/* ── Analytics section ── */}
+        {activeSection === 'analytics' && (
+          <AnalyticsPanel
+            analytics={analytics}
+            loading={analyticsLoading}
+            days={analyticsDays}
+            setDays={setAnalyticsDays}
           />
         )}
 
@@ -1112,6 +1135,176 @@ function ProjectsPanel({ projects, apiCall, onRefresh }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Analytics panel ─────────────────────────────────────────────────────────
+function AnalyticsPanel({ analytics, loading, days, setDays }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#F2782E] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="bg-white rounded-xl border border-[#E8E5E0] p-12 text-center">
+        <BarChart3 className="h-10 w-10 text-[#6B6F76] mx-auto mb-3 opacity-50" />
+        <p className="text-[#6B6F76]">No analytics data available yet.</p>
+      </div>
+    );
+  }
+
+  const maxDaily = Math.max(...analytics.daily.map(d => d.count), 1);
+  const maxCountry = Math.max(...analytics.topCountries.map(c => c.count), 1);
+
+  return (
+    <div className="space-y-6">
+      {/* Time range selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-bold text-[#0E0E0F]">Time range:</span>
+        {[
+          { v: 7, l: '7 days' },
+          { v: 30, l: '30 days' },
+          { v: 90, l: '90 days' },
+        ].map(opt => (
+          <button
+            key={opt.v}
+            onClick={() => setDays(opt.v)}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+              days === opt.v
+                ? 'bg-[#F2782E] text-white'
+                : 'bg-white border border-[#E8E5E0] text-[#6B6F76] hover:text-[#0E0E0F]'
+            }`}
+          >
+            {opt.l}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Page Views', value: analytics.totalViews, icon: Eye, bg: 'bg-blue-50', ic: 'text-blue-600' },
+          { label: 'Unique Visitors', value: analytics.uniqueVisitors, icon: Users, bg: 'bg-purple-50', ic: 'text-purple-600' },
+          { label: 'Assessment Clicks', value: analytics.assessmentClicks, icon: MousePointerClick, bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
+          { label: 'Total Clicks', value: analytics.totalClicks, icon: TrendingUp, bg: 'bg-green-50', ic: 'text-green-600' },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-5">
+            <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center mb-3`}>
+              <s.icon className={`h-5 w-5 ${s.ic}`} />
+            </div>
+            <p className="text-2xl font-bold text-[#0E0E0F]">{s.value ?? 0}</p>
+            <p className="text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Daily page views chart */}
+        <div className="bg-white rounded-xl border border-[#E8E5E0] p-6">
+          <h3 className="text-sm font-bold text-[#0E0E0F] mb-4">Daily Page Views</h3>
+          {analytics.daily.length === 0 ? (
+            <p className="text-sm text-[#6B6F76] py-8 text-center">No data for this period.</p>
+          ) : (
+            <div className="flex items-end gap-1 h-40">
+              {analytics.daily.map(d => (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group">
+                  <div
+                    className="w-full bg-[#F2782E] rounded-t transition-all hover:bg-[#D9601A] relative"
+                    style={{ height: `${(d.count / maxDaily) * 100}%`, minHeight: '4px' }}
+                  >
+                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#0E0E0F] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      {d.count}
+                    </span>
+                  </div>
+                  <span className="text-[8px] text-[#6B6F76] truncate w-full text-center">
+                    {d.date.slice(5)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top countries */}
+        <div className="bg-white rounded-xl border border-[#E8E5E0] p-6">
+          <h3 className="text-sm font-bold text-[#0E0E0F] mb-4">Visitors by Region</h3>
+          {analytics.topCountries.length === 0 ? (
+            <p className="text-sm text-[#6B6F76] py-8 text-center">No region data yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {analytics.topCountries.map(c => (
+                <div key={c.country} className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 text-[#F2782E] flex-shrink-0" />
+                  <span className="text-sm font-semibold text-[#0E0E0F] w-20 truncate">{c.country || 'Unknown'}</span>
+                  <div className="flex-1 h-2 bg-[#F7F5F2] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#F2782E] rounded-full"
+                      style={{ width: `${(c.count / maxCountry) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-[#6B6F76] w-10 text-right">{c.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Top pages */}
+      <div className="bg-white rounded-xl border border-[#E8E5E0] p-6">
+        <h3 className="text-sm font-bold text-[#0E0E0F] mb-4">Top Pages</h3>
+        {analytics.topPages.length === 0 ? (
+          <p className="text-sm text-[#6B6F76] py-8 text-center">No page data yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {analytics.topPages.map(p => (
+              <div key={p.page} className="flex items-center justify-between p-3 bg-[#F7F5F2] rounded-lg">
+                <span className="text-sm font-semibold text-[#0E0E0F] truncate">{p.page}</span>
+                <span className="text-xs font-bold text-[#F2782E] bg-[#FDF1E8] rounded-full px-2.5 py-1 ml-2">{p.count} views</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent visitor log */}
+      <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#E8E5E0]">
+          <h3 className="text-sm font-bold text-[#0E0E0F]">Recent Visitor Activity</h3>
+        </div>
+        {analytics.recentEvents.length === 0 ? (
+          <p className="text-sm text-[#6B6F76] py-8 text-center">No recent activity.</p>
+        ) : (
+          <div className="max-h-80 overflow-y-auto divide-y divide-[#F7F5F2]">
+            {analytics.recentEvents.map(e => (
+              <div key={e.id} className="px-6 py-3 flex items-center gap-3">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  e.type === 'PAGE_VIEW' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-[#F2782E]'
+                }`}>
+                  {e.type === 'PAGE_VIEW' ? 'View' : 'Click'}
+                </span>
+                <span className="text-sm text-[#0E0E0F] font-medium truncate flex-1">
+                  {e.page}{e.label && ` — ${e.label}`}
+                </span>
+                {e.country && (
+                  <span className="text-xs text-[#6B6F76] flex items-center gap-1 flex-shrink-0">
+                    <MapPin className="h-3 w-3" />
+                    {e.country}{e.city && `, ${e.city}`}
+                  </span>
+                )}
+                <span className="text-xs text-[#9CA3AF] flex-shrink-0">
+                  {new Date(e.createdAt).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

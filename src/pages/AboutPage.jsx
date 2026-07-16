@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import SEO from '../components/SEO';
+import { trackClick } from '../services/analytics';
 
 const values = [
   { title: 'Creative Rigor', body: 'We apply imaginative problem-solving to highly technical, structured environments.' },
@@ -66,7 +67,7 @@ export default function AboutPage() {
           </h2>
           <div className="flex flex-wrap gap-3">
             <Link to="/contact" className="btn-primary text-sm">Start a Conversation <ArrowUpRight size={14} /></Link>
-            <Link to="/portal/vapt-request" className="btn-outline text-sm">Request Assessment</Link>
+            <Link to="/portal/vapt-request" className="btn-outline text-sm" onClick={() => trackClick('Request Assessment')}>Request Assessment</Link>
           </div>
         </div>
       </section>

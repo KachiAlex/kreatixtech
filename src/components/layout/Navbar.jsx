@@ -2,6 +2,7 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { trackClick } from '../../services/analytics';
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -66,7 +67,7 @@ export default function Navbar() {
 
         {/* CTA */}
         <div className="hidden md:flex items-center">
-          <Link to="/portal/login" className="btn-dark">
+          <Link to="/portal/login" className="btn-dark" onClick={() => trackClick('Request Assessment')}>
             Request Assessment
           </Link>
         </div>
