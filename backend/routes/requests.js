@@ -6,7 +6,7 @@ import { requireAdmin, authenticateToken } from '../middleware/auth.js';
 import {
   sendNewRequestEmail, sendRequestStatusEmail,
   sendRequestAssignedEmail, sendDeliverableReadyEmail,
-  sendFeedbackReceivedEmail,
+  sendFeedbackReceivedEmail, sendRequestMessageEmail,
 } from '../services/email.js';
 
 const router = express.Router();
@@ -396,6 +396,29 @@ router.post('/:id/messages', [param('id').isUUID(), body('message').trim().isLen
     ));
 
     getIo().to(`request:${req.params.id}`).emit('new-message', msg);
+
+    // Send email notification (skip for internal notes)
+    if (messageType !== 'INTERNAL_NOTE') {
+      try {
+        const emailRecipients = await prisma.user.findMany({
+          where: { id: { in: recipientIds }, id: { not: req.user.id } },
+          select: { email: true }
+        });
+        const recipientEmails = emailRecipients.map(u => u.email).filter(Boolean);
+        if (recipientEmails.length > 0) {
+          await sendRequestMessageEmail({
+            to: recipientEmails,
+            senderName: req.user.name,
+            requestTitle: request.title,
+            messagePreview: message.substring(0, 200),
+            requestId: req.params.id
+          });
+        }
+      } catch (emailErr) {
+        console.error('Email notification failed:', emailErr.message);
+      }
+    }
+
     res.status(201).json(msg);
   } catch (e) {
     console.error('POST message', e);

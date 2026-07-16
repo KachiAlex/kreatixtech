@@ -165,10 +165,11 @@ router.post('/', [
       message: newMessage
     });
 
-    // Send Brevo email notification
+    // Send email notification (skip for internal notes)
+    if (messageType !== 'INTERNAL_NOTE') {
     try {
       const emailRecipients = await prisma.user.findMany({
-        where: { id: { in: notificationRecipients } },
+        where: { id: { in: notificationRecipients }, id: { not: req.user.id } },
         select: { email: true }
       });
       const recipientEmails = emailRecipients.map(u => u.email);
@@ -184,6 +185,7 @@ router.post('/', [
       }
     } catch (emailErr) {
       console.error('Resend notification failed:', emailErr.message);
+    }
     }
 
     res.status(201).json(newMessage);

@@ -2,7 +2,7 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
-import { sendNewMessageEmail } from '../services/email.js';
+import { sendRequestMessageEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -166,25 +166,27 @@ router.post('/', [
       message: newMessage
     });
 
-    // Send email notification
+    // Send email notification (skip for internal notes)
+    if (messageType !== 'INTERNAL_NOTE') {
     try {
       const emailRecipients = await prisma.user.findMany({
-        where: { id: { in: notificationRecipients } },
+        where: { id: { in: notificationRecipients }, id: { not: req.user.id } },
         select: { email: true }
       });
       const recipientEmails = emailRecipients.map(u => u.email);
 
       if (recipientEmails.length > 0) {
-        await sendNewMessageEmail({
+        await sendRequestMessageEmail({
           to: recipientEmails,
           senderName: req.user.name,
-          assessmentTitle: request.title,
+          requestTitle: request.title,
           messagePreview: message.substring(0, 200),
-          assessmentId: requestId
+          requestId
         });
       }
     } catch (emailErr) {
       console.error('Resend notification failed:', emailErr.message);
+    }
     }
 
     res.status(201).json(newMessage);

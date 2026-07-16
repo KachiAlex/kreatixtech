@@ -79,6 +79,20 @@ export async function sendNewMessageEmail({ to, senderName, assessmentTitle, mes
   });
 }
 
+export async function sendRequestMessageEmail({ to, senderName, requestTitle, messagePreview, requestId }) {
+  return sendEmail({
+    to,
+    subject: `New message on: ${requestTitle}`,
+    html: baseHtml('New Message', `
+      <p><strong>${senderName}</strong> sent a message on <strong>${requestTitle}</strong>:</p>
+      <blockquote style="background:#F7F5F2;padding:16px;border-left:4px solid #F2782E;margin:16px 0;border-radius:0 8px 8px 0">
+        ${messagePreview}
+      </blockquote>
+      ${btn(requestUrl(requestId), 'Reply in Portal')}`),
+    text: `${senderName}: ${messagePreview}\nView at ${requestUrl(requestId)}`
+  });
+}
+
 export async function sendStatusChangeEmail({ to, assessmentTitle, oldStatus, newStatus, assessmentId }) {
   const portalUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app'}/portal/assessment/${assessmentId}`;
 
@@ -232,4 +246,4 @@ export async function sendFeedbackReceivedEmail({ to, clientName, title, rating,
 }
 
 export { resend };
-export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail, sendNewRequestEmail, sendRequestStatusEmail, sendRequestAssignedEmail, sendDeliverableReadyEmail, sendFeedbackReceivedEmail };
+export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendRequestMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail, sendNewRequestEmail, sendRequestStatusEmail, sendRequestAssignedEmail, sendDeliverableReadyEmail, sendFeedbackReceivedEmail };
