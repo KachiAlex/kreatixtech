@@ -230,7 +230,7 @@ export default function AssessmentDetail() {
     setConnStatus('connected');
 
     const handlers = {
-      'new-message':       msg  => setMessages(p => [...p, msg]),
+      'new-message':       msg  => setMessages(p => p.some(m => m.id === msg.id) ? p : [...p, msg]),
       'request-updated':   data => setRequest(p => ({ ...p, ...data })),
       'files-uploaded':    ()   => fetchRequest(),
       'user-typing':       data => {
