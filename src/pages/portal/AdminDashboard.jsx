@@ -59,8 +59,17 @@ const SERVICE_COLORS = {
   CONSULTING: 'bg-green-100 text-green-700',
 };
 
+const NAV_ITEMS = [
+  { key: 'requests',  label: 'Service Requests',  icon: FileText },
+  { key: 'companies', label: 'Companies',          icon: Building2 },
+  { key: 'team',      label: 'Team',               icon: Users },
+  { key: 'projects',  label: 'Portfolio Projects', icon: Image },
+  { key: 'analytics', label: 'Analytics',          icon: BarChart3 },
+];
+
 export default function AdminDashboard() {
   const [activeSection, setActiveSection]   = useState('requests'); // 'requests' | 'projects' | 'companies'
+  const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [requests, setRequests]   = useState([]);
   const [stats, setStats]               = useState(null);
   const [analysts, setAnalysts]         = useState([]);
@@ -277,18 +286,56 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── Section tabs ── */}
-        <div className="flex gap-1 mb-6 border-b border-[#E8E5E0] overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-          {[['requests','Service Requests'],['companies','Companies'],['team','Team'],['projects','Portfolio Projects'],['analytics','Analytics']].map(([key,label]) => (
-            <button key={key} onClick={() => setActiveSection(key)}
-              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors ${activeSection === key ? 'border-[#F2782E] text-[#F2782E]' : 'border-transparent text-[#6B6F76] hover:text-[#0E0E0F]'}`}>
-              {label}
-              {key === 'projects' && <span className="ml-1.5 text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{projects.length}</span>}
-            {key === 'companies' && <span className="ml-1.5 text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{companies.length}</span>}
-            </button>
-          ))}
-        </div>
-        <div className={activeSection === 'requests' ? 'block' : 'hidden'}>
+        {/* ── Mobile sidebar toggle ── */}
+        <button
+          onClick={() => setSidebarOpen(v => !v)}
+          className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E8E5E0] rounded-xl text-sm font-bold text-[#0E0E0F] mb-4"
+        >
+          <Menu className="h-4 w-4" />
+          {NAV_ITEMS.find(n => n.key === activeSection)?.label || 'Menu'}
+        </button>
+
+        {/* ── Sidebar + content layout ── */}
+        <div className="flex gap-6">
+          {/* Sidebar */}
+          <aside className={`
+            ${sidebarOpen ? 'fixed inset-0 z-40 bg-black/30 lg:bg-transparent' : 'hidden'}
+            lg:block lg:static lg:inset-auto lg:z-auto lg:bg-transparent
+          `}>
+            {/* Mobile backdrop click handler */}
+            {sidebarOpen && (
+              <div className="absolute inset-0 lg:hidden" onClick={() => setSidebarOpen(false)} />
+            )}
+            <nav className={`
+              relative z-50 w-60 bg-white rounded-xl border border-[#E8E5E0] p-3 space-y-1
+              ${sidebarOpen ? 'fixed left-0 top-16 bottom-0 overflow-y-auto lg:static lg:top-auto' : 'lg:sticky lg:top-20'}
+            `}>
+              {NAV_ITEMS.map(item => (
+                <button
+                  key={item.key}
+                  onClick={() => { setActiveSection(item.key); setSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                    activeSection === item.key
+                      ? 'bg-[#FDF1E8] text-[#F2782E]'
+                      : 'text-[#6B6F76] hover:bg-[#F7F5F2] hover:text-[#0E0E0F]'
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.key === 'projects' && (
+                    <span className="text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{projects.length}</span>
+                  )}
+                  {item.key === 'companies' && (
+                    <span className="text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{companies.length}</span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          {/* Content area */}
+          <div className="flex-1 min-w-0">
+          <div className={activeSection === 'requests' ? 'block' : 'hidden'}>
         <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
           <div className="p-5 border-b border-[#E8E5E0] flex flex-col sm:flex-row sm:items-center gap-4">
             <h2 className="text-lg font-bold text-[#0E0E0F] flex-1">All Requests</h2>
@@ -401,6 +448,8 @@ export default function AdminDashboard() {
           />
         )}
 
+          </div>{/* end content area */}
+        </div>{/* end sidebar + content flex */}
       </main>
     </div>
   );
