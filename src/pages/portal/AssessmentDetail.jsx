@@ -464,7 +464,7 @@ export default function AssessmentDetail() {
                           {msg.attachments?.length > 0 && (
                             <div className="mt-1.5 space-y-1">
                               {msg.attachments.map(att => (
-                                <a key={att.id} href={`${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
+                                <a key={att.id} href={att.fileUrl.startsWith('http') ? att.fileUrl : `${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
                                   className={`flex items-center gap-1 text-xs underline ${isOwn && !isNote ? 'text-white/80' : 'text-[#F2782E]'}`}>
                                   <FileText className="h-3 w-3" />{att.fileName}
                                 </a>
@@ -703,7 +703,7 @@ export default function AssessmentDetail() {
                 <ul className="space-y-1.5">
                   {request.attachments.map(att => (
                     <li key={att.id}>
-                      <a href={`${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
+                      <a href={att.fileUrl.startsWith('http') ? att.fileUrl : `${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-sm text-[#F2782E] hover:underline">
                         <Download className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate">{att.fileName}</span>

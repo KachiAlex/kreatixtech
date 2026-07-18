@@ -453,7 +453,7 @@ export default function RequestDetail() {
                           </div>
                           <p className="text-sm leading-relaxed">{msg.message}</p>
                           {msg.attachments?.length>0&&<div className="mt-1.5 space-y-1">{msg.attachments.map(att=>(
-                            <a key={att.id} href={`${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1 text-xs underline ${isOwn&&!isNote?'text-white/80':'text-[#F2782E]'}`}>
+                            <a key={att.id} href={att.fileUrl.startsWith('http') ? att.fileUrl : `${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-1 text-xs underline ${isOwn&&!isNote?'text-white/80':'text-[#F2782E]'}`}>
                               <FileText className="h-3 w-3"/>{att.fileName}
                             </a>
                           ))}</div>}
@@ -594,7 +594,7 @@ export default function RequestDetail() {
                 <h3 className="text-sm font-bold text-[#0E0E0F] mb-3">Files</h3>
                 <ul className="space-y-1.5">
                   {request.attachments.map(att=>(
-                    <li key={att.id}><a href={`${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-[#F2782E] hover:underline">
+                    <li key={att.id}><a href={att.fileUrl.startsWith('http') ? att.fileUrl : `${API_URL}${att.fileUrl}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-[#F2782E] hover:underline">
                       <Download className="h-3.5 w-3.5 flex-shrink-0"/><span className="truncate">{att.fileName}</span><span className="text-[#6B6F76] text-xs">({(att.fileSize/1024).toFixed(1)}KB)</span>
                     </a></li>
                   ))}

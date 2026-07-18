@@ -1,23 +1,9 @@
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
+import { upload, uploadBufferToCloudinary, cloudinary } from '../config/cloudinary.js';
 
 const router = express.Router();
-const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 },
-});
 
 // POST /api/service-uploads/request/:requestId
 router.post('/request/:requestId', upload.array('files', 10), async (req, res) => {
@@ -34,18 +20,23 @@ router.post('/request/:requestId', upload.array('files', 10), async (req, res) =
       return res.status(403).json({ error: 'Access denied' });
     if (!req.files?.length) return res.status(400).json({ error: 'No files uploaded' });
 
-    const attachments = await Promise.all(req.files.map(file =>
-      prisma.serviceAttachment.create({
+    const attachments = await Promise.all(req.files.map(async file => {
+      const result = await uploadBufferToCloudinary(file.buffer, {
+        folder: 'kreatix-requests',
+        resource_type: 'auto',
+      });
+      return prisma.serviceAttachment.create({
         data: {
           requestId,
-          fileUrl: `/uploads/${file.filename}`,
+          fileUrl: result.secure_url,
           fileName: file.originalname,
           fileSize: file.size,
           mimeType: file.mimetype,
           uploadedBy: req.user.id,
+          storageProvider: 'CLOUDINARY',
         },
-      })
-    ));
+      });
+    }));
 
     if (!skipMessage) {
       const msg = await prisma.serviceMessage.create({
@@ -92,8 +83,17 @@ router.delete('/:id', async (req, res) => {
     const att = await prisma.serviceAttachment.findUnique({ where: { id: req.params.id }, include: { request: true } });
     if (!att) return res.status(404).json({ error: 'Not found' });
     if (att.uploadedBy !== req.user.id && req.user.role === 'CLIENT') return res.status(403).json({ error: 'Access denied' });
-    const filePath = path.join(uploadDir, path.basename(att.fileUrl));
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    // Delete from Cloudinary when present
+    if (att.storageProvider === 'CLOUDINARY' && att.fileUrl) {
+      try {
+        const publicId = att.fileUrl.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`kreatix-requests/${publicId}`);
+      } catch (cloudErr) {
+        console.error('Cloudinary delete error:', cloudErr);
+      }
+    }
+
     await prisma.serviceAttachment.delete({ where: { id: req.params.id } });
     res.json({ message: 'Deleted' });
   } catch (e) { res.status(500).json({ error: 'Failed to delete' }); }
