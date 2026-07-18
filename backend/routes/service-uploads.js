@@ -1,9 +1,15 @@
 import express from 'express';
+import multer from 'multer';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
-import { upload, uploadBufferToCloudinary, cloudinary } from '../config/cloudinary.js';
+import { uploadBufferToR2, deleteFileFromR2 } from '../lib/r2.js';
 
 const router = express.Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024 },
+});
 
 // POST /api/service-uploads/request/:requestId
 router.post('/request/:requestId', upload.array('files', 10), async (req, res) => {
@@ -21,19 +27,20 @@ router.post('/request/:requestId', upload.array('files', 10), async (req, res) =
     if (!req.files?.length) return res.status(400).json({ error: 'No files uploaded' });
 
     const attachments = await Promise.all(req.files.map(async file => {
-      const result = await uploadBufferToCloudinary(file.buffer, {
-        folder: 'kreatix-requests',
-        resource_type: 'auto',
+      const result = await uploadBufferToR2(file.buffer, {
+        requestId,
+        fileName: file.originalname,
+        contentType: file.mimetype,
       });
       return prisma.serviceAttachment.create({
         data: {
           requestId,
-          fileUrl: result.secure_url,
+          fileUrl: result.publicUrl,
           fileName: file.originalname,
           fileSize: file.size,
           mimeType: file.mimetype,
           uploadedBy: req.user.id,
-          storageProvider: 'CLOUDINARY',
+          storageProvider: 'S3',
         },
       });
     }));
@@ -59,7 +66,7 @@ router.post('/request/:requestId', upload.array('files', 10), async (req, res) =
     res.json({ attachments });
   } catch (e) {
     console.error('Service upload error:', e);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ error: 'Upload failed', detail: e.message });
   }
 });
 
@@ -84,13 +91,12 @@ router.delete('/:id', async (req, res) => {
     if (!att) return res.status(404).json({ error: 'Not found' });
     if (att.uploadedBy !== req.user.id && req.user.role === 'CLIENT') return res.status(403).json({ error: 'Access denied' });
 
-    // Delete from Cloudinary when present
-    if (att.storageProvider === 'CLOUDINARY' && att.fileUrl) {
+    // Delete from R2 when present
+    if (att.storageProvider === 'S3' && att.fileUrl) {
       try {
-        const publicId = att.fileUrl.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(`kreatix-requests/${publicId}`);
-      } catch (cloudErr) {
-        console.error('Cloudinary delete error:', cloudErr);
+        await deleteFileFromR2(att.fileUrl);
+      } catch (r2Err) {
+        console.error('R2 delete error:', r2Err);
       }
     }
 
