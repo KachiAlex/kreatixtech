@@ -4,11 +4,13 @@
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   body {
     @apply bg-paper text-ink font-sans antialiased;
     min-height: 100vh;
+    overflow-x: hidden;
   }
+  img, video, svg { max-width: 100%; height: auto; }
   ::selection { @apply bg-orange/20 text-ink; }
   h1, h2, h3, h4 { @apply font-display tracking-tight; }
 }
