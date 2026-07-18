@@ -5,7 +5,8 @@ import {
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
   Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
-  Copy, Check, Link2, BarChart3, MapPin, MousePointerClick, Eye
+  Copy, Check, Link2, BarChart3, MapPin, MousePointerClick, Eye,
+  Newspaper, Calendar, Eye as EyeIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
@@ -64,6 +65,7 @@ const NAV_ITEMS = [
   { key: 'companies', label: 'Companies',          icon: Building2 },
   { key: 'team',      label: 'Team',               icon: Users },
   { key: 'projects',  label: 'Portfolio Projects', icon: Image },
+  { key: 'blog',      label: 'Blog Posts',         icon: Newspaper },
   { key: 'analytics', label: 'Analytics',          icon: BarChart3 },
 ];
 
@@ -92,6 +94,8 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics]             = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsDays, setAnalyticsDays]     = useState(30);
+  const [blogPosts, setBlogPosts]             = useState([]);
+  const [blogLoading, setBlogLoading]         = useState(false);
 
   const { user, logout, apiCall, isAdmin, unreadCount } = usePortal();
   const navigate = useNavigate();
@@ -107,6 +111,7 @@ export default function AdminDashboard() {
     if (isAdmin && activeSection === 'companies') fetchCompanies();
     if (isAdmin && activeSection === 'team') fetchTeam();
     if (isAdmin && activeSection === 'analytics') fetchAnalytics();
+    if (isAdmin && activeSection === 'blog') fetchBlogPosts();
   }, [isAdmin, activeSection, analyticsDays]);
 
   useEffect(() => {
@@ -172,6 +177,18 @@ export default function AdminDashboard() {
       if (r.ok) setCompanies(await r.json());
     } catch (e) { console.error(e); }
     finally { setCompaniesLoading(false); }
+  }, [apiCall]);
+
+  const fetchBlogPosts = useCallback(async () => {
+    setBlogLoading(true);
+    try {
+      const r = await apiCall('/api/blog/admin/all?limit=100');
+      if (r.ok) {
+        const data = await r.json();
+        setBlogPosts(data.posts || []);
+      }
+    } catch (e) { console.error(e); }
+    finally { setBlogLoading(false); }
   }, [apiCall]);
 
   const deleteProject = async (id) => {
@@ -445,6 +462,16 @@ export default function AdminDashboard() {
             loading={analyticsLoading}
             days={analyticsDays}
             setDays={setAnalyticsDays}
+          />
+        )}
+
+        {/* ── Blog section ── */}
+        {activeSection === 'blog' && (
+          <BlogPanel
+            posts={blogPosts}
+            loading={blogLoading}
+            onRefresh={fetchBlogPosts}
+            apiCall={apiCall}
           />
         )}
 
@@ -1354,6 +1381,446 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── Blog panel ───────────────────────────────────────────────────────────────
+const EMPTY_BLOG_POST = {
+  title: '', slug: '', excerpt: '', content: '', coverImage: '',
+  author: '', tags: '', published: false, seoKeywords: ''
+};
+
+function slugify(text) {
+  return text.toLowerCase().trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function BlogPanel({ posts, loading, onRefresh, apiCall }) {
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this blog post? This cannot be undone.')) return;
+    try {
+      const r = await apiCall(`/api/blog/${id}`, { method: 'DELETE' });
+      if (r.ok) onRefresh();
+    } catch (e) { console.error(e); }
+  };
+
+  const togglePublish = async (post) => {
+    try {
+      const r = await apiCall(`/api/blog/${post.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ published: !post.published }),
+      });
+      if (r.ok) onRefresh();
+    } catch (e) { console.error(e); }
+  };
+
+  const filtered = posts.filter(p => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || p.title.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q);
+    const matchStatus = statusFilter === 'all' || (statusFilter === 'published' && p.published) || (statusFilter === 'draft' && !p.published);
+    return matchSearch && matchStatus;
+  });
+
+  return (
+    <div>
+      {showEditor && (
+        <BlogEditor
+          initial={editingPost}
+          apiCall={apiCall}
+          onSaved={onRefresh}
+          onClose={() => { setShowEditor(false); setEditingPost(null); }}
+        />
+      )}
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <h2 className="text-lg font-bold text-[#0E0E0F] flex-1">Blog Posts ({posts.length})</h2>
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+            <input
+              type="text" placeholder="Search posts…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-full sm:w-48"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+          >
+            <option value="all">All Posts</option>
+            <option value="published">Published</option>
+            <option value="draft">Drafts</option>
+          </select>
+          <button onClick={onRefresh}
+            className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] hover:border-[#0E0E0F] transition-colors">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button onClick={() => { setEditingPost(null); setShowEditor(true); }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] transition-colors">
+            <Plus className="h-4 w-4" /> New Post
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#F2782E] border-t-transparent" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-xl border border-[#E8E5E0] p-16 text-center">
+          <Newspaper className="h-10 w-10 text-[#6B6F76] mx-auto mb-3 opacity-40" />
+          <p className="text-[#6B6F76] mb-4">{search ? 'No posts match your search' : 'No blog posts yet. Create your first one.'}</p>
+          {!search && (
+            <button onClick={() => setShowEditor(true)}
+              className="px-4 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] transition-colors">
+              Create First Post
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
+          <div className="divide-y divide-[#E8E5E0]">
+            {filtered.map(post => (
+              <div key={post.id} className="p-4 flex items-center gap-4 hover:bg-[#F7F5F2] transition-colors">
+                <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-[#F7F5F2]">
+                  {post.coverImage ? (
+                    <img src={post.coverImage} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Newspaper className="h-5 w-5 text-[#6B6F76] opacity-40" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${post.published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                      {post.published ? 'Published' : 'Draft'}
+                    </span>
+                    {post.readingTime && (
+                      <span className="text-xs text-[#6B6F76] flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> {post.readingTime} min read
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-[#0E0E0F] truncate">{post.title}</p>
+                  <div className="flex items-center gap-2 text-xs text-[#6B6F76] mt-0.5">
+                    <span>/{post.slug}</span>
+                    <span className="text-[#E8E5E0]">·</span>
+                    <span>{post.author}</span>
+                    <span className="text-[#E8E5E0]">·</span>
+                    <span>{new Date(post.publishedAt || post.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                <div className="hidden md:flex gap-1 flex-shrink-0">
+                  {(post.tags || []).slice(0, 2).map(tag => (
+                    <span key={tag} className="text-[10px] font-bold text-[#F2782E] bg-[#FDF1E8] rounded-full px-2 py-0.5">{tag}</span>
+                  ))}
+                  {(post.tags || []).length > 2 && (
+                    <span className="text-[10px] text-[#6B6F76]">+{post.tags.length - 2}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => togglePublish(post)}
+                    className={`p-2 rounded-lg transition-colors ${post.published ? 'text-green-600 hover:bg-green-50' : 'text-[#6B6F76] hover:bg-[#F7F5F2]'}`}
+                    title={post.published ? 'Unpublish' : 'Publish'}
+                  >
+                    {post.published ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                  </button>
+                  {post.published && (
+                    <a
+                      href={`${import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev'}/blog/${post.slug}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
+                      title="View live"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => { setEditingPost(post); setShowEditor(true); }}
+                    className="p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
+                    title="Edit"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(post.id)}
+                    className="p-2 text-[#6B6F76] hover:text-red-500 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Blog editor modal ────────────────────────────────────────────────────────
+function BlogEditor({ initial, apiCall, onSaved, onClose }) {
+  const [form, setForm] = useState(() => {
+    if (initial) return {
+      title: initial.title || '',
+      slug: initial.slug || '',
+      excerpt: initial.excerpt || '',
+      content: initial.content || '',
+      coverImage: initial.coverImage || '',
+      author: initial.author || '',
+      tags: (initial.tags || []).join(', '),
+      published: initial.published || false,
+      seoKeywords: initial.seoKeywords || '',
+    };
+    return { ...EMPTY_BLOG_POST };
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(!!initial);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageMsg, setImageMsg] = useState('');
+  const imageInputRef = useRef(null);
+  const isEdit = !!initial?.id;
+
+  const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleTitleChange = (val) => {
+    f('title', val);
+    if (!slugManuallyEdited) f('slug', slugify(val));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr('');
+
+    const payload = {
+      ...form,
+      tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+    };
+
+    try {
+      const r = await apiCall(
+        isEdit ? `/api/blog/${initial.id}` : '/api/blog',
+        { method: isEdit ? 'PUT' : 'POST', body: JSON.stringify(payload) }
+      );
+      if (r.ok) {
+        onSaved();
+        onClose();
+      } else {
+        const d = await r.json();
+        setErr(d.error || d.errors?.[0]?.msg || 'Failed to save post');
+      }
+    } catch {
+      setErr('Network error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-[#E8E5E0] sticky top-0 bg-white z-10">
+          <h3 className="text-lg font-bold text-[#0E0E0F]">{isEdit ? 'Edit Post' : 'New Blog Post'}</h3>
+          <button onClick={onClose} className="p-2 text-[#6B6F76] hover:text-[#0E0E0F]">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {err && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{err}</div>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Title *</label>
+              <input
+                required
+                value={form.title}
+                onChange={e => handleTitleChange(e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                placeholder="e.g. 5 Cybersecurity Trends in 2025"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Slug *</label>
+              <input
+                required
+                value={form.slug}
+                onChange={e => { f('slug', e.target.value); setSlugManuallyEdited(true); }}
+                className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm font-mono focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                placeholder="5-cybersecurity-trends-2025"
+              />
+              <p className="text-xs text-[#6B6F76] mt-1">URL: /blog/{form.slug || '...'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Author *</label>
+              <input
+                required
+                value={form.author}
+                onChange={e => f('author', e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                placeholder="Author name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">
+                Tags <span className="text-[#6B6F76] font-normal">(comma-separated)</span>
+              </label>
+              <input
+                value={form.tags}
+                onChange={e => f('tags', e.target.value)}
+                className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                placeholder="cybersecurity, trends, 2025"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Excerpt *</label>
+            <textarea
+              required
+              rows={2}
+              value={form.excerpt}
+              onChange={e => f('excerpt', e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+              placeholder="Short summary shown on blog listing and SEO meta…"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">
+              Content * <span className="text-[#6B6F76] font-normal">(plain text, blank lines = paragraphs)</span>
+            </label>
+            <textarea
+              required
+              rows={10}
+              value={form.content}
+              onChange={e => f('content', e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-y focus:ring-2 focus:ring-[#F2782E] focus:border-transparent font-mono"
+              placeholder="Write your blog post content here…"
+            />
+            <p className="text-xs text-[#6B6F76] mt-1">
+              {form.content.trim().split(/\s+/).filter(Boolean).length} words · ~{Math.max(1, Math.ceil(form.content.trim().split(/\s+/).filter(Boolean).length / 200))} min read
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1 flex items-center gap-1">
+              <Image className="h-3.5 w-3.5" /> Cover Image
+            </label>
+            <div className="flex gap-2 mb-2">
+              <button type="button" onClick={() => imageInputRef.current?.click()}
+                disabled={imageUploading}
+                className="flex items-center gap-1.5 px-4 py-2 border border-[#E8E5E0] rounded-xl text-sm text-[#0E0E0F] hover:border-[#F2782E] hover:text-[#F2782E] disabled:opacity-50 transition-colors">
+                {imageUploading
+                  ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+                  : <><Image className="h-3.5 w-3.5" /> Upload Image</>}
+              </button>
+              <input
+                type="url"
+                value={form.coverImage}
+                onChange={e => f('coverImage', e.target.value)}
+                className="flex-1 px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+                placeholder="…or paste image URL"
+              />
+            </div>
+            <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setImageUploading(true); setImageMsg('');
+                try {
+                  const fd = new FormData();
+                  fd.append('image', file);
+                  const token = localStorage.getItem('portalToken');
+                  const API_BASE = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+                  const r = await fetch(`${API_BASE}/api/projects/upload-image`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: fd,
+                  });
+                  const d = await r.json();
+                  if (r.ok) { f('coverImage', d.url); setImageMsg('Image uploaded ✓'); }
+                  else setImageMsg(d.error || 'Upload failed');
+                } catch { setImageMsg('Upload failed'); }
+                finally { setImageUploading(false); e.target.value = ''; }
+              }}
+            />
+            {imageMsg && (
+              <p className={`text-xs mt-1 ${imageMsg.includes('✓') ? 'text-green-600' : 'text-red-500'}`}>{imageMsg}</p>
+            )}
+            {form.coverImage && (
+              <div className="mt-2 relative group">
+                <img src={form.coverImage} alt="cover preview"
+                  className="h-32 w-full object-cover rounded-xl border border-[#E8E5E0]"
+                  onError={e => e.target.parentElement.style.display = 'none'} />
+                <button type="button" onClick={() => { f('coverImage', ''); setImageMsg(''); }}
+                  className="absolute top-2 right-2 p-1 bg-white rounded-lg shadow text-[#6B6F76] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">
+              SEO Keywords <span className="text-[#6B6F76] font-normal">(optional, comma-separated)</span>
+            </label>
+            <input
+              value={form.seoKeywords}
+              onChange={e => f('seoKeywords', e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+              placeholder="cybersecurity, cloud security, zero trust"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-[#0E0E0F]">
+              <input
+                type="checkbox"
+                checked={form.published}
+                onChange={e => f('published', e.target.checked)}
+                className="accent-[#F2782E] w-4 h-4"
+              />
+              Publish immediately
+            </label>
+            <span className="text-xs text-[#6B6F76]">
+              {form.published ? 'Will be visible on the public blog' : 'Will be saved as a draft'}
+            </span>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-[#E8E5E0]">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 text-sm text-[#6B6F76] hover:text-[#0E0E0F]">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors flex items-center gap-1.5">
+              <Save className="h-4 w-4" />
+              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Post'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

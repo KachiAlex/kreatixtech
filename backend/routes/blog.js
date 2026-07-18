@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdmin, authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -52,6 +52,55 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Admin: list all posts (including drafts)
+router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, status } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const where = {};
+    if (status === 'published') where.published = true;
+    if (status === 'draft') where.published = false;
+
+    const [posts, total] = await Promise.all([
+      prisma.blogPost.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: parseInt(limit),
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          excerpt: true,
+          coverImage: true,
+          author: true,
+          tags: true,
+          published: true,
+          publishedAt: true,
+          readingTime: true,
+          createdAt: true,
+          updatedAt: true,
+        }
+      }),
+      prisma.blogPost.count({ where })
+    ]);
+
+    res.json({
+      posts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Admin list posts error:', error);
+    res.status(500).json({ error: 'Failed to fetch posts' });
+  }
+});
+
 // Public: get single post by slug
 router.get('/:slug', async (req, res) => {
   try {
@@ -79,14 +128,18 @@ router.post('/', [
   body('excerpt').trim().isLength({ min: 10, max: 500 }),
   body('content').trim().isLength({ min: 50 }),
   body('author').trim().isLength({ min: 2 }),
-], requireAdmin, async (req, res) => {
+], authenticateToken, requireAdmin, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
 
   try {
-    const { title, slug, excerpt, content, coverImage, author, tags, published } = req.body;
+    const { title, slug, excerpt, content, coverImage, author, tags, published, seoKeywords } = req.body;
+
+    // Auto-calculate reading time (~200 wpm)
+    const wordCount = content.trim().split(/\s+/).length;
+    const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
     const existing = await prisma.blogPost.findUnique({ where: { slug } });
     if (existing) {
@@ -103,7 +156,9 @@ router.post('/', [
         author,
         tags: tags || [],
         published: published || false,
-        publishedAt: published ? new Date() : null
+        publishedAt: published ? new Date() : null,
+        readingTime,
+        seoKeywords: seoKeywords || null,
       }
     });
 
@@ -117,12 +172,12 @@ router.post('/', [
 // Admin: update post
 router.put('/:id', [
   param('id').isUUID()
-], requireAdmin, async (req, res) => {
+], authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = {};
 
-    const allowedFields = ['title', 'excerpt', 'content', 'coverImage', 'author', 'tags'];
+    const allowedFields = ['title', 'excerpt', 'content', 'coverImage', 'author', 'tags', 'seoKeywords'];
     Object.keys(req.body).forEach(key => {
       if (allowedFields.includes(key)) updateData[key] = req.body[key];
     });
@@ -132,6 +187,12 @@ router.put('/:id', [
       if (req.body.published) {
         updateData.publishedAt = new Date();
       }
+    }
+
+    // Recalculate reading time if content changed
+    if (req.body.content) {
+      const wordCount = req.body.content.trim().split(/\s+/).length;
+      updateData.readingTime = Math.max(1, Math.ceil(wordCount / 200));
     }
 
     const post = await prisma.blogPost.update({
@@ -147,7 +208,7 @@ router.put('/:id', [
 });
 
 // Admin: delete post
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.blogPost.delete({ where: { id } });

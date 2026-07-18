@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, ArrowRight, Tag, Loader2 } from 'lucide-react';
 import SEO from '../components/SEO';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
 
 export default function BlogPage() {
   const [posts, setPosts] = useState([]);
