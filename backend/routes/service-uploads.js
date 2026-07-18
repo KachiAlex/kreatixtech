@@ -66,7 +66,7 @@ router.post('/request/:requestId', upload.array('files', 10), async (req, res) =
     res.json({ attachments });
   } catch (e) {
     console.error('Service upload error:', e);
-    res.status(500).json({ error: 'Upload failed', detail: e.message });
+    res.status(500).json({ error: 'Upload failed' });
   }
 });
 

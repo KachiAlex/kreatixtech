@@ -17,16 +17,16 @@ async function login(email, password) {
   });
   const data = await res.json();
   assert(res.ok, `Login failed for ${email}: ${data.error || res.statusText}`);
-  return data.token;
+  return { token: data.token, user: data.user };
 }
 
-async function findRequest(adminToken) {
-  const res = await fetch(`${API_URL}/api/requests?page=1&limit=5`, {
+async function findRequest(adminToken, orgId) {
+  const res = await fetch(`${API_URL}/api/requests?page=1&limit=20`, {
     headers: { Authorization: `Bearer ${adminToken}` },
   });
   const data = await res.json();
   assert(res.ok, `Failed to list requests: ${data.error || res.statusText}`);
-  const req = data.requests?.[0];
+  const req = data.requests?.find(r => r.orgId === orgId) || data.requests?.[0];
   assert(req, 'No service requests found for admin');
   return req.id;
 }
@@ -46,7 +46,7 @@ async function uploadFileAsAdmin(adminToken, requestId) {
   assert(data.attachments?.length === 1, 'Expected one attachment');
   const att = data.attachments[0];
   assert(att.fileUrl, 'Attachment missing fileUrl');
-  assert(att.fileUrl.startsWith('https://'), `Expected Cloudinary URL, got: ${att.fileUrl}`);
+  assert(att.fileUrl.startsWith('https://'), `Expected HTTPS URL, got: ${att.fileUrl}`);
   return att;
 }
 
@@ -79,19 +79,21 @@ async function cleanup(adminToken, attId) {
 }
 
 async function run() {
-  console.log('1. Admin login...');
-  const adminToken = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  console.log('1. Client login (to get orgId)...');
+  const { token: clientToken, user: clientUser } = await login(CLIENT_EMAIL, CLIENT_PASSWORD);
+  const clientOrgId = clientUser.orgId || clientUser.organization?.id;
+  console.log('   Client orgId:', clientOrgId);
 
-  console.log('2. Finding a service request...');
-  const requestId = await findRequest(adminToken);
+  console.log('2. Admin login...');
+  const { token: adminToken } = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+  console.log('3. Finding a service request for client org...');
+  const requestId = await findRequest(adminToken, clientOrgId);
   console.log('   Using request:', requestId);
 
-  console.log('3. Admin uploading file...');
+  console.log('4. Admin uploading file...');
   const att = await uploadFileAsAdmin(adminToken, requestId);
   console.log('   Uploaded:', att.fileName, '->', att.fileUrl);
-
-  console.log('4. Client login...');
-  const clientToken = await login(CLIENT_EMAIL, CLIENT_PASSWORD);
 
   console.log('5. Client listing attachments...');
   const attachments = await fetchAttachmentsAsClient(clientToken, requestId);
