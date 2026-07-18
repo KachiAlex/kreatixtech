@@ -42,7 +42,7 @@ async function uploadFileAsAdmin(adminToken, requestId) {
     body: fd,
   });
   const data = await res.json();
-  assert(res.ok, `Admin upload failed: ${data.error || res.statusText}`);
+  assert(res.ok, `Admin upload failed: ${data.error || res.statusText}${data.detail ? ` | ${data.detail}` : ''}`);
   assert(data.attachments?.length === 1, 'Expected one attachment');
   const att = data.attachments[0];
   assert(att.fileUrl, 'Attachment missing fileUrl');
