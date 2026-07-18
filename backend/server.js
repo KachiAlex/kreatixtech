@@ -33,25 +33,27 @@ const tryImport = async (name, path) => {
   }
 };
 
-await tryImport('auth',          './routes/auth.js');
-await tryImport('assessments',   './routes/assessments.js');
-await tryImport('serviceRequests','./routes/service-requests.js');
-await tryImport('serviceMessages','./routes/service-messages.js');
-await tryImport('serviceFindings','./routes/service-findings.js');
-await tryImport('serviceUploads', './routes/service-uploads.js');
-await tryImport('messages',      './routes/messages.js');
-await tryImport('notifications', './routes/notifications.js');
-await tryImport('contact',       './routes/contact.js');
-await tryImport('findings',      './routes/findings.js');
-await tryImport('blog',          './routes/blog.js');
-await tryImport('testimonials',  './routes/testimonials.js');
-await tryImport('audit',         './routes/audit.js');
-await tryImport('invitations',   './routes/invitations.js');
-await tryImport('uploads',       './routes/uploads.js');
-await tryImport('projects',      './routes/projects.js');
-await tryImport('requests',      './routes/requests.js');
-await tryImport('analytics',      './routes/analytics.js');
-await tryImport('authMiddleware','./middleware/auth.js');
+await Promise.all([
+  tryImport('auth',          './routes/auth.js'),
+  tryImport('assessments',   './routes/assessments.js'),
+  tryImport('serviceRequests','./routes/service-requests.js'),
+  tryImport('serviceMessages','./routes/service-messages.js'),
+  tryImport('serviceFindings','./routes/service-findings.js'),
+  tryImport('serviceUploads', './routes/service-uploads.js'),
+  tryImport('messages',      './routes/messages.js'),
+  tryImport('notifications', './routes/notifications.js'),
+  tryImport('contact',       './routes/contact.js'),
+  tryImport('findings',      './routes/findings.js'),
+  tryImport('blog',          './routes/blog.js'),
+  tryImport('testimonials',  './routes/testimonials.js'),
+  tryImport('audit',         './routes/audit.js'),
+  tryImport('invitations',   './routes/invitations.js'),
+  tryImport('uploads',       './routes/uploads.js'),
+  tryImport('projects',      './routes/projects.js'),
+  tryImport('requests',      './routes/requests.js'),
+  tryImport('analytics',      './routes/analytics.js'),
+  tryImport('authMiddleware','./middleware/auth.js'),
+]);
 
 console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
 
