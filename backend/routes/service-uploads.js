@@ -28,7 +28,7 @@ router.post('/request/:requestId', upload.array('files', 10), async (req, res) =
 
     const attachments = await Promise.all(req.files.map(async file => {
       const result = await uploadBufferToR2(file.buffer, {
-        requestId,
+        folder: `kreatix-requests/${requestId}`,
         fileName: file.originalname,
         contentType: file.mimetype,
       });

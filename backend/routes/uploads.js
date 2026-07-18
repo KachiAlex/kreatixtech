@@ -1,36 +1,10 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
+import { uploadBufferToR2, deleteFileFromR2 } from '../lib/r2.js';
 
 const router = express.Router();
-
-const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-
-try {
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-} catch (err) {
-  console.warn('Could not create uploads directory:', err.message);
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const orgDir = path.join(uploadDir, req.user.orgId);
-    if (!fs.existsSync(orgDir)) {
-      fs.mkdirSync(orgDir, { recursive: true });
-    }
-    cb(null, orgDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
@@ -51,7 +25,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: {
     fileSize: parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024
@@ -73,28 +47,32 @@ router.post('/assessment/:assessmentId', upload.array('files', 10), async (req, 
     });
 
     if (!assessment) {
-      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(404).json({ error: 'Assessment not found' });
     }
 
     if (req.user.role === 'CLIENT' && assessment.orgId !== req.user.orgId) {
-      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(403).json({ error: 'Access denied' });
     }
 
     const attachments = await Promise.all(
-      files.map(file =>
-        prisma.attachment.create({
+      files.map(async file => {
+        const result = await uploadBufferToR2(file.buffer, {
+          folder: `kreatix-vapt/${assessmentId}`,
+          fileName: file.originalname,
+          contentType: file.mimetype,
+        });
+        return prisma.attachment.create({
           data: {
             assessmentId,
-            fileUrl: `/uploads/${req.user.orgId}/${file.filename}`,
+            fileUrl: result.publicUrl,
             fileName: file.originalname,
             fileSize: file.size,
             mimeType: file.mimetype,
-            uploadedBy: req.user.id
+            uploadedBy: req.user.id,
+            storageProvider: 'S3'
           }
-        })
-      )
+        });
+      })
     );
 
     // Only create a FILE_UPLOAD message if not attaching to an existing message
@@ -125,13 +103,6 @@ router.post('/assessment/:assessmentId', upload.array('files', 10), async (req, 
     });
   } catch (error) {
     console.error('Upload error:', error);
-    if (req.files) {
-      req.files.forEach(file => {
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-      });
-    }
     res.status(500).json({ error: 'Failed to upload files' });
   }
 });
@@ -151,28 +122,32 @@ router.post('/message/:messageId', upload.array('files', 5), async (req, res) =>
     });
 
     if (!message) {
-      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(404).json({ error: 'Message not found' });
     }
 
     if (req.user.role === 'CLIENT' && message.assessment.orgId !== req.user.orgId) {
-      files.forEach(file => fs.unlinkSync(file.path));
       return res.status(403).json({ error: 'Access denied' });
     }
 
     const attachments = await Promise.all(
-      files.map(file =>
-        prisma.attachment.create({
+      files.map(async file => {
+        const result = await uploadBufferToR2(file.buffer, {
+          folder: `kreatix-vapt/${message.assessmentId || messageId}`,
+          fileName: file.originalname,
+          contentType: file.mimetype,
+        });
+        return prisma.attachment.create({
           data: {
             messageId,
-            fileUrl: `/uploads/${req.user.orgId}/${file.filename}`,
+            fileUrl: result.publicUrl,
             fileName: file.originalname,
             fileSize: file.size,
             mimeType: file.mimetype,
-            uploadedBy: req.user.id
+            uploadedBy: req.user.id,
+            storageProvider: 'S3'
           }
-        })
-      )
+        });
+      })
     );
 
     getIo().to(`assessment:${message.assessmentId}`).emit('message-files-uploaded', {
@@ -186,13 +161,6 @@ router.post('/message/:messageId', upload.array('files', 5), async (req, res) =>
     });
   } catch (error) {
     console.error('Upload to message error:', error);
-    if (req.files) {
-      req.files.forEach(file => {
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-      });
-    }
     res.status(500).json({ error: 'Failed to attach files' });
   }
 });
@@ -243,9 +211,12 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const filePath = path.join(process.cwd(), attachment.fileUrl);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (attachment.fileUrl && (attachment.fileUrl.startsWith('http') || attachment.storageProvider === 'S3')) {
+      try {
+        await deleteFileFromR2(attachment.fileUrl);
+      } catch (r2Err) {
+        console.error('R2 delete error:', r2Err);
+      }
     }
 
     await prisma.attachment.delete({

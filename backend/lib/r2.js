@@ -9,7 +9,7 @@ const bucket = process.env.R2_BUCKET_NAME;
 
 let s3 = null;
 
-function getClient() {
+export function getS3Client() {
   if (s3) return s3;
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
     throw new Error('R2 credentials not configured (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME)');
@@ -23,9 +23,10 @@ function getClient() {
   return s3;
 }
 
-function keyForFile(requestId, originalName) {
+function keyForFile(folder, originalName) {
   const ext = path.extname(originalName) || '';
-  return `kreatix-requests/${requestId}/${uuidv4()}${ext}`;
+  const safeFolder = folder.replace(/^\/+|\/+$/g, '');
+  return `${safeFolder}/${uuidv4()}${ext}`;
 }
 
 export function publicUrlForKey(key) {
@@ -39,9 +40,9 @@ export function publicUrlForKey(key) {
   return `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${key}`;
 }
 
-export async function uploadBufferToR2(buffer, { requestId, fileName, contentType }) {
-  const key = keyForFile(requestId, fileName);
-  const client = getClient();
+export async function uploadBufferToR2(buffer, { folder, fileName, contentType }) {
+  const key = keyForFile(folder, fileName);
+  const client = getS3Client();
   await client.send(new PutObjectCommand({
     Bucket: bucket,
     Key: key,
@@ -51,8 +52,26 @@ export async function uploadBufferToR2(buffer, { requestId, fileName, contentTyp
   return { key, publicUrl: publicUrlForKey(key) };
 }
 
-export async function deleteFileFromR2(urlOrKey) {
-  const client = getClient();
-  const key = urlOrKey.includes('://') ? urlOrKey.split('/').slice(3).join('/') : urlOrKey;
+export async function deleteFileFromR2(fileUrl) {
+  if (!fileUrl || !fileUrl.startsWith('http')) return;
+  const publicBase = process.env.R2_PUBLIC_URL ? process.env.R2_PUBLIC_URL.replace(/\/$/, '') : null;
+  let key;
+  if (publicBase && fileUrl.startsWith(publicBase)) {
+    key = fileUrl.slice(publicBase.length + 1);
+  } else {
+    try {
+      const url = new URL(fileUrl);
+      const segments = url.pathname.split('/').filter(Boolean);
+      if (segments[0] === bucket) {
+        segments.shift();
+      }
+      key = segments.join('/');
+    } catch {
+      return;
+    }
+  }
+  if (!key) return;
+  const client = getS3Client();
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
+

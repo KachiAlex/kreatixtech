@@ -1,10 +1,20 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
+import multer from 'multer';
 import { prisma } from '../lib/prisma.js';
 import { requireAdmin, authenticateToken } from '../middleware/auth.js';
-import { uploadPortfolioImage, uploadBufferToCloudinary } from '../config/cloudinary.js';
+import { uploadBufferToR2 } from '../lib/r2.js';
 
 const router = express.Router();
+
+const uploadPortfolioImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+});
 
 // ── Public: list published projects ─────────────────────────────────────────
 router.get('/', async (req, res) => {
@@ -42,11 +52,12 @@ router.get('/:id', [param('id').isUUID()], async (req, res) => {
 router.post('/upload-image', authenticateToken, requireAdmin, uploadPortfolioImage.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image file provided' });
-    const result = await uploadBufferToCloudinary(req.file.buffer, {
+    const result = await uploadBufferToR2(req.file.buffer, {
       folder: 'kreatix-portfolio',
-      transformation: [{ width: 1200, height: 630, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+      fileName: req.file.originalname,
+      contentType: req.file.mimetype,
     });
-    res.json({ url: result.secure_url });
+    res.json({ url: result.publicUrl });
   } catch (err) {
     console.error('Image upload error:', err.message || err, err.stack || '');
     res.status(500).json({ error: err.message || 'Failed to upload image' });
