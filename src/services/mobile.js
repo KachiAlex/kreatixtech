@@ -13,6 +13,9 @@ export async function initPushNotifications(token) {
     return;
   }
 
+  // Push notifications require Firebase setup. Disabled until configured.
+  return;
+
   let permGranted = false;
 
   try {

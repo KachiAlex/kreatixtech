@@ -30,10 +30,17 @@ export default function Navbar() {
   useEffect(() => { setMobileOpen(false); }, [location]);
 
   return (
-    <nav className={cn(
-      'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-      scrolled ? 'bg-paper/85 backdrop-blur-[12px] border-b border-border shadow-sm' : 'bg-paper/85 backdrop-blur-[12px]'
-    )}>
+    <>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-ink focus:text-white focus:rounded-lg focus:text-sm"
+      >
+        Skip to content
+      </a>
+      <nav className={cn(
+        'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+        scrolled ? 'bg-paper/85 backdrop-blur-[12px] border-b border-border shadow-sm' : 'bg-paper/85 backdrop-blur-[12px]'
+      )} role="navigation" aria-label="Main navigation">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 lg:px-14 py-5">
         {/* Brand */}
         <Logo size="md" />
@@ -70,6 +77,8 @@ export default function Navbar() {
           onClick={() => setMobileOpen(v => !v)}
           className="md:hidden text-ink text-2xl bg-transparent border-none cursor-pointer"
           aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
         >
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -77,7 +86,10 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className={cn(
+        <div
+          id="mobile-menu"
+          role="menu"
+          className={cn(
           'md:hidden fixed top-0 right-0 h-screen w-64 bg-paper flex flex-col justify-start pt-24 px-8 pb-8 gap-6 border-l border-border shadow-xl',
           mobileOpen ? 'translate-x-0' : 'translate-x-full'
         )}>
@@ -105,5 +117,6 @@ export default function Navbar() {
         </div>
       )}
     </nav>
+    </>
   );
 }

@@ -1,0 +1,27 @@
+{
+  "name": "Kreatix Technologies",
+  "short_name": "Kreatix",
+  "description": "Software Development, Cybersecurity & Cloud Services",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E0E0F",
+  "theme_color": "#F2782E",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/images/kreatix-logo-light.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/kreatix-logo-light.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "security"],
+  "lang": "en",
+  "dir": "ltr"
+}

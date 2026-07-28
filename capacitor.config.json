@@ -4,8 +4,11 @@
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 0,
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 1200,
       "backgroundColor": "#0E0E0F",
+      "androidScaleType": "CENTER_INSIDE",
       "showSpinner": false
     },
     "StatusBar": {

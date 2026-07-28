@@ -1,22 +1,25 @@
-console.log('SERVER.JS STARTING');
-
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './lib/swagger.js';
 import { prisma } from './lib/prisma.js';
 import { setIo, connectedUsers } from './lib/socket.js';
+import logger from './lib/logger.js';
+
+logger.info('SERVER.JS STARTING');
 
 process.on('uncaughtException', (err) => {
-  process.stderr.write(`UNCAUGHT EXCEPTION: ${err.name}: ${err.message}\n${err.stack}\n`);
+  logger.fatal({ err }, 'UNCAUGHT EXCEPTION');
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
-  process.stderr.write(`UNHANDLED REJECTION: ${reason}\n`);
-  if (reason instanceof Error) process.stderr.write(reason.stack + '\n');
+  logger.fatal({ reason }, 'UNHANDLED REJECTION');
   process.exit(1);
 });
 
@@ -29,7 +32,7 @@ const tryImport = async (name, path) => {
     const mod = await import(path);
     routeImports.push({ name, module: mod });
   } catch (e) {
-    console.error(`FAIL ${name}:`, e.message.substring(0, 300));
+    logger.error({ module: name, err: e.message.substring(0, 300) }, 'Failed to load route');
   }
 };
 
@@ -55,7 +58,7 @@ await Promise.all([
   tryImport('authMiddleware','./middleware/auth.js'),
 ]);
 
-console.log('Routes loaded:', routeImports.map(r => r.name).join(', '));
+logger.info({ routes: routeImports.map(r => r.name) }, 'Routes loaded');
 
 const get = (name) => routeImports.find(r => r.name === name)?.module;
 
@@ -86,8 +89,9 @@ app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
 // CORS — FRONTEND_URL can be comma-separated for multiple origins
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+const defaultOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',').map(o => o.trim()).filter(Boolean);
+const allowedOrigins = Array.from(new Set([...defaultOrigins, 'https://localhost', 'capacitor://localhost']));
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -105,6 +109,22 @@ const io = new Server(httpServer, {
 setIo(io);
 
 app.use(cors(corsOptions));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'wss:', 'https:'],
+      fontSrc: ["'self'", 'data:', 'https:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static('uploads'));
 
@@ -144,7 +164,7 @@ if (invitationRoutes)     app.use('/api/invitations',       invitationRoutes);
 if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
 
 // Log mounted routes
-console.log('Mounted API routes:');
+logger.info('Mounted API routes:');
 [
   ['auth', authRoutes, '/api/auth'],
   ['assessments', assessmentRoutes, '/api/assessments'],
@@ -164,12 +184,17 @@ console.log('Mounted API routes:');
   ['invitations', invitationRoutes, '/api/invitations'],
   ['analytics', analyticsRoutes, '/api/analytics'],
 ].forEach(([name, route, path]) => {
-  console.log(`  ${route ? '✅' : '❌'} ${path} (${name})`);
+  logger.info(`  ${route ? '✅' : '❌'} ${path} (${name})`);
 });
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui { max-width: 1200px; margin: 0 auto; }',
+  customSiteTitle: 'Kreatix API Docs',
+}));
 
 app.get('/api/debug/db', async (req, res) => {
   try {
@@ -188,7 +213,7 @@ app.use('/api/*', (req, res) => {
 
 // Global error handler — returns JSON for any unhandled errors
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  logger.error({ err }, 'Unhandled error');
   res.status(500).json({ error: 'Internal server error', detail: err.message });
 });
 
@@ -209,7 +234,7 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log(`User ${socket.userId} connected`);
+  logger.info({ userId: socket.userId }, 'User connected');
   connectedUsers.set(socket.userId, { socketId: socket.id, userId: socket.userId, orgId: socket.orgId, lastSeen: new Date() });
   socket.join(`user:${socket.userId}`);
   socket.join(`org:${socket.orgId}`);
@@ -262,7 +287,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info({ port: PORT }, 'Server running');
 });
 
 export default app;

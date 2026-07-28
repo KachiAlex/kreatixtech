@@ -9,7 +9,8 @@
     <meta name="keywords" content="software development, cybersecurity, VAPT, cloud services, penetration testing, web applications, IT consulting, Kreatix Technologies" />
     <meta name="author" content="Kreatix Technologies" />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#FF6B35" />
+    <meta name="theme-color" content="#F2782E" />
+    <link rel="manifest" href="/manifest.json" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -35,5 +36,12 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>

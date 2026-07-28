@@ -4,13 +4,10 @@ import { initPushNotifications, unregisterPushToken } from '../services/mobile';
 
 const PortalContext = createContext(null);
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
 
-// Socket.io requires a persistent server (not serverless).
-// fly.io supports WebSockets; Vercel serverless does not.
-// When API_URL is unset we're in local dev using Vite's proxy — sockets
-// can still connect directly to localhost:5000 in that case.
-const SOCKET_URL = API_URL || 'http://localhost:5000';
+// Socket.io connects to the same backend base URL
+const SOCKET_URL = API_URL;
 
 export function PortalProvider({ children }) {
   const [user, setUser] = useState(null);

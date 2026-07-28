@@ -1,11 +1,13 @@
-﻿import React, { Suspense, lazy, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+﻿import { Capacitor } from '@capacitor/core';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { BrowserRouter, HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { PortalProvider, usePortal } from './contexts/PortalContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
 import SplashScreen from './components/SplashScreen';
+import CookieConsent from './components/CookieConsent';
 import { initPushNotifications, unregisterPushToken } from './services/mobile';
 import { trackPageView } from './services/analytics';
 
@@ -32,6 +34,9 @@ const ReportViewer = lazy(() => import('./pages/portal/ReportViewer'));
 const NewRequest = lazy(() => import('./pages/portal/NewRequest'));
 const RequestDetail = lazy(() => import('./pages/portal/RequestDetail'));
 const Settings = lazy(() => import('./pages/portal/Settings'));
+
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
 function ProtectedPortalRoute({ children, requireAdmin = false }) {
   const { isAuthenticated, isAdmin, isLoading } = usePortal();
@@ -143,13 +148,14 @@ function AppRoutes() {
   return (
     <>
       {!isAdmin && !isPortal && <Navbar />}
+      <div id="main-content">
       <Suspense fallback={
         <div className="min-h-screen bg-offwhite flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange border-t-transparent"></div>
         </div>
       }>
         <Routes>
-          <Route path="/"                      element={<HomePage />} />
+          <Route path="/"                      element={isNativeApp() ? <Navigate to="/portal/login" replace /> : <HomePage />} />
           <Route path="/services/cybersecurity" element={<CybersecurityPage />} />
           <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
           <Route path="/portfolio"             element={<PortfolioPage />} />
@@ -162,24 +168,35 @@ function AppRoutes() {
           <Route path="/cybersecurity"         element={<CybersecurityPage />} />
           <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
           <Route path="/portal/*"              element={<PortalRoutes />} />
+          <Route path="/privacy"               element={<PrivacyPolicy />} />
+          <Route path="/terms"                 element={<TermsOfService />} />
           <Route path="*"                      element={<NotFoundPage />} />
         </Routes>
       </Suspense>
+      </div>
       {!isAdmin && !isPortal && <Footer />}
     </>
   );
 }
 
+function isNativeApp() {
+  if (typeof window === 'undefined') return false;
+  return Capacitor.isNativePlatform();
+}
+
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
+  const isNative = isNativeApp();
+  const [showSplash, setShowSplash] = useState(!isNative);
+  const Router = isNative ? HashRouter : BrowserRouter;
 
   return (
     <AppProvider>
       <PortalProvider>
-        <BrowserRouter>
+        <Router>
           <AppRoutes />
           {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-        </BrowserRouter>
+          {!isNative && <CookieConsent />}
+        </Router>
       </PortalProvider>
     </AppProvider>
   );

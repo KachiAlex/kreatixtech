@@ -54,7 +54,11 @@ export default function Footer() {
       <div className="py-6 px-6 lg:px-14 border-t border-border">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between flex-wrap gap-4 text-sm text-grey font-medium">
           <span>© 2026 Kreatix Technologies</span>
-          <span>Lagos, Nigeria</span>
+          <div className="flex gap-6">
+            <Link to="/privacy" className="hover:text-ink transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-ink transition-colors">Terms of Service</Link>
+            <span>Lagos, Nigeria</span>
+          </div>
         </div>
       </div>
     </>
