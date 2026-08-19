@@ -17,18 +17,13 @@ export default function SplashScreen({ onFinish }) {
     <div
       className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#0E0E0F] animate-splash-fade"
     >
-      {/* Logo box with bounce-in animation */}
+      {/* Logo with bounce-in animation */}
       <div className="animate-splash-logo" style={{ opacity: 0 }}>
-        <div className="w-20 h-20 rounded-2xl bg-[#F2782E] flex items-center justify-center shadow-2xl">
-          <span className="text-4xl font-extrabold text-white">K</span>
-        </div>
-      </div>
-
-      {/* Brand name */}
-      <div className="mt-6 animate-splash-text" style={{ opacity: 0 }}>
-        <h1 className="text-2xl font-extrabold text-white tracking-tight">
-          Kreatix<span className="text-[#F2782E]">Tech</span>
-        </h1>
+        <img
+          src="/images/kreatix-logo-light.png"
+          alt="Kreatix Technologies"
+          className="w-auto h-16 object-contain drop-shadow-2xl"
+        />
       </div>
 
       {/* Tagline */}
