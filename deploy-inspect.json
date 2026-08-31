@@ -1,0 +1,126 @@
+﻿{
+  "id": "dpl_t2cmA43HnB31fXFZ1Lzn7GdHUwNk",
+  "name": "kreatixtech",
+  "url": "kreatixtech-h08t1gg59-kachianietie.vercel.app",
+  "target": "production",
+  "readyState": "READY",
+  "createdAt": 1782730366228,
+  "aliases": [
+    "www.kreatixtech.com",
+    "kreatixtech.vercel.app",
+    "kreatixtech.com",
+    "kreatixtech-kachianietie.vercel.app",
+    "kreatixtech-kachianietie-kachianietie.vercel.app"
+  ],
+  "builds": [
+    {
+      "id": "bld_dy8g07i8g",
+      "deploymentId": "dpl_t2cmA43HnB31fXFZ1Lzn7GdHUwNk",
+      "entrypoint": ".",
+      "readyState": "READY",
+      "readyStateAt": 1782730365747,
+      "createdAt": 1782730365747,
+      "createdIn": "sfo1",
+      "use": "@vercel/vc-build",
+      "config": {
+        "framework": "vite",
+        "buildCommand": "npm run vercel-build",
+        "outputDirectory": "dist",
+        "nodeVersion": "24.x",
+        "projectCreatedAt": 1781463650959,
+        "vercelConfig": {
+          "buildCommand": "npm run vercel-build",
+          "outputDirectory": "dist",
+          "name": "kreatixtech",
+          "version": 2
+        }
+      },
+      "middleware": [],
+      "output": [
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "api/index",
+          "digest": "prj_9hSuJgpLFyc5qh71zxUEXnFPFRZR/b954fb5fccf63490ad6241a65f3ce9ad7c01cbebc9f81992417eb66982ed073c",
+          "mode": 49590,
+          "size": 9296061,
+          "lambda": {
+            "functionName": "team_KlxRKSa6hM3CkVRVO7uB768s-0a9b7f07ccd9fa1766114b2604bee6c085",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_46_2-production-b97ec34c0d-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "api/hello",
+          "digest": "prj_9hSuJgpLFyc5qh71zxUEXnFPFRZR/58e0f2a43db8cadfc224a0c53028100dca993c9c6e4eaa23706247b081d3ebf2",
+          "mode": 49590,
+          "size": 19570,
+          "lambda": {
+            "functionName": "team_KlxRKSa6hM3CkVRVO7uB768s-9172fc838ff7861ce8fdad38df59937ea4",
+            "deployedTo": [
+              "arn1",
+              "bom1",
+              "cdg1",
+              "cle1",
+              "cpt1",
+              "dub1",
+              "fra1",
+              "gru1",
+              "hkg1",
+              "hnd1",
+              "iad1",
+              "icn1",
+              "kix1",
+              "lhr1",
+              "pdx1",
+              "sfo1",
+              "sin1",
+              "syd1",
+              "yul1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-edge-worker-1_46_2-production-b97ec34c0d-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "api/test",
+          "digest": "prj_9hSuJgpLFyc5qh71zxUEXnFPFRZR/a5c2afeacd853b1015cff434f1e034ec6db152b7e4dc1cd72c0ea9467a2e4b0b",
+          "mode": 49590,
+          "size": 4420,
+          "lambda": {
+            "functionName": "team_KlxRKSa6hM3CkVRVO7uB768s-b342cdc3936fdb3010931a7a54c86d71c2",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_46_2-production-b97ec34c0d-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        }
+      ],
+      "fingerprint": null
+    }
+  ],
+  "contextName": "kachianietie"
+}

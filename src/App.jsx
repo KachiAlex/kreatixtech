@@ -1,0 +1,203 @@
+﻿import { Capacitor } from '@capacitor/core';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { BrowserRouter, HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
+import { PortalProvider, usePortal } from './contexts/PortalContext';
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import HomePage from './pages/HomePage';
+import SplashScreen from './components/SplashScreen';
+import CookieConsent from './components/CookieConsent';
+import { initPushNotifications, unregisterPushToken } from './services/mobile';
+import { trackPageView } from './services/analytics';
+
+const CybersecurityPage = lazy(() => import('./pages/CybersecurityPage'));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const TeamPage = lazy(() => import('./pages/TeamPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+
+const BlogPage = lazy(() => import('./pages/BlogPage'));
+const BlogPost = lazy(() => import('./pages/BlogPost'));
+
+const PortalLogin = lazy(() => import('./pages/portal/PortalLogin'));
+const ForgotPassword = lazy(() => import('./pages/portal/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/portal/ResetPassword'));
+const AcceptInvite = lazy(() => import('./pages/portal/AcceptInvite'));
+const ClientDashboard = lazy(() => import('./pages/portal/ClientDashboard'));
+const AdminDashboard = lazy(() => import('./pages/portal/AdminDashboard'));
+const NewAssessment = lazy(() => import('./pages/portal/NewAssessment'));
+const AssessmentDetail = lazy(() => import('./pages/portal/AssessmentDetail'));
+const ReportViewer = lazy(() => import('./pages/portal/ReportViewer'));
+const NewRequest = lazy(() => import('./pages/portal/NewRequest'));
+const RequestDetail = lazy(() => import('./pages/portal/RequestDetail'));
+const Settings = lazy(() => import('./pages/portal/Settings'));
+
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+
+function ProtectedPortalRoute({ children, requireAdmin = false }) {
+  const { isAuthenticated, isAdmin, isLoading } = usePortal();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-offwhite flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange border-t-transparent"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/portal/login" replace />;
+  }
+  
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/portal/dashboard" replace />;
+  }
+  
+  return children;
+}
+
+function PortalRoutes() {
+  return (
+    <Routes>
+      <Route path="login" element={<PortalLogin />} />
+      <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password" element={<ResetPassword />} />
+      <Route path="accept-invite" element={<AcceptInvite />} />
+      <Route 
+        path="dashboard" 
+        element={
+          <ProtectedPortalRoute>
+            <ClientDashboard />
+          </ProtectedPortalRoute>
+        } 
+      />
+      <Route 
+        path="admin" 
+        element={
+          <ProtectedPortalRoute requireAdmin>
+            <AdminDashboard />
+          </ProtectedPortalRoute>
+        } 
+      />
+      <Route 
+        path="assessment/new" 
+        element={
+          <ProtectedPortalRoute>
+            <NewAssessment />
+          </ProtectedPortalRoute>
+        } 
+      />
+      <Route 
+        path="assessment/:id" 
+        element={
+          <ProtectedPortalRoute>
+            <AssessmentDetail />
+          </ProtectedPortalRoute>
+        } 
+      />
+      <Route 
+        path="report/:id" 
+        element={
+          <ProtectedPortalRoute>
+            <ReportViewer />
+          </ProtectedPortalRoute>
+        } 
+      />
+      <Route
+        path="request/new"
+        element={
+          <ProtectedPortalRoute>
+            <NewRequest />
+          </ProtectedPortalRoute>
+        }
+      />
+      <Route
+        path="request/:id"
+        element={
+          <ProtectedPortalRoute>
+            <RequestDetail />
+          </ProtectedPortalRoute>
+        }
+      />
+      <Route
+        path="settings"
+        element={
+          <ProtectedPortalRoute>
+            <Settings />
+          </ProtectedPortalRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/portal/login" replace />} />
+    </Routes>
+  );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+  const isPortal = location.pathname.startsWith('/portal');
+
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+
+  return (
+    <>
+      {!isAdmin && !isPortal && <Navbar />}
+      <div id="main-content">
+      <Suspense fallback={
+        <div className="min-h-screen bg-offwhite flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange border-t-transparent"></div>
+        </div>
+      }>
+        <Routes>
+          <Route path="/"                      element={isNativeApp() ? <Navigate to="/portal/login" replace /> : <HomePage />} />
+          <Route path="/services/cybersecurity" element={<CybersecurityPage />} />
+          <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
+          <Route path="/portfolio"             element={<PortfolioPage />} />
+          <Route path="/about"                 element={<AboutPage />} />
+          <Route path="/team"                  element={<TeamPage />} />
+          <Route path="/contact"               element={<ContactPage />} />
+          <Route path="/blog"                  element={<BlogPage />} />
+          <Route path="/blog/:slug"            element={<BlogPost />} />
+          <Route path="/admin"                 element={<AdminPage />} />
+          <Route path="/cybersecurity"         element={<CybersecurityPage />} />
+          <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
+          <Route path="/portal/*"              element={<PortalRoutes />} />
+          <Route path="/privacy"               element={<PrivacyPolicy />} />
+          <Route path="/terms"                 element={<TermsOfService />} />
+          <Route path="*"                      element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
+      </div>
+      {!isAdmin && !isPortal && <Footer />}
+    </>
+  );
+}
+
+function isNativeApp() {
+  if (typeof window === 'undefined') return false;
+  return Capacitor.isNativePlatform();
+}
+
+export default function App() {
+  const isNative = isNativeApp();
+  const [showSplash, setShowSplash] = useState(!isNative);
+  const Router = isNative ? HashRouter : BrowserRouter;
+
+  return (
+    <AppProvider>
+      <PortalProvider>
+        <Router>
+          <AppRoutes />
+          {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+          {!isNative && <CookieConsent />}
+        </Router>
+      </PortalProvider>
+    </AppProvider>
+  );
+}

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: kreatix-vapt-backend
+    runtime: node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kreatix-vapt-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://kreatixtech.com
+      - key: ADMIN_SECRET
+        generateValue: true
+    healthCheckPath: /health
+    autoDeploy: true
+
+  - type: web
+    name: kreatix-vapt-uploads
+    runtime: static
+    buildCommand: mkdir -p uploads
+    staticPublishPath: ./uploads
+
+databases:
+  - name: kreatix-vapt-db
+    databaseName: kreatix_vapt
+    user: kreatix
+    plan: free

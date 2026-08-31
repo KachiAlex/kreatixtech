@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "email-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-08-31",
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "email-db",
+      "database_id": "42e5a563-4077-4cfe-8204-a785fe85b2a7"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
