@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
@@ -6,10 +6,11 @@ import {
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
   Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
   Copy, Check, Link2, BarChart3, MapPin, MousePointerClick, Eye,
-  Newspaper, Calendar, Eye as EyeIcon
+  Newspaper, Calendar, Eye as EyeIcon, Mail as MailIcon
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
+import EmailAccountsPanel from '../../components/Admin/EmailAccountsPanel';
 
 const STATUS_COLORS = {
   SUBMITTED:    'bg-yellow-100 text-yellow-800',
@@ -67,6 +68,7 @@ const NAV_ITEMS = [
   { key: 'projects',  label: 'Portfolio Projects', icon: Image },
   { key: 'blog',      label: 'Blog Posts',         icon: Newspaper },
   { key: 'analytics', label: 'Analytics',          icon: BarChart3 },
+  { key: 'email',     label: 'Email Management',   icon: MailIcon },
 ];
 
 export default function AdminDashboard() {
@@ -249,7 +251,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F7F5F2]">
-      {/* ── Nav ── */}
+      {/* â”€â”€ Nav â”€â”€ */}
       <nav className="bg-[#0E0E0F] text-white sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
           <Logo size="md" linkTo="/portal/admin" className="text-white" />
@@ -274,7 +276,7 @@ export default function AdminDashboard() {
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center justify-between">
             <span className="font-medium">{error}</span>
-            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-800 font-bold">×</button>
+            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-800 font-bold">Ã—</button>
           </div>
         )}
         <div className="mb-8">
@@ -282,7 +284,7 @@ export default function AdminDashboard() {
           <p className="mt-1 text-[#6B6F76]">Manage service requests across all disciplines</p>
         </div>
 
-        {/* ── Stats ── */}
+        {/* â”€â”€ Stats â”€â”€ */}
         {stats && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             {[
@@ -303,7 +305,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ── Mobile sidebar toggle ── */}
+        {/* â”€â”€ Mobile sidebar toggle â”€â”€ */}
         <button
           onClick={() => setSidebarOpen(v => !v)}
           className="lg:hidden flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E8E5E0] rounded-xl text-sm font-bold text-[#0E0E0F] mb-4"
@@ -312,7 +314,7 @@ export default function AdminDashboard() {
           {NAV_ITEMS.find(n => n.key === activeSection)?.label || 'Menu'}
         </button>
 
-        {/* ── Sidebar + content layout ── */}
+        {/* â”€â”€ Sidebar + content layout â”€â”€ */}
         <div className="flex gap-6">
           {/* Sidebar */}
           <aside className={`
@@ -360,7 +362,7 @@ export default function AdminDashboard() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
                 <input
-                  type="text" placeholder="Search…" value={search}
+                  type="text" placeholder="Searchâ€¦" value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-full sm:w-52"
                 />
@@ -431,12 +433,12 @@ export default function AdminDashboard() {
         </div>
         </div>{/* end requests section */}
 
-        {/* ── Companies section ── */}
+        {/* â”€â”€ Companies section â”€â”€ */}
         {activeSection === 'companies' && (
           <CompaniesPanel companies={companies} loading={companiesLoading} onRefresh={fetchCompanies} />
         )}
 
-        {/* ── Team section ── */}
+        {/* â”€â”€ Team section â”€â”€ */}
         {activeSection === 'team' && (
           <TeamPanel
             team={team} pendingInvites={pendingInvites}
@@ -446,7 +448,7 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* ── Projects section ── */}
+        {/* â”€â”€ Projects section â”€â”€ */}
         {activeSection === 'projects' && (
           <ProjectsPanel
             projects={projects}
@@ -455,7 +457,7 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* ── Analytics section ── */}
+        {/* â”€â”€ Analytics section â”€â”€ */}
         {activeSection === 'analytics' && (
           <AnalyticsPanel
             analytics={analytics}
@@ -465,7 +467,12 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* ── Blog section ── */}
+        {/* â”€â”€ Email Flow section â”€â”€ */}
+        {activeSection === 'email' && (
+          <EmailAccountsPanel />
+        )}
+
+        {/* â”€â”€ Blog section â”€â”€ */}
         {activeSection === 'blog' && (
           <BlogPanel
             posts={blogPosts}
@@ -482,7 +489,7 @@ export default function AdminDashboard() {
   );
 }
 
-// ── Request row with inline assign + status controls ─────────────────────
+// â”€â”€ Request row with inline assign + status controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
   const [showActions, setShowActions] = useState(false);
 
@@ -505,9 +512,9 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
           <div className="flex items-center gap-1.5 text-sm text-[#6B6F76] mb-2">
             <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
             <span>{a.organization?.name}</span>
-            <span className="text-[#E8E5E0]">·</span>
+            <span className="text-[#E8E5E0]">Â·</span>
             <span className="text-xs">{new Date(a.createdAt).toLocaleDateString()}</span>
-            <span className="text-[#E8E5E0]">·</span>
+            <span className="text-[#E8E5E0]">Â·</span>
             <span className="text-xs">{a._count?.messages ?? 0} msgs</span>
           </div>
           {/* Assign analyst */}
@@ -526,7 +533,7 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
                 onChange={e => { if (e.target.value) onAssign(a.id, e.target.value); e.target.value = ''; }}
                 className="text-xs border border-[#E8E5E0] rounded-lg px-2 py-1 bg-white text-[#6B6F76] hover:border-[#F2782E] transition-colors"
               >
-                <option value="">Assign to…</option>
+                <option value="">Assign toâ€¦</option>
                 {analysts.map(m => (
                   <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
                 ))}
@@ -546,7 +553,7 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
               onClick={() => setShowActions(v => !v)}
               className="px-3 py-1.5 text-xs font-semibold border border-[#E8E5E0] rounded-lg hover:border-[#0E0E0F] text-[#6B6F76] hover:text-[#0E0E0F] transition-colors"
             >
-              Status ▾
+              Status â–¾
             </button>
             {showActions && (
               <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E8E5E0] rounded-xl shadow-lg z-10 py-1">
@@ -565,7 +572,7 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
   );
 }
 
-// ── Notification Bell ────────────────────────────────────────────────────────
+// â”€â”€ Notification Bell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function NotificationBell() {
   const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead, refreshNotifications } = usePortal();
   const [open, setOpen] = useState(false);
@@ -579,7 +586,7 @@ function NotificationBell() {
 
   useEffect(() => { if (open) refreshNotifications(); }, [open]);
 
-  const TYPE_ICON = { NEW_MESSAGE: '💬', STATUS_CHANGE: '🔄', ASSESSMENT_ASSIGNED: '📋', ASSESSMENT_CREATED: '📥', FILE_UPLOAD: '📎' };
+  const TYPE_ICON = { NEW_MESSAGE: 'ðŸ’¬', STATUS_CHANGE: 'ðŸ”„', ASSESSMENT_ASSIGNED: 'ðŸ“‹', ASSESSMENT_CREATED: 'ðŸ“¥', FILE_UPLOAD: 'ðŸ“Ž' };
 
   return (
     <div className="relative" ref={ref}>
@@ -611,7 +618,7 @@ function NotificationBell() {
               <div key={n.id}
                 onClick={() => { if (!n.read) markNotificationRead(n.id); }}
                 className={`px-4 py-3 flex gap-3 cursor-pointer transition-colors hover:bg-[#F7F5F2] ${n.read ? 'opacity-60' : 'bg-white'}`}>
-                <span className="text-lg flex-shrink-0 mt-0.5">{TYPE_ICON[n.type] || '🔔'}</span>
+                <span className="text-lg flex-shrink-0 mt-0.5">{TYPE_ICON[n.type] || 'ðŸ””'}</span>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm leading-snug ${n.read ? 'text-[#6B6F76]' : 'font-semibold text-[#0E0E0F]'}`}>{n.title}</p>
                   <p className="text-xs text-[#6B6F76] mt-0.5 line-clamp-2">{n.message}</p>
@@ -627,7 +634,7 @@ function NotificationBell() {
   );
 }
 
-// ── Team panel ───────────────────────────────────────────────────────────────
+// â”€â”€ Team panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ROLE_COLORS = { ADMIN: 'bg-red-50 text-red-700', ANALYST: 'bg-blue-50 text-blue-700', CLIENT: 'bg-gray-50 text-gray-700' };
 
 function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, setShowInviteForm, apiCall, currentUserId }) {
@@ -732,7 +739,7 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
               <button type="button" onClick={() => setShowInviteForm(false)} className="px-4 py-2 text-sm text-[#6B6F76] hover:text-[#0E0E0F]">Cancel</button>
               <button type="submit" disabled={inviting}
                 className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors">
-                {inviting ? 'Sending…' : 'Send Invite'}
+                {inviting ? 'Sendingâ€¦' : 'Send Invite'}
               </button>
             </div>
           </form>
@@ -826,7 +833,7 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
   );
 }
 
-// ── Companies panel ──────────────────────────────────────────────────────────
+// â”€â”€ Companies panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function CompaniesPanel({ companies, loading, onRefresh }) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
@@ -844,7 +851,7 @@ function CompaniesPanel({ companies, loading, onRefresh }) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
             <input
-              type="text" placeholder="Search companies…" value={search}
+              type="text" placeholder="Search companiesâ€¦" value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-52"
             />
@@ -887,7 +894,7 @@ function CompaniesPanel({ companies, loading, onRefresh }) {
                         <span className="flex items-center gap-1 text-xs text-[#6B6F76] truncate">
                           <Mail className="h-3 w-3 flex-shrink-0" />{c.contactEmail}
                         </span>
-                        <span className="text-[#E8E5E0] hidden sm:inline">·</span>
+                        <span className="text-[#E8E5E0] hidden sm:inline">Â·</span>
                         <span className="text-xs text-[#6B6F76]">Joined {new Date(c.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -943,7 +950,7 @@ function CompaniesPanel({ companies, loading, onRefresh }) {
   );
 }
 
-// ── Project form modal ───────────────────────────────────────────────────────
+// â”€â”€ Project form modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const EMPTY_PROJECT = {
   title: '', description: '', tags: '', category: '',
   liveUrl: '', previewUrl: '', featured: false, published: true, year: new Date().getFullYear()
@@ -1014,7 +1021,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold mb-1">Description *</label>
-              <textarea required rows={3} value={form.description} onChange={e=>f('description',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Short description shown on homepage and portfolio…"/>
+              <textarea required rows={3} value={form.description} onChange={e=>f('description',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Short description shown on homepage and portfolioâ€¦"/>
             </div>
             <div>
               <label className="block text-sm font-semibold mb-1">Category</label>
@@ -1030,7 +1037,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold mb-1 flex items-center gap-1"><Globe className="h-3.5 w-3.5"/> Live URL</label>
-              <input type="url" value={form.liveUrl} onChange={e=>f('liveUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://…"/>
+              <input type="url" value={form.liveUrl} onChange={e=>f('liveUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://â€¦"/>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold mb-1 flex items-center gap-1"><Image className="h-3.5 w-3.5"/> Preview Image</label>
@@ -1041,7 +1048,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
                   disabled={imageUploading}
                   className="flex items-center gap-1.5 px-4 py-2 border border-[#E8E5E0] rounded-xl text-sm text-[#0E0E0F] hover:border-[#F2782E] hover:text-[#F2782E] disabled:opacity-50 transition-colors">
                   {imageUploading
-                    ? <><RefreshCw className="h-3.5 w-3.5 animate-spin"/> Uploading…</>
+                    ? <><RefreshCw className="h-3.5 w-3.5 animate-spin"/> Uploadingâ€¦</>
                     : <><Image className="h-3.5 w-3.5"/> Upload Image</>}
                 </button>
                 {form.liveUrl && (
@@ -1050,13 +1057,13 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
                     try {
                       const r = await apiCall('/api/projects/fetch-og', { method: 'POST', body: JSON.stringify({ url: form.liveUrl }) });
                       const d = await r.json();
-                      if (r.ok) { f('previewUrl', d.url); setImageMsg('OG image found ✓'); }
+                      if (r.ok) { f('previewUrl', d.url); setImageMsg('OG image found âœ“'); }
                       else setImageMsg(d.error || 'No OG image found');
                     } catch { setImageMsg('Could not fetch OG image'); }
                     finally { setOgFetching(false); }
                   }} disabled={ogFetching}
                   className="flex items-center gap-1.5 px-4 py-2 border border-[#E8E5E0] rounded-xl text-sm text-[#6B6F76] hover:border-[#F2782E] hover:text-[#F2782E] disabled:opacity-50 transition-colors">
-                  {ogFetching ? <><RefreshCw className="h-3.5 w-3.5 animate-spin"/> Fetching…</> : <>✨ Auto-fetch from Live URL</>}
+                  {ogFetching ? <><RefreshCw className="h-3.5 w-3.5 animate-spin"/> Fetchingâ€¦</> : <>âœ¨ Auto-fetch from Live URL</>}
                 </button>
                 )}
               </div>
@@ -1069,14 +1076,14 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
                     const fd = new FormData();
                     fd.append('image', file);
                     const token = localStorage.getItem('portalToken');
-                    const API_BASE = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+                    const API_BASE = import.meta.env.VITE_API_URL || '';
                     const r = await fetch(`${API_BASE}/api/projects/upload-image`, {
                       method: 'POST',
                       headers: { Authorization: `Bearer ${token}` },
                       body: fd,
                     });
                     const d = await r.json();
-                    if (r.ok) { f('previewUrl', d.url); setImageMsg('Image uploaded ✓'); }
+                    if (r.ok) { f('previewUrl', d.url); setImageMsg('Image uploaded âœ“'); }
                     else setImageMsg(d.error || 'Upload failed');
                   } catch { setImageMsg('Upload failed'); }
                   finally { setImageUploading(false); e.target.value = ''; }
@@ -1084,7 +1091,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
               />
 
               {imageMsg && (
-                <p className={`text-xs mt-1 ${imageMsg.includes('✓') ? 'text-green-600' : 'text-red-500'}`}>{imageMsg}</p>
+                <p className={`text-xs mt-1 ${imageMsg.includes('âœ“') ? 'text-green-600' : 'text-red-500'}`}>{imageMsg}</p>
               )}
 
               {form.previewUrl ? (
@@ -1119,7 +1126,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-[#6B6F76] hover:text-[#0E0E0F]">Cancel</button>
             <button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors flex items-center gap-1.5">
-              <Save className="h-4 w-4"/>{saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Project'}
+              <Save className="h-4 w-4"/>{saving ? 'Savingâ€¦' : isEdit ? 'Save Changes' : 'Add Project'}
             </button>
           </div>
         </form>
@@ -1128,7 +1135,7 @@ function ProjectForm({ initial, apiCall, onSaved, onClose }) {
   );
 }
 
-// ── Projects panel ───────────────────────────────────────────────────────────
+// â”€â”€ Projects panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ProjectsPanel({ projects, apiCall, onRefresh }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing]   = useState(null);
@@ -1215,7 +1222,7 @@ function ProjectsPanel({ projects, apiCall, onRefresh }) {
   );
 }
 
-// ── Analytics panel ─────────────────────────────────────────────────────────
+// â”€â”€ Analytics panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AnalyticsPanel({ analytics, loading, days, setDays }) {
   if (loading) {
     return (
@@ -1366,7 +1373,7 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
                   {e.type === 'PAGE_VIEW' ? 'View' : 'Click'}
                 </span>
                 <span className="text-sm text-[#0E0E0F] font-medium truncate flex-1">
-                  {e.page}{e.label && ` — ${e.label}`}
+                  {e.page}{e.label && ` â€” ${e.label}`}
                 </span>
                 {e.country && (
                   <span className="text-xs text-[#6B6F76] flex items-center gap-1 flex-shrink-0">
@@ -1386,7 +1393,7 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
   );
 }
 
-// ── Blog panel ───────────────────────────────────────────────────────────────
+// â”€â”€ Blog panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const EMPTY_BLOG_POST = {
   title: '', slug: '', excerpt: '', content: '', coverImage: '',
   author: '', tags: '', published: false, seoKeywords: ''
@@ -1447,7 +1454,7 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
             <input
-              type="text" placeholder="Search posts…" value={search}
+              type="text" placeholder="Search postsâ€¦" value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-full sm:w-48"
             />
@@ -1516,9 +1523,9 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
                   <p className="text-sm font-bold text-[#0E0E0F] truncate">{post.title}</p>
                   <div className="flex items-center gap-2 text-xs text-[#6B6F76] mt-0.5">
                     <span>/{post.slug}</span>
-                    <span className="text-[#E8E5E0]">·</span>
+                    <span className="text-[#E8E5E0]">Â·</span>
                     <span>{post.author}</span>
-                    <span className="text-[#E8E5E0]">·</span>
+                    <span className="text-[#E8E5E0]">Â·</span>
                     <span>{new Date(post.publishedAt || post.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -1542,7 +1549,7 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
                   </button>
                   {post.published && (
                     <a
-                      href={`${import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev'}/blog/${post.slug}`}
+                      href={`${import.meta.env.VITE_API_URL || ''}/blog/${post.slug}`}
                       target="_blank" rel="noopener noreferrer"
                       className="p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
                       title="View live"
@@ -1574,7 +1581,7 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
   );
 }
 
-// ── Blog editor modal ────────────────────────────────────────────────────────
+// â”€â”€ Blog editor modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BlogEditor({ initial, apiCall, onSaved, onClose }) {
   const [form, setForm] = useState(() => {
     if (initial) return {
@@ -1703,7 +1710,7 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
               value={form.excerpt}
               onChange={e => f('excerpt', e.target.value)}
               className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
-              placeholder="Short summary shown on blog listing and SEO meta…"
+              placeholder="Short summary shown on blog listing and SEO metaâ€¦"
             />
           </div>
 
@@ -1717,10 +1724,10 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
               value={form.content}
               onChange={e => f('content', e.target.value)}
               className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-y focus:ring-2 focus:ring-[#F2782E] focus:border-transparent font-mono"
-              placeholder="Write your blog post content here…"
+              placeholder="Write your blog post content hereâ€¦"
             />
             <p className="text-xs text-[#6B6F76] mt-1">
-              {form.content.trim().split(/\s+/).filter(Boolean).length} words · ~{Math.max(1, Math.ceil(form.content.trim().split(/\s+/).filter(Boolean).length / 200))} min read
+              {form.content.trim().split(/\s+/).filter(Boolean).length} words Â· ~{Math.max(1, Math.ceil(form.content.trim().split(/\s+/).filter(Boolean).length / 200))} min read
             </p>
           </div>
 
@@ -1733,7 +1740,7 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
                 disabled={imageUploading}
                 className="flex items-center gap-1.5 px-4 py-2 border border-[#E8E5E0] rounded-xl text-sm text-[#0E0E0F] hover:border-[#F2782E] hover:text-[#F2782E] disabled:opacity-50 transition-colors">
                 {imageUploading
-                  ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+                  ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Uploadingâ€¦</>
                   : <><Image className="h-3.5 w-3.5" /> Upload Image</>}
               </button>
               <input
@@ -1741,7 +1748,7 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
                 value={form.coverImage}
                 onChange={e => f('coverImage', e.target.value)}
                 className="flex-1 px-3 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
-                placeholder="…or paste image URL"
+                placeholder="â€¦or paste image URL"
               />
             </div>
             <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
@@ -1753,21 +1760,21 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
                   const fd = new FormData();
                   fd.append('image', file);
                   const token = localStorage.getItem('portalToken');
-                  const API_BASE = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+                  const API_BASE = import.meta.env.VITE_API_URL || '';
                   const r = await fetch(`${API_BASE}/api/projects/upload-image`, {
                     method: 'POST',
                     headers: { Authorization: `Bearer ${token}` },
                     body: fd,
                   });
                   const d = await r.json();
-                  if (r.ok) { f('coverImage', d.url); setImageMsg('Image uploaded ✓'); }
+                  if (r.ok) { f('coverImage', d.url); setImageMsg('Image uploaded âœ“'); }
                   else setImageMsg(d.error || 'Upload failed');
                 } catch { setImageMsg('Upload failed'); }
                 finally { setImageUploading(false); e.target.value = ''; }
               }}
             />
             {imageMsg && (
-              <p className={`text-xs mt-1 ${imageMsg.includes('✓') ? 'text-green-600' : 'text-red-500'}`}>{imageMsg}</p>
+              <p className={`text-xs mt-1 ${imageMsg.includes('âœ“') ? 'text-green-600' : 'text-red-500'}`}>{imageMsg}</p>
             )}
             {form.coverImage && (
               <div className="mt-2 relative group">
@@ -1817,7 +1824,7 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
             <button type="submit" disabled={saving}
               className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors flex items-center gap-1.5">
               <Save className="h-4 w-4" />
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Post'}
+              {saving ? 'Savingâ€¦' : isEdit ? 'Save Changes' : 'Create Post'}
             </button>
           </div>
         </form>
@@ -1825,3 +1832,4 @@ function BlogEditor({ initial, apiCall, onSaved, onClose }) {
     </div>
   );
 }
+
