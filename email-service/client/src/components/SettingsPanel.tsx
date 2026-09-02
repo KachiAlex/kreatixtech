@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon } from 'lucide-react';
+import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon, ShieldAlert } from 'lucide-react';
 import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi, signatureImageApi } from '../api';
+import SecurityPanel from './SecurityPanel';
 import { useAuth } from '../auth-context';
 import { useToast } from './Toast';
 import type { UserSettings, Signature, Alias, Session, Label } from '../types';
@@ -17,7 +18,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const [aliases, setAliases] = useState<Alias[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
-  const [tab, setTab] = useState<'general' | 'signature' | 'labels' | 'aliases' | 'sessions'>('general');
+  const [tab, setTab] = useState<'general' | 'signature' | 'labels' | 'aliases' | 'sessions' | 'security'>('general');
   const [saving, setSaving] = useState(false);
   const [newLabel, setNewLabel] = useState({ name: '', color: '#6B7280' });
   const [newAlias, setNewAlias] = useState({ alias_email: '', forward_to: '' });
@@ -109,6 +110,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
     { id: 'labels' as const, label: 'Labels', icon: Tag },
     { id: 'aliases' as const, label: 'Aliases', icon: Shield },
     { id: 'sessions' as const, label: 'Sessions', icon: Monitor },
+    { id: 'security' as const, label: 'Security', icon: ShieldAlert },
   ];
 
   return (
@@ -291,6 +293,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 ))}
                 {sessions.length === 0 && <p className="text-sm text-gray-400 text-center py-8">No active sessions</p>}
               </div>
+            )}
+
+            {tab === 'security' && (
+              <SecurityPanel />
             )}
           </div>
         </div>

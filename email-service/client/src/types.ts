@@ -84,6 +84,9 @@ export interface Email {
   received_at: string;
   sent_at?: string;
   snooze_until?: string | null;
+  spam_score?: number;
+  is_spam?: number;
+  security_flags?: string;
   attachments?: Attachment[];
   labels?: Label[];
   thread?: Email[];

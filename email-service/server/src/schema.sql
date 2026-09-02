@@ -82,6 +82,9 @@ CREATE TABLE IF NOT EXISTS emails (
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
   snooze_until  TEXT,
+  spam_score    INTEGER NOT NULL DEFAULT 0,             -- 0-100 spam confidence score
+  is_spam       INTEGER NOT NULL DEFAULT 0,             -- 1 if flagged as spam
+  security_flags TEXT,                                  -- JSON: { phishing: bool, suspicious_links: bool, spoofed: bool, etc }
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
 );
@@ -326,3 +329,38 @@ CREATE TABLE IF NOT EXISTS linked_accounts (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_linked_accounts_user ON linked_accounts(user_id);
+
+-- ── Blocked Senders (spam protection) ───────────────────────
+CREATE TABLE IF NOT EXISTS blocked_senders (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  email_address TEXT NOT NULL,
+  reason        TEXT,                                     -- manual | spam | phishing
+  blocked_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, email_address),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_blocked_senders_user ON blocked_senders(user_id);
+
+-- ── Trusted Senders (whitelist) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS trusted_senders (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  email_address TEXT NOT NULL,
+  added_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, email_address),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_trusted_senders_user ON trusted_senders(user_id);
+
+-- ── Security Log ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS security_log (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  event_type    TEXT NOT NULL,                            -- spam_detected | phishing_blocked | sender_blocked | suspicious_link
+  email_id      INTEGER,
+  details       TEXT,                                     -- JSON
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_security_log_user ON security_log(user_id, created_at DESC);

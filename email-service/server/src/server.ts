@@ -16,6 +16,7 @@ import {
   upsertContact, createDefaultFolders, updateFolderCounts,
   buildEmailHtml,
 } from './email-utils.js';
+import { analyzeEmailSecurity } from './spam-detection.js';
 import { prepare } from './db.js';
 import { storage } from './storage.js';
 
@@ -225,7 +226,7 @@ app.get('/api/emails', async (req, res) => {
     const starred = req.query.starred === 'true';
     const unreadOnly = req.query.unread === 'true';
 
-    let query = 'SELECT id, message_id, thread_id, from_address, from_name, to_address, cc_address, subject, snippet, folder_id, is_read, is_starred, is_important, has_attachments, size, direction, status, received_at, sent_at, snooze_until FROM emails WHERE user_id = ?';
+    let query = 'SELECT id, message_id, thread_id, from_address, from_name, to_address, cc_address, subject, snippet, folder_id, is_read, is_starred, is_important, has_attachments, size, direction, status, received_at, sent_at, snooze_until, spam_score, is_spam, security_flags FROM emails WHERE user_id = ?';
     const params: any[] = [user!.sub];
 
     if (folderId) { query += ' AND folder_id = ?'; params.push(parseInt(folderId)); }
@@ -348,10 +349,12 @@ app.post('/api/emails/bulk', async (req, res) => {
 
     switch (action) {
       case 'read':
+      case 'mark_read':
         query = `UPDATE emails SET is_read = 1, updated_at = datetime('now') WHERE id IN (${placeholders}) AND user_id = ?`;
         env.DB.prepare(query).bind(...ids, user!.sub).run();
         break;
       case 'unread':
+      case 'mark_unread':
         query = `UPDATE emails SET is_read = 0, updated_at = datetime('now') WHERE id IN (${placeholders}) AND user_id = ?`;
         env.DB.prepare(query).bind(...ids, user!.sub).run();
         break;
@@ -366,6 +369,37 @@ app.post('/api/emails/bulk', async (req, res) => {
       case 'delete':
         query = `DELETE FROM emails WHERE id IN (${placeholders}) AND user_id = ?`;
         env.DB.prepare(query).bind(...ids, user!.sub).run();
+        break;
+      case 'archive':
+        const archiveFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'archive').first();
+        if (archiveFolder) {
+          query = `UPDATE emails SET folder_id = ?, updated_at = datetime('now') WHERE id IN (${placeholders}) AND user_id = ?`;
+          env.DB.prepare(query).bind(archiveFolder.id, ...ids, user!.sub).run();
+        }
+        break;
+      case 'spam':
+        const spamFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'spam').first();
+        if (spamFolder) {
+          query = `UPDATE emails SET folder_id = ?, is_spam = 1, updated_at = datetime('now') WHERE id IN (${placeholders}) AND user_id = ?`;
+          env.DB.prepare(query).bind(spamFolder.id, ...ids, user!.sub).run();
+        }
+        break;
+      case 'not_spam':
+        const inboxFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'inbox').first();
+        if (inboxFolder) {
+          query = `UPDATE emails SET folder_id = ?, is_spam = 0, spam_score = 0, updated_at = datetime('now') WHERE id IN (${placeholders}) AND user_id = ?`;
+          env.DB.prepare(query).bind(inboxFolder.id, ...ids, user!.sub).run();
+        }
+        break;
+      case 'block_sender':
+        const senders = env.DB.prepare(`SELECT DISTINCT from_address FROM emails WHERE id IN (${placeholders}) AND user_id = ?`).bind(...ids, user!.sub).all();
+        for (const s of senders.results as any[]) {
+          if (s.from_address) {
+            try {
+              env.DB.prepare('INSERT OR IGNORE INTO blocked_senders (user_id, email_address, reason) VALUES (?, ?, ?)').bind(user!.sub, s.from_address.toLowerCase(), 'manual').run();
+            } catch {}
+          }
+        }
         break;
       case 'move':
         if (!folder_id) return sendResult(res, errorResp('folder_id required for move action', 400));
@@ -1340,22 +1374,63 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
       user.id = linked.user_id;
     }
 
+    // Check if sender is blocked
+    const blocked = env.DB.prepare('SELECT id FROM blocked_senders WHERE user_id = ? AND email_address = ?').bind(user.id, parsed.fromAddress.toLowerCase()).first();
+    if (blocked) {
+      env.DB.prepare('INSERT INTO security_log (user_id, event_type, details) VALUES (?, ?, ?)').bind(
+        user.id, 'sender_blocked', JSON.stringify({ from: parsed.fromAddress, subject: parsed.subject })
+      ).run();
+      console.log(`Email from blocked sender ${parsed.fromAddress} rejected`);
+      return res.status(200).json({ status: 'blocked', reason: 'sender blocked' });
+    }
+
+    // Check if sender is trusted
+    const trusted = env.DB.prepare('SELECT id FROM trusted_senders WHERE user_id = ? AND email_address = ?').bind(user.id, parsed.fromAddress.toLowerCase()).first();
+
+    // Run spam analysis
+    const security = trusted ? { spamScore: 0, isSpam: false, flags: { phishing: false, suspicious_links: false, spoofed_sender: false, high_risk_keywords: false, mismatched_urls: false, excessive_caps: false, suspicious_attachment: false }, reason: 'trusted sender' } : analyzeEmailSecurity({
+      fromAddress: parsed.fromAddress,
+      fromName: parsed.fromName,
+      toAddress: parsed.toAddress,
+      subject: parsed.subject,
+      text: parsed.text,
+      html: parsed.html,
+      attachments: parsed.attachments.map(a => ({ filename: a.filename, mimeType: a.mimeType })),
+    });
+
     const inboxFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user.id, 'inbox').first() as any;
+    const spamFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user.id, 'spam').first() as any;
+
+    // Route to spam folder if spam score >= 50
+    const targetFolder = security.isSpam ? spamFolder : inboxFolder;
     const threadId = generateThreadId(parsed);
     const snippet = generateSnippet(parsed.text);
     const size = new TextEncoder().encode(parsed.text + (parsed.html || '')).length;
 
     const emailResult = env.DB.prepare(
-      `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, direction, status, size, has_attachments)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?)`
+      `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, direction, status, size, has_attachments, spam_score, is_spam, security_flags)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?, ?, ?, ?)`
     ).bind(
       user.id, parsed.messageId, threadId, parsed.inReplyTo, parsed.references,
       parsed.fromAddress, parsed.fromName, parsed.toAddress, parsed.ccAddress,
-      parsed.subject, parsed.text, parsed.html, snippet, inboxFolder?.id,
-      size, parsed.attachments.length > 0 ? 1 : 0
+      parsed.subject, parsed.text, parsed.html, snippet, targetFolder?.id,
+      size, parsed.attachments.length > 0 ? 1 : 0,
+      security.spamScore, security.isSpam ? 1 : 0, JSON.stringify(security.flags)
     ).run();
 
     const emailId = emailResult.meta?.last_row_id;
+
+    // Log security events
+    if (security.isSpam) {
+      env.DB.prepare('INSERT INTO security_log (user_id, event_type, email_id, details) VALUES (?, ?, ?, ?)').bind(
+        user.id, 'spam_detected', emailId, JSON.stringify({ from: parsed.fromAddress, subject: parsed.subject, score: security.spamScore, reason: security.reason })
+      ).run();
+    }
+    if (security.flags.phishing) {
+      env.DB.prepare('INSERT INTO security_log (user_id, event_type, email_id, details) VALUES (?, ?, ?, ?)').bind(
+        user.id, 'phishing_blocked', emailId, JSON.stringify({ from: parsed.fromAddress, subject: parsed.subject, score: security.spamScore })
+      ).run();
+    }
 
     for (const attachment of parsed.attachments) {
       const attId = crypto.randomUUID();
@@ -1367,6 +1442,7 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
     }
 
     if (inboxFolder) await updateFolderCounts(env, user.id, inboxFolder.id);
+    if (spamFolder && security.isSpam) await updateFolderCounts(env, user.id, spamFolder.id);
     await upsertContact(env, user.id, parsed.fromAddress, parsed.fromName);
 
     console.log(`Inbound email stored: ${parsed.subject} for ${recipientEmail}`);
@@ -1425,6 +1501,80 @@ app.patch('/api/linked-accounts/:id/default', async (req, res) => {
     env.DB.prepare('UPDATE linked_accounts SET is_default = 0 WHERE user_id = ?').bind(user!.sub).run();
     env.DB.prepare('UPDATE linked_accounts SET is_default = 1 WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// SECURITY: Blocked Senders, Trusted Senders, Security Log
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/security/blocked', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM blocked_senders WHERE user_id = ? ORDER BY blocked_at DESC').bind(user!.sub).all();
+    sendResult(res, json({ blocked: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/security/block', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { email_address, reason } = req.body;
+    if (!email_address) return sendResult(res, errorResp('Email address is required', 400));
+    env.DB.prepare('INSERT OR IGNORE INTO blocked_senders (user_id, email_address, reason) VALUES (?, ?, ?)').bind(user!.sub, email_address.toLowerCase(), reason || 'manual').run();
+    sendResult(res, json({ success: true }, 201));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/security/blocked/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('DELETE FROM blocked_senders WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.get('/api/security/trusted', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM trusted_senders WHERE user_id = ? ORDER BY added_at DESC').bind(user!.sub).all();
+    sendResult(res, json({ trusted: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/security/trust', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { email_address } = req.body;
+    if (!email_address) return sendResult(res, errorResp('Email address is required', 400));
+    env.DB.prepare('INSERT OR IGNORE INTO trusted_senders (user_id, email_address) VALUES (?, ?)').bind(user!.sub, email_address.toLowerCase()).run();
+    // Remove from blocked if present
+    env.DB.prepare('DELETE FROM blocked_senders WHERE user_id = ? AND email_address = ?').bind(user!.sub, email_address.toLowerCase()).run();
+    sendResult(res, json({ success: true }, 201));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/security/trusted/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('DELETE FROM trusted_senders WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.get('/api/security/log', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const limit = parseInt(req.query.limit as string || '50');
+    const { results } = env.DB.prepare('SELECT * FROM security_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').bind(user!.sub, limit).all();
+    sendResult(res, json({ events: results }));
   } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
 });
 

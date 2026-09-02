@@ -330,3 +330,17 @@ export const linkedAccountsApi = {
   delete: (id: number) => apiDelete(`/linked-accounts/${id}`),
   setDefault: (id: number) => apiPatch(`/linked-accounts/${id}/default`),
 };
+
+// ── Security API ────────────────────────────────────────────────────────────
+
+export const securityApi = {
+  listBlocked: () => apiGet<{ blocked: any[] }>('/security/blocked'),
+  blockSender: (email_address: string, reason?: string) =>
+    apiPost('/security/block', { email_address, reason }),
+  unblockSender: (id: number) => apiDelete(`/security/blocked/${id}`),
+  listTrusted: () => apiGet<{ trusted: any[] }>('/security/trusted'),
+  trustSender: (email_address: string) =>
+    apiPost('/security/trust', { email_address }),
+  untrustSender: (id: number) => apiDelete(`/security/trusted/${id}`),
+  getLog: (limit?: number) => apiGet<{ events: any[] }>(`/security/log${limit ? `?limit=${limit}` : ''}`),
+};
