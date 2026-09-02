@@ -118,7 +118,7 @@ function MailApp() {
     switch (view) {
       case 'calendar': return <div className="non-mail-view"><CalendarView /></div>;
       case 'contacts': return <div className="non-mail-view"><ContactsView /></div>;
-      case 'chat': return <ChatView />;
+      case 'chat': return <div className="non-mail-view" style={{ overflow: 'hidden', padding: 0 }}><ChatView /></div>;
       case 'files': return <div className="non-mail-view"><FilesView /></div>;
       default:
         return (

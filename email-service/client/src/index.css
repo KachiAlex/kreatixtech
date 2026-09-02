@@ -173,12 +173,16 @@ svg { width: 18px; height: 18px; stroke-width: 1.8; }
 /* Mobile Bottom Nav */
 .mobile-nav { display: none; }
 
+/* Non-mail view wrapper (desktop: spans grid cols 2-4, mobile: flex fill) */
+.non-mail-view { grid-column: 2 / -1; height: 100%; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 31px clamp(28px,4vw,68px) 50px; }
+
 /* Responsive */
 @media(max-width:1230px) {
   .topbar { grid-template-columns: 64px minmax(320px,620px) 1fr; padding-left: 0; }
   .brand .product { display: none; }
   .workspace { grid-template-columns: 64px 380px minmax(430px,1fr); }
   .sidebar { display: none; }
+  .non-mail-view { grid-column: 2 / -1; }
 }
 @media(max-width:900px) {
   .topbar { height: 56px; grid-template-columns: 40px 1fr auto; gap: 8px; padding: 0 10px 0 8px; }
@@ -203,7 +207,7 @@ svg { width: 18px; height: 18px; stroke-width: 1.8; }
   .mail-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
   .reader-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding: 24px 16px 45px; }
 
-  .non-mail-view { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding: 20px 16px 40px; }
+  .non-mail-view { grid-column: auto; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding: 20px 16px 40px; }
 
   .chat-mobile-list { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
   .chat-mobile-chat { flex: 1; display: none; flex-direction: column; overflow: hidden; min-height: 0; position: absolute; inset: 0; z-index: 10; background: #fff; }
