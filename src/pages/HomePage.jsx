@@ -62,7 +62,7 @@ function useInView(threshold = 0.15) {
 }
 
 // ── API_URL (same pattern as portal) ─────────────────────────────────────────
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 // ── Marquee items ────────────────────────────────────────────────────────────
 const MARQUEE = [
@@ -520,3 +520,4 @@ export default function HomePage() {
     </div>
   );
 }
+

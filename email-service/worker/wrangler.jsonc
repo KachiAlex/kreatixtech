@@ -1,21 +1,33 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "email-worker",
-  "main": "src/index.ts",
-  "compatibility_date": "2025-08-31",
-  "send_email": [
-    {
-      "name": "EMAIL"
-    }
-  ],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "email-db",
-      "database_id": "42e5a563-4077-4cfe-8204-a785fe85b2a7"
-    }
-  ],
-  "observability": {
-    "enabled": true
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "email-worker",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-08-31",
+	"assets": {
+		"directory": "../client/dist",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application"
+	},
+	"routes": [
+		{
+			"pattern": "mail.kreatixtech.com",
+			"custom_domain": true
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "email-db",
+			"database_id": "42e5a563-4077-4cfe-8204-a785fe85b2a7"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "R2_BUCKET",
+			"bucket_name": "email-attachments"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
 }

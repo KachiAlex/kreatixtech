@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Loader2, CheckCircle2, ArrowLeft } from 'lucide-react';
 import Logo from '../../components/Logo';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -124,10 +124,11 @@ export default function ForgotPassword() {
 
         <div className="text-center pt-4 border-t border-border">
           <Link to="/" className="text-sm text-grey hover:text-ink">
-            ← Back to main website
+            â† Back to main website
           </Link>
         </div>
       </div>
     </div>
   );
 }
+

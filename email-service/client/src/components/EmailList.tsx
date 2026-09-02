@@ -1,85 +1,137 @@
-import React from 'react';
-import { Square, Star, Archive, Trash2, MailOpen, Clock } from 'lucide-react';
-import { format } from 'date-fns';
-import { Email } from '../types';
+import React, { useState } from 'react';
+import { Star, Archive, Trash2, Mail, RefreshCw, MoreHorizontal, Clock3 } from 'lucide-react';
+import { emailApi, snoozeApi } from '../api';
+import type { Email } from '../types';
 
 interface EmailListProps {
   emails: Email[];
   onSelectEmail: (email: Email) => void;
-  onDeleteEmail: (id: number) => void;
+  onRefresh: () => void;
+  selectedEmailId?: number | null;
+  folderName?: string;
 }
 
-const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onDeleteEmail }) => {
+function formatTime(receivedAt: string): string {
+  const d = new Date(receivedAt + (receivedAt.includes('T') ? '' : 'Z'));
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh, selectedEmailId, folderName }) => {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [starred, setStarred] = useState<Set<number>>(new Set(
+    emails.filter(e => e.is_starred === 1).map(e => e.id)
+  ));
+
+  const toggleStar = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    const isStarred = starred.has(id);
+    setStarred(prev => { const n = new Set(prev); isStarred ? n.delete(id) : n.add(id); return n; });
+    try { await emailApi.star(id, !isStarred); } catch (e) { console.error(e); }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+
+  const selectAll = () => {
+    if (selected.size === emails.length) setSelected(new Set());
+    else setSelected(new Set(emails.map(e => e.id)));
+  };
+
+  const bulkAction = async (action: string) => {
+    try {
+      await emailApi.bulk([...selected], action);
+      setSelected(new Set());
+      onRefresh();
+    } catch (e) { console.error(e); }
+  };
+
   return (
-    <div className="flex-1 overflow-y-auto bg-white rounded-t-2xl shadow-sm mr-4">
-      <div className="flex items-center gap-4 p-4 border-b border-gray-100 sticky top-0 bg-white z-10">
-        <div className="flex items-center gap-1">
-          <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-            <Square className="w-4 h-4" />
-          </button>
-          <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-            <Archive className="w-4 h-4" />
-          </button>
-          <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-            <Trash2 className="w-4 h-4" />
-          </button>
-          <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-            <MailOpen className="w-4 h-4" />
-          </button>
-          <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-            <Clock className="w-4 h-4" />
-          </button>
+    <section className="mail-list">
+      <div className="list-head">
+        <div>
+          <h1>{folderName || 'Inbox'}</h1>
+          <small>{emails.length} conversations</small>
+        </div>
+        <div>
+          <button className="icon-btn" onClick={onRefresh}><RefreshCw /></button>
+          <button className="icon-btn"><MoreHorizontal /></button>
         </div>
       </div>
 
-      <div className="flex flex-col">
+      <div className="list-tools">
+        <input className="select-box" type="checkbox" checked={selected.size === emails.length && emails.length > 0} onChange={selectAll} aria-label="Select all" />
+        <span>{selected.size > 0 ? `${selected.size} selected` : 'Select conversations'}</span>
+        <div className={`bulk ${selected.size > 0 ? 'show' : ''}`}>
+          <button title="Archive" onClick={() => bulkAction('archive')}><Archive /></button>
+          <button title="Delete" onClick={() => bulkAction('delete')}><Trash2 /></button>
+          <button title="Mark unread" onClick={() => bulkAction('mark_unread')}><Mail /></button>
+        </div>
+        <span className="page-count">1–{emails.length}</span>
+      </div>
+
+      <div className="mail-scroll">
         {emails.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-            <p className="text-lg">No emails found.</p>
+          <div style={{ padding: '60px 20px', textAlign: 'center', color: '#999', fontSize: 14 }}>
+            No conversations here.
           </div>
         ) : (
-          emails.map((email) => (
-            <div
+          emails.map(email => (
+            <article
               key={email.id}
+              className={`mail-item ${selectedEmailId === email.id ? 'current' : ''} ${email.is_read === 0 ? 'unread' : ''}`}
               onClick={() => onSelectEmail(email)}
-              className={`flex items-center gap-4 px-4 py-2 border-b border-gray-100 cursor-pointer hover:shadow-md transition-shadow group ${
-                email.is_read ? 'bg-white text-gray-600' : 'bg-orange-light/20 font-bold text-ink ring-inset ring-l-4 ring-orange'
-              }`}
             >
-              <div className="flex items-center gap-2 shrink-0">
-                <Square className="w-4 h-4 text-gray-300 group-hover:text-gray-400" />
-                <Star className="w-4 h-4 text-gray-300 group-hover:text-gray-400" />
-              </div>
-
-              <div className="w-1/4 truncate text-sm">
-                {email.from_name || email.from_address}
-              </div>
-
-              <div className="flex-1 flex items-center gap-2 truncate text-sm">
-                <span className="text-gray-900">{email.subject}</span>
-                <span className="text-gray-500 font-normal">- {email.text}</span>
-              </div>
-
-              <div className="shrink-0 text-xs text-gray-500">
-                {format(new Date(email.received_at), 'MMM d')}
-              </div>
-
-              <div className="hidden group-hover:flex items-center gap-2 absolute right-8 bg-white/90 pl-2">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteEmail(email.id);
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded text-gray-500"
+              <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <input
+                  className="select-box"
+                  type="checkbox"
+                  checked={selected.has(email.id)}
+                  onChange={() => toggleSelect(email.id)}
+                  aria-label="Select message"
+                />
+                <button
+                  className={`star ${starred.has(email.id) ? 'on' : ''}`}
+                  onClick={(e) => toggleStar(e, email.id)}
+                  aria-label="Star"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Star />
                 </button>
               </div>
-            </div>
+              <div className="mail-content">
+                <div className="sender-line">
+                  <strong>{email.from_name || email.from_address}</strong>
+                  <time>{formatTime(email.received_at)}</time>
+                </div>
+                <h2>{email.subject || '(no subject)'}</h2>
+                <p>{email.snippet || email.text?.substring(0, 120) || ''}</p>
+                {email.labels && email.labels.length > 0 && (
+                  <>
+                    {email.labels.map(label => (
+                      <span key={label.id} className="tag">
+                        <i style={{ background: label.color }} />
+                        {label.name}
+                      </span>
+                    ))}
+                  </>
+                )}
+                {email.has_attachments === 1 && (
+                  <span className="tag" style={{ marginLeft: email.labels?.length ? 5 : 0 }}>
+                    <i style={{ background: '#F2782E' }} /> Attachment
+                  </span>
+                )}
+              </div>
+            </article>
           ))
         )}
       </div>
-    </div>
+    </section>
   );
 };
 

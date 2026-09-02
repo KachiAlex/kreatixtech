@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Tag, Loader2 } from 'lucide-react';
 import SEO from '../components/SEO';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function BlogPost() {
   const { slug } = useParams();
@@ -86,3 +86,4 @@ export default function BlogPost() {
     </div>
   );
 }
+

@@ -13,4 +13,11 @@ kreatix-technologies-frontend
 .idea
 coverage
 *.local
-
+deploy-vps.ps1
+setup-ssh.ps1
+fix-vps.sh
+isolate-nginx*.sh
+re-fix-nginx*.sh
+force-kreatix*.sh
+update-nginx.sh
+email-service

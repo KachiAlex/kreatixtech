@@ -1,108 +1,156 @@
 import React from 'react';
-import { ArrowLeft, Archive, Trash2, Mail, Clock, MoreVertical, Printer, ExternalLink, CornerUpLeft, CornerUpRight, Star } from 'lucide-react';
-import { format } from 'date-fns';
-import { Email } from '../types';
+import { Star, Reply, Forward, Trash2, Archive, Clock3, MoreHorizontal, Paperclip, FileText, AlertCircle } from 'lucide-react';
+import { emailApi, attachmentApi } from '../api';
+import type { Email } from '../types';
 
 interface EmailViewProps {
-  email: Email;
-  onBack: () => void;
+  email: Email | null;
+  onReply: (email: Email) => void;
+  onForward: (email: Email) => void;
   onDelete: (id: number) => void;
+  onArchive: (id: number) => void;
+  onSnooze: (id: number) => void;
+  onBack?: () => void;
 }
 
-const EmailView: React.FC<EmailViewProps> = ({ email, onBack, onDelete }) => {
+function formatFullDate(dateStr: string): string {
+  const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'Z'));
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+const avatarColors = ['#F2782E', '#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#F59E0B'];
+
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+}
+
+const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onForward, onDelete, onArchive, onSnooze, onBack }) => {
+  const [starred, setStarred] = React.useState(false);
+
+  React.useEffect(() => {
+    if (email) setStarred(email.is_starred === 1);
+  }, [email]);
+
+  if (!email) {
+    return (
+      <main className="reader">
+        <div className="reader-tools">
+          <div className="reader-actions">
+            <button className="icon-btn" title="Back" onClick={onBack}><Archive /></button>
+          </div>
+        </div>
+        <div className="reader-scroll" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', color: '#999' }}>
+            <FileText style={{ width: 48, height: 48, margin: '0 auto 12px' }} />
+            <p>Select a message to read</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const toggleStar = async () => {
+    setStarred(!starred);
+    try { await emailApi.star(email.id, !starred); } catch (e) { console.error(e); }
+  };
+
+  const senderName = email.from_name || email.from_address;
+  const avatarColor = getAvatarColor(senderName);
+  const initials = senderName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+
   return (
-    <div className="flex-1 flex flex-col bg-white rounded-t-2xl shadow-sm mr-4 overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b border-gray-100">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full text-gray-600">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-1">
-            <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-              <Archive className="w-4 h-4" />
-            </button>
-            <button 
-              onClick={() => onDelete(email.id)}
-              className="p-2 hover:bg-gray-100 rounded text-gray-500"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-              <Mail className="w-4 h-4" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-              <Clock className="w-4 h-4" />
-            </button>
-          </div>
+    <main className="reader">
+      <div className="reader-tools">
+        <div className="reader-actions">
+          <button className="icon-btn" title="Back" onClick={onBack}><Archive /></button>
+          <button className="icon-btn" title="Archive" onClick={() => onArchive(email.id)}><Archive /></button>
+          <button className="icon-btn" title="Delete" onClick={() => onDelete(email.id)}><Trash2 /></button>
+          <button className="icon-btn" title="Snooze" onClick={() => onSnooze(email.id)}><Clock3 /></button>
+          <button className="icon-btn" title="More"><MoreHorizontal /></button>
         </div>
-        <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">1 of 10</span>
-            <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-                <MoreVertical className="w-4 h-4" />
-            </button>
+        <div className="reader-actions">
+          <button className={`icon-btn ${starred ? 'star on' : ''}`} title="Star" onClick={toggleStar}>
+            <Star style={starred ? { fill: 'currentColor' } : {}} />
+          </button>
+          <button className="icon-btn" title="Reply" onClick={() => onReply(email)}><Reply /></button>
+          <button className="icon-btn" title="Forward" onClick={() => onForward(email)}><Forward /></button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl text-gray-800">{email.subject}</h2>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-              <Printer className="w-4 h-4" />
-            </button>
-            <button className="p-2 hover:bg-gray-100 rounded text-gray-500">
-              <ExternalLink className="w-4 h-4" />
-            </button>
+      <div className="reader-scroll">
+        <div className="subject">
+          <div style={{ flex: 1 }}>
+            <span className="eyebrow">{email.direction === 'outbound' ? 'SENT' : 'INBOX'}</span>
+            <h1>{email.subject || '(no subject)'}</h1>
+            <div className="chips">
+              {email.labels?.map(l => <span key={l.id}>{l.name}</span>)}
+              {email.has_attachments === 1 && <span>Attachment</span>}
+              {email.is_starred === 1 && <span>Starred</span>}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-              {email.from_name ? email.from_name[0] : email.from_address[0]}
-            </div>
+        <div className="sender">
+          <div className="sender-avatar" style={{ background: avatarColor }}>{initials}</div>
+          <div className="sender-info">
+            <strong>{senderName}</strong>
+            <small>{email.from_address} → {email.to_address}</small>
+          </div>
+          <time>{formatFullDate(email.received_at)}</time>
+        </div>
+
+        <div className="body-copy" dangerouslySetInnerHTML={{ __html: email.html || email.text?.replace(/\n/g, '<br>') || '' }} />
+
+        {email.snooze_until && (
+          <div className="callout">
+            <AlertCircle />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-gray-900">{email.from_name || email.from_address}</span>
-                <span className="text-xs text-gray-500">&lt;{email.from_address}&gt;</span>
-              </div>
-              <div className="text-xs text-gray-500">to me</div>
+              <strong>Snoozed until {new Date(email.snooze_until).toLocaleString()}</strong>
+              <span>This message will return to your inbox at the scheduled time.</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            {format(new Date(email.received_at), 'MMM d, yyyy, h:mm a')}
-            <button className="p-1 hover:bg-gray-100 rounded">
-              <Star className="w-4 h-4" />
-            </button>
-            <button className="p-1 hover:bg-gray-100 rounded">
-              <CornerUpLeft className="w-4 h-4" />
-            </button>
-            <button className="p-1 hover:bg-gray-100 rounded">
-              <MoreVertical className="w-4 h-4" />
-            </button>
+        )}
+
+        {email.attachments && email.attachments.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            {email.attachments.map(att => (
+              <a
+                key={att.id}
+                className="attachment"
+                href={attachmentApi.downloadUrl(att.id)}
+                download={att.filename}
+                style={{ textDecoration: 'none', color: 'inherit', marginRight: 10, marginBottom: 10 }}
+              >
+                <div className="file-icon"><FileText /></div>
+                <div style={{ flex: 1 }}>
+                  <strong>{att.filename}</strong>
+                  <small>{formatFileSize(att.size)}</small>
+                </div>
+                <Paperclip />
+              </a>
+            ))}
           </div>
-        </div>
+        )}
 
-        <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
-          {email.html ? (
-            <div dangerouslySetInnerHTML={{ __html: email.html }} />
-          ) : (
-            email.text
-          )}
-        </div>
-
-        <div className="mt-12 flex gap-3">
-          <button className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-50 transition-colors">
-            <CornerUpLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Reply</span>
+        <div className="reply-row">
+          <button className="reply-btn" onClick={() => onReply(email)}>
+            <Reply /> Reply
           </button>
-          <button className="flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-full text-gray-600 hover:bg-gray-50 transition-colors">
-            <CornerUpRight className="w-4 h-4" />
-            <span className="text-sm font-medium">Forward</span>
+          <button className="reply-btn" onClick={() => onForward(email)}>
+            <Forward /> Forward
           </button>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

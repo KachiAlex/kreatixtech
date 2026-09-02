@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, Code2, Loader2 } from 'lucide-react';
 import SEO from '../components/SEO';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export default function PortfolioPage() {
   const [projects, setProjects] = useState([]);

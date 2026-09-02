@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Send, Paperclip, FileText, Download,
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 const STATUS_COLORS = {
   SUBMITTED:    'bg-yellow-100 text-yellow-800',
@@ -39,7 +39,7 @@ const FINDING_STATUS_COLORS = {
   FALSE_POSITIVE:'bg-gray-100 text-gray-500',
 };
 
-// ── Finding form (admin only) ────────────────────────────────────────────────
+// â”€â”€ Finding form (admin only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const EMPTY_FINDING = {
   title:'', description:'', severity:'HIGH', cvssScore:'',
   category:'', affectedUrl:'', remediation:'', evidence:''
@@ -88,7 +88,7 @@ function FindingForm({ requestId, onCreated, onClose }) {
             </div>
             <div>
               <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">CVSS Score</label>
-              <input type="number" min="0" max="10" step="0.1" value={form.cvssScore} onChange={e=>f('cvssScore',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="0.0 – 10.0"/>
+              <input type="number" min="0" max="10" step="0.1" value={form.cvssScore} onChange={e=>f('cvssScore',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="0.0 â€“ 10.0"/>
             </div>
             <div>
               <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Category *</label>
@@ -96,25 +96,25 @@ function FindingForm({ requestId, onCreated, onClose }) {
             </div>
             <div>
               <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Affected URL</label>
-              <input value={form.affectedUrl} onChange={e=>f('affectedUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://…"/>
+              <input value={form.affectedUrl} onChange={e=>f('affectedUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://â€¦"/>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Description *</label>
-              <textarea required rows={3} value={form.description} onChange={e=>f('description',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Describe the vulnerability…"/>
+              <textarea required rows={3} value={form.description} onChange={e=>f('description',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Describe the vulnerabilityâ€¦"/>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Remediation *</label>
-              <textarea required rows={3} value={form.remediation} onChange={e=>f('remediation',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Steps to fix…"/>
+              <textarea required rows={3} value={form.remediation} onChange={e=>f('remediation',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="Steps to fixâ€¦"/>
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Evidence</label>
-              <textarea rows={2} value={form.evidence} onChange={e=>f('evidence',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none font-mono focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="PoC, screenshot URL, payload…"/>
+              <textarea rows={2} value={form.evidence} onChange={e=>f('evidence',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none font-mono focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="PoC, screenshot URL, payloadâ€¦"/>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-[#6B6F76] hover:text-[#0E0E0F]">Cancel</button>
             <button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors">
-              {saving ? 'Saving…' : 'Add Finding'}
+              {saving ? 'Savingâ€¦' : 'Add Finding'}
             </button>
           </div>
         </form>
@@ -123,7 +123,7 @@ function FindingForm({ requestId, onCreated, onClose }) {
   );
 }
 
-// ── Report upload panel (admin) ──────────────────────────────────────────────
+// â”€â”€ Report upload panel (admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ReportPanel({ requestId, current, onUpdated, onClose }) {
   const [url, setUrl] = useState(current?.reportUrl || '');
   const [summary, setSummary] = useState(current?.reportSummary || '');
@@ -155,18 +155,18 @@ function ReportPanel({ requestId, current, onUpdated, onClose }) {
           {err && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{err}</div>}
           <div>
             <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Report PDF URL</label>
-            <input value={url} onChange={e=>setUrl(e.target.value)} type="url" className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://drive.google.com/…"/>
+            <input value={url} onChange={e=>setUrl(e.target.value)} type="url" className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://drive.google.com/â€¦"/>
             <p className="text-xs text-[#6B6F76] mt-1">Link to the PDF report (Google Drive, S3, etc.)</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-[#0E0E0F] mb-1">Executive Summary</label>
-            <textarea rows={5} value={summary} onChange={e=>setSummary(e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="High-level summary for the client…"/>
+            <textarea rows={5} value={summary} onChange={e=>setSummary(e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="High-level summary for the clientâ€¦"/>
           </div>
           <p className="text-xs text-[#6B6F76]">Saving will set the status to <strong>Reporting</strong> and notify the client.</p>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-[#6B6F76] hover:text-[#0E0E0F]">Cancel</button>
             <button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors">
-              {saving ? 'Saving…' : 'Save & Notify Client'}
+              {saving ? 'Savingâ€¦' : 'Save & Notify Client'}
             </button>
           </div>
         </form>
@@ -175,7 +175,7 @@ function ReportPanel({ requestId, current, onUpdated, onClose }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function AssessmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -201,7 +201,7 @@ export default function AssessmentDetail() {
   const fileInputRef = useRef(null);
   const typingTimerRef = useRef(null);
 
-  // ── Data fetching ────────────────────────────────────────────────────────
+  // â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchRequest = useCallback(async () => {
     try {
       const r = await apiCall(`/api/service-requests/${id}`);
@@ -223,7 +223,7 @@ export default function AssessmentDetail() {
 
   useEffect(() => { fetchRequest(); fetchFindings(); }, [fetchRequest, fetchFindings]);
 
-  // ── Socket ───────────────────────────────────────────────────────────────
+  // â”€â”€ Socket â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (!socket || !id) return;
     socket.emit('join-request', id);
@@ -263,7 +263,7 @@ export default function AssessmentDetail() {
     if (activeTab === 'messages') messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeTab]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  // â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleSend = async e => {
     e.preventDefault();
     if (!newMessage.trim() && pendingAttachments.length === 0) return;
@@ -342,7 +342,7 @@ export default function AssessmentDetail() {
     );
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const connIcon = connStatus === 'connected'
     ? <Wifi className="h-3.5 w-3.5 text-green-500" />
     : connStatus === 'polling'
@@ -361,7 +361,7 @@ export default function AssessmentDetail() {
         <ReportPanel requestId={id} current={request} onUpdated={fetchRequest} onClose={() => setShowReportPanel(false)} />
       )}
 
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div className="bg-white border-b border-[#E8E5E0] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between gap-4">
@@ -390,7 +390,7 @@ export default function AssessmentDetail() {
                   <div className="relative">
                     <button onClick={() => setShowStatusMenu(v => !v)}
                       className="px-3 py-1.5 text-xs font-semibold border border-[#E8E5E0] rounded-xl hover:border-[#0E0E0F] text-[#6B6F76] hover:text-[#0E0E0F] transition-colors">
-                      Change status ▾
+                      Change status â–¾
                     </button>
                     {showStatusMenu && (
                       <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E8E5E0] rounded-xl shadow-lg z-20 py-1">
@@ -414,11 +414,11 @@ export default function AssessmentDetail() {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* â”€â”€ Body â”€â”€ */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* ── Left: tabs + content ── */}
+          {/* â”€â”€ Left: tabs + content â”€â”€ */}
           <div className="lg:col-span-2 flex flex-col gap-0">
             {/* Tab bar */}
             <div className="flex border-b border-[#E8E5E0] bg-white rounded-t-xl px-4">
@@ -457,8 +457,8 @@ export default function AssessmentDetail() {
                           : 'bg-[#F7F5F2] text-[#0E0E0F]'}`}>
                           <div className="flex items-center gap-2 mb-1 text-[11px] opacity-70">
                             <span className="font-semibold">{msg.sender?.name}</span>
-                            {isNote && <span className="uppercase tracking-wide font-bold">· Internal Note</span>}
-                            <span>· {new Date(msg.createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
+                            {isNote && <span className="uppercase tracking-wide font-bold">Â· Internal Note</span>}
+                            <span>Â· {new Date(msg.createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
                           </div>
                           <p className="text-sm leading-relaxed">{msg.message}</p>
                           {msg.attachments?.length > 0 && (
@@ -478,7 +478,7 @@ export default function AssessmentDetail() {
                   {typingUsers.length > 0 && (
                     <div className="flex justify-start">
                       <div className="bg-[#F7F5F2] rounded-2xl px-4 py-2 text-xs text-[#6B6F76]">
-                        {typingUsers.map(u => u.name).join(', ')} typing…
+                        {typingUsers.map(u => u.name).join(', ')} typingâ€¦
                       </div>
                     </div>
                   )}
@@ -516,7 +516,7 @@ export default function AssessmentDetail() {
                       {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
                     </button>
                     <input value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={handleTyping}
-                      placeholder={isInternal ? 'Internal note…' : 'Type a message…'}
+                      placeholder={isInternal ? 'Internal noteâ€¦' : 'Type a messageâ€¦'}
                       className={`flex-1 px-3 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent ${isInternal ? 'border-amber-300 bg-amber-50' : 'border-[#E8E5E0]'}`} />
                     <button type="submit" disabled={isSending || (!newMessage.trim() && pendingAttachments.length === 0)}
                       className="p-2.5 bg-[#F2782E] text-white rounded-xl hover:bg-[#D9601A] disabled:opacity-50 flex-shrink-0 transition-colors">
@@ -625,7 +625,7 @@ export default function AssessmentDetail() {
             )}
           </div>
 
-          {/* ── Right sidebar ── */}
+          {/* â”€â”€ Right sidebar â”€â”€ */}
           <div className="space-y-4">
             {/* Status + report link */}
             <div className="bg-white rounded-xl border border-[#E8E5E0] p-5">
@@ -651,7 +651,7 @@ export default function AssessmentDetail() {
                   ['Status',       STATUS_LABELS[request.status]],
                   ['Service Type', request.serviceType?.replace(/_/g,' ')],
                   ['Created',      new Date(request.createdAt).toLocaleDateString()],
-                  ['Assigned To',  request.assignedAdmin?.name || '—'],
+                  ['Assigned To',  request.assignedAdmin?.name || 'â€”'],
                 ].map(([label, val]) => (
                   <div key={label} className="flex justify-between">
                     <span className="text-[#6B6F76]">{label}</span>
@@ -729,3 +729,4 @@ export default function AssessmentDetail() {
     </div>
   );
 }
+

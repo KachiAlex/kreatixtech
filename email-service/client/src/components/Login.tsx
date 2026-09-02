@@ -1,44 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { Mail, ArrowRight, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, ArrowRight } from 'lucide-react';
+import { useAuth } from '../auth-context';
 
-interface UserAccount {
-  id: number;
-  email: string;
-  display_name: string;
-  is_active: boolean;
-}
-
-interface LoginProps {
-  onLogin: (user: UserAccount) => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
+  const { login, register } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        onLogin(data);
+      if (mode === 'login') {
+        await login(email, password);
       } else {
-        setError(data.error || 'Login failed');
+        await register(email, password, displayName);
       }
-    } catch (err) {
-      setError('Connection error. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -62,7 +46,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               {error}
             </div>
           )}
-          
+
+          {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-bold text-ink/50 uppercase tracking-widest mb-1.5 ml-1">Display Name</label>
+              <input
+                type="text"
+                required
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="John Doe"
+                className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-ink/50 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
             <input
@@ -96,14 +94,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
             ) : (
               <>
-                <span>Sign In</span>
+                <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </>
             )}
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-border text-center">
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+            className="text-sm text-gray-500 hover:text-orange font-medium transition-colors"
+          >
+            {mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Sign in'}
+          </button>
+        </div>
+
+        <div className="mt-6 pt-6 border-t border-border text-center">
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-loose">
             Secure enterprise email for<br/>
             Kreatix Technologies &copy; 2026

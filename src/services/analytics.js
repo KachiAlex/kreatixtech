@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+﻿const API_URL = import.meta.env.VITE_API_URL || '';
 
 let sessionId = sessionStorage.getItem('analytics_session_id');
 if (!sessionId) {
@@ -37,3 +37,4 @@ export function trackClick(label, page) {
 }
 
 export { sessionId };
+

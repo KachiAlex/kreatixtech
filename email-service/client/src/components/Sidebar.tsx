@@ -1,58 +1,108 @@
-import React from 'react';
-import { Inbox, Star, Clock, Send, File, Trash2, ChevronDown, Plus, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { PenLine, Inbox, Star, Clock3, Send, FileText, Archive, ShieldCheck, Trash2, Plus } from 'lucide-react';
+import { folderApi, labelApi, storageApi } from '../api';
+import type { Folder, Label, StorageInfo } from '../types';
 
 interface SidebarProps {
-  currentFolder: string;
-  setCurrentFolder: (folder: string) => void;
+  currentFolderId: number | null;
+  setCurrentFolder: (folder: Folder | null) => void;
   onCompose: () => void;
+  onShowStarred: () => void;
+  showStarred: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentFolder, setCurrentFolder, onCompose }) => {
-  const menuItems = [
-    { icon: Inbox, label: 'Inbox', id: 'inbox' },
-    { icon: Star, label: 'Starred', id: 'starred' },
-    { icon: Clock, label: 'Snoozed', id: 'snoozed' },
-    { icon: Send, label: 'Sent', id: 'sent' },
-    { icon: File, label: 'Drafts', id: 'drafts' },
-    { icon: Trash2, label: 'Trash', id: 'trash' },
-  ];
+const iconMap: Record<string, React.ElementType> = {
+  inbox: Inbox, starred: Star, sent: Send, drafts: FileText, archive: Archive, spam: ShieldCheck, trash: Trash2,
+};
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+  return `${(bytes / 1073741824).toFixed(1)} GB`;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ currentFolderId, setCurrentFolder, onCompose, onShowStarred, showStarred }) => {
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
+  const [showSnoozed, setShowSnoozed] = useState(false);
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const loadAll = async () => {
+    try {
+      const [f, l, s] = await Promise.all([folderApi.list(), labelApi.list(), storageApi.get()]);
+      setFolders(f.folders);
+      setLabels(l.labels);
+      setStorage(s);
+    } catch (e) { console.error('Failed to load sidebar', e); }
+  };
+
+  const storagePercent = storage ? Math.min(100, (storage.used / storage.quota) * 100) : 0;
 
   return (
-    <div className="w-64 flex flex-col h-full bg-gmail-sidebar p-2 space-y-2">
-      <button 
-        onClick={onCompose}
-        className="flex items-center gap-4 bg-orange hover:bg-orange-deep text-white hover:shadow-lg transition-all px-6 py-4 rounded-2xl w-fit mb-4 mt-2 ml-2 group"
-      >
-        <Plus className="w-6 h-6 transition-transform group-hover:rotate-90" />
-        <span className="font-bold">Compose</span>
+    <aside className="sidebar">
+      <button className="compose-main" onClick={onCompose}>
+        <PenLine /> Compose <kbd>C</kbd>
       </button>
 
-      <div className="flex flex-col border-b border-gray-200 pb-2 mb-2">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => {
-              setCurrentFolder(item.id);
-            }}
-            className={`flex items-center justify-between px-4 py-2 rounded-full transition-colors ${
-              currentFolder === item.id 
-                ? 'bg-orange-light font-bold text-orange' 
-                : 'hover:bg-gray-100 text-gray-700'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <item.icon className={`w-5 h-5 ${currentFolder === item.id ? 'fill-current' : ''}`} />
-              <span className="text-sm">{item.label}</span>
-            </div>
+      <nav className="nav">
+        {folders.map(folder => {
+          const Icon = iconMap[folder.type] || FileText;
+          const isActive = !showStarred && !showSnoozed && currentFolderId === folder.id;
+          return (
+            <button
+              key={folder.id}
+              className={isActive ? 'active' : ''}
+              onClick={() => { setCurrentFolder(folder); setShowSnoozed(false); }}
+            >
+              <Icon />
+              <span>{folder.name}</span>
+              {folder.unread_count > 0 && folder.type !== 'sent' && folder.type !== 'drafts' && <b>{folder.unread_count}</b>}
+              {folder.type === 'drafts' && folder.total_count > 0 && <b>{folder.total_count}</b>}
+            </button>
+          );
+        })}
+        <button className={showStarred ? 'active' : ''} onClick={onShowStarred}>
+          <Star /><span>Starred</span>
+        </button>
+        <button className={showSnoozed ? 'active' : ''} onClick={() => { setShowSnoozed(true); setCurrentFolder(null); onShowStarred(); }}>
+          <Clock3 /><span>Snoozed</span>
+        </button>
+      </nav>
+
+      <div className="label-title">
+        <span>Labels</span>
+        <span style={{ cursor: 'pointer' }}>+</span>
+      </div>
+      <nav className="labels">
+        {labels.map(label => (
+          <button key={label.id}>
+            <i className="dot" style={{ background: label.color }} />
+            {label.name}
           </button>
         ))}
-        
-        <button className="flex items-center gap-3 px-4 py-2 hover:bg-gray-200 text-gray-700 rounded-full transition-colors mt-2">
-          <ChevronDown className="w-5 h-5" />
-          <span className="text-sm">More</span>
-        </button>
-      </div>
-    </div>
+        {labels.length === 0 && (
+          <span style={{ padding: '0 10px', fontSize: 12, color: '#999' }}>No labels yet</span>
+        )}
+      </nav>
+
+      {storage && (
+        <div className="storage">
+          <div className="storage-head">
+            <b>Storage</b>
+            <span>{formatBytes(storage.used)} of {formatBytes(storage.quota)}</span>
+          </div>
+          <div className="bar">
+            <i style={{ width: `${storagePercent}%` }} />
+          </div>
+          <span>Manage storage</span>
+        </div>
+      )}
+    </aside>
   );
 };
 

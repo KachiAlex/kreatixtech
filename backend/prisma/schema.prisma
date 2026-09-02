@@ -486,6 +486,33 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
+// ─── Email Flow / Mailbox ───
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model EmailLog {
+  id           String          @id @default(uuid())
+  direction    EmailDirection  @default(OUTBOUND)
+  fromAddress  String
+  fromName     String?
+  toAddress    String
+  subject      String
+  text         String?
+  html         String?
+  folder       String          @default("inbox")
+  isRead       Boolean         @default(false)
+  sentBy       String?
+  createdAt    DateTime        @default(now())
+
+  @@index([folder, createdAt])
+  @@index([toAddress])
+  @@index([direction])
+  @@map("email_logs")
+}
+
 // ─── Analytics Events ───
 
 model AnalyticsEvent {

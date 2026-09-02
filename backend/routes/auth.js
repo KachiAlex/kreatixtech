@@ -6,6 +6,7 @@ import { body, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';
+import logger from '../lib/logger.js';
 
 const router = express.Router();
 
@@ -18,13 +19,13 @@ const generateToken = (user) => {
       orgId: user.orgId 
     },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '24h' }
   );
 };
 
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').isLength({ min: 8 }).matches(/^(?=.*[a-zA-Z])(?=.*[0-9])/),
   body('name').trim().isLength({ min: 2 }),
   body('orgName').trim().isLength({ min: 2 }),
   body('subdomain').trim().isLength({ min: 3 }).matches(/^[a-z0-9-]+$/),
@@ -53,7 +54,7 @@ router.post('/register', [
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const result = await prisma.$transaction(async (tx) => {
       const organization = await tx.organization.create({
@@ -100,7 +101,7 @@ router.post('/register', [
       }
     });
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error({ error: error.message }, 'Registration error');
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -154,7 +155,7 @@ router.post('/login', [
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error({ error: error.message }, 'Login error');
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -167,7 +168,7 @@ router.post('/create-admin', async (req, res) => {
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const kreatixOrg = await prisma.organization.findFirst({
       where: { subdomain: 'kreatix-admin' }
@@ -203,12 +204,8 @@ router.post('/create-admin', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin creation error:', error);
-    res.status(500).json({ 
-      error: 'Admin creation failed',
-      message: error.message,
-      code: error.code
-    });
+    logger.error({ error: error.message }, 'Admin creation error');
+    res.status(500).json({ error: 'Admin creation failed' });
   }
 });
 
@@ -248,7 +245,7 @@ router.patch('/profile', [
   body('name').optional().trim().isLength({ min: 2 }),
   body('email').optional().isEmail().normalizeEmail(),
   body('currentPassword').optional(),
-  body('newPassword').optional().isLength({ min: 6 }),
+  body('newPassword').optional().isLength({ min: 8 }).matches(/^(?=.*[a-zA-Z])(?=.*[0-9])/),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -272,7 +269,7 @@ router.patch('/profile', [
       if (!currentPassword) return res.status(400).json({ error: 'Current password required' });
       const valid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!valid) return res.status(400).json({ error: 'Current password incorrect' });
-      updateData.passwordHash = await bcrypt.hash(newPassword, 10);
+      updateData.passwordHash = await bcrypt.hash(newPassword, 12);
     }
 
     if (Object.keys(updateData).length === 0)
@@ -290,7 +287,7 @@ router.patch('/profile', [
       user: { id: updated.id, email: updated.email, name: updated.name, role: updated.role, organization: updated.organization },
     });
   } catch (e) {
-    console.error('Profile update error:', e);
+    logger.error({ error: e.message }, 'Profile update error');
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
@@ -329,12 +326,12 @@ router.post('/forgot-password', [
         resetUrl
       });
     } catch (emailErr) {
-      console.error('Resend password reset email failed:', emailErr.message);
+      logger.error({ error: emailErr.message }, 'Resend password reset email failed');
     }
 
     res.json({ message: 'If an account exists, a reset link has been sent.' });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    logger.error({ error: error.message }, 'Forgot password error');
     res.status(500).json({ error: 'Failed to process request' });
   }
 });
@@ -342,7 +339,7 @@ router.post('/forgot-password', [
 // Password reset: verify token and update password
 router.post('/reset-password', [
   body('token').trim().isLength({ min: 1 }),
-  body('password').isLength({ min: 6 })
+  body('password').isLength({ min: 8 }).matches(/^(?=.*[a-zA-Z])(?=.*[0-9])/)
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -360,7 +357,7 @@ router.post('/reset-password', [
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -373,7 +370,7 @@ router.post('/reset-password', [
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
-    console.error('Reset password error:', error);
+    logger.error({ error: error.message }, 'Reset password error');
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });

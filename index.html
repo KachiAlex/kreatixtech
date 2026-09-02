@@ -35,13 +35,22 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (var registration of registrations) {
+            registration.unregister();
+          }
+          if (registrations.length > 0) {
+            caches.keys().then(function(keys) {
+              return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+            }).then(function() {
+              window.location.reload();
+            });
+          }
         });
       }
     </script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

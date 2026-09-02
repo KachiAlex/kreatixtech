@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci
+RUN npm install && npx prisma generate --schema=prisma/schema.prisma
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 5100
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

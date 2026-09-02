@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
 import Logo from '../../components/Logo';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export default function AcceptInvite() {
   const [searchParams] = useSearchParams();
@@ -148,3 +148,4 @@ export default function AcceptInvite() {
     </div>
   );
 }
+

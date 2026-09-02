@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Send, Paperclip, FileText, Download, X, Loader2,
@@ -9,7 +9,7 @@ import {
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://kreatixtech.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 function FeedbackPanel({ request, onUpdated }) {
   const { apiCall } = usePortal();
@@ -71,7 +71,7 @@ function FeedbackPanel({ request, onUpdated }) {
         </div>
         <textarea
           rows={3}
-          placeholder="Share your experience (optional)…"
+          placeholder="Share your experience (optional)â€¦"
           value={feedback}
           onChange={e => setFeedback(e.target.value)}
           className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
@@ -79,7 +79,7 @@ function FeedbackPanel({ request, onUpdated }) {
         <button type="submit" disabled={saving || !rating}
           className="w-full py-2.5 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
-          {saving ? 'Submitting…' : 'Submit Feedback'}
+          {saving ? 'Submittingâ€¦' : 'Submit Feedback'}
         </button>
       </form>
     </div>
@@ -109,7 +109,7 @@ const SEV_CONFIG = {
   INFO:    { bar:'bg-gray-400', badge:'bg-gray-50 text-gray-600 border-gray-200', icon:Info },
 };
 
-// ── Finding form ──────────────────────────────────────────────────────────────
+// â”€â”€ Finding form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function FindingForm({ requestId, onCreated, onClose }) {
   const [form, setForm] = useState({ title:'', description:'', severity:'HIGH', cvssScore:'', category:'', affectedUrl:'', remediation:'', evidence:'' });
   const [saving, setSaving] = useState(false);
@@ -136,16 +136,16 @@ function FindingForm({ requestId, onCreated, onClose }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="col-span-2"><label className="block text-sm font-semibold mb-1">Title *</label><input required value={form.title} onChange={e=>f('title',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"/></div>
             <div><label className="block text-sm font-semibold mb-1">Severity *</label><select required value={form.severity} onChange={e=>f('severity',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#F2782E] focus:border-transparent">{['CRITICAL','HIGH','MEDIUM','LOW','INFO'].map(s=><option key={s}>{s}</option>)}</select></div>
-            <div><label className="block text-sm font-semibold mb-1">CVSS Score</label><input type="number" min="0" max="10" step="0.1" value={form.cvssScore} onChange={e=>f('cvssScore',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="0.0–10.0"/></div>
+            <div><label className="block text-sm font-semibold mb-1">CVSS Score</label><input type="number" min="0" max="10" step="0.1" value={form.cvssScore} onChange={e=>f('cvssScore',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="0.0â€“10.0"/></div>
             <div><label className="block text-sm font-semibold mb-1">Category *</label><input required value={form.category} onChange={e=>f('category',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="e.g. Injection"/></div>
-            <div><label className="block text-sm font-semibold mb-1">Affected URL</label><input value={form.affectedUrl} onChange={e=>f('affectedUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://…"/></div>
+            <div><label className="block text-sm font-semibold mb-1">Affected URL</label><input value={form.affectedUrl} onChange={e=>f('affectedUrl',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://â€¦"/></div>
             <div className="col-span-2"><label className="block text-sm font-semibold mb-1">Description *</label><textarea required rows={3} value={form.description} onChange={e=>f('description',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"/></div>
             <div className="col-span-2"><label className="block text-sm font-semibold mb-1">Remediation *</label><textarea required rows={3} value={form.remediation} onChange={e=>f('remediation',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"/></div>
             <div className="col-span-2"><label className="block text-sm font-semibold mb-1">Evidence</label><textarea rows={2} value={form.evidence} onChange={e=>f('evidence',e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none font-mono focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"/></div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-[#6B6F76]">Cancel</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50">{saving?'Saving…':'Add Finding'}</button>
+            <button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50">{saving?'Savingâ€¦':'Add Finding'}</button>
           </div>
         </form>
       </div>
@@ -153,7 +153,7 @@ function FindingForm({ requestId, onCreated, onClose }) {
   );
 }
 
-// ── Report panel ──────────────────────────────────────────────────────────────
+// â”€â”€ Report panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ReportPanel({ requestId, current, onUpdated, onClose }) {
   const [url, setUrl] = useState(current?.reportUrl||'');
   const [summary, setSummary] = useState(current?.reportSummary||'');
@@ -173,17 +173,17 @@ function ReportPanel({ requestId, current, onUpdated, onClose }) {
           <button onClick={onClose}><X className="h-5 w-5 text-[#6B6F76]"/></button>
         </div>
         <form onSubmit={handleSave} className="p-6 space-y-4">
-          <div><label className="block text-sm font-semibold mb-1">Deliverable URL</label><input type="url" value={url} onChange={e=>setUrl(e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://…"/></div>
+          <div><label className="block text-sm font-semibold mb-1">Deliverable URL</label><input type="url" value={url} onChange={e=>setUrl(e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent" placeholder="https://â€¦"/></div>
           <div><label className="block text-sm font-semibold mb-1">Summary / notes for client</label><textarea rows={5} value={summary} onChange={e=>setSummary(e.target.value)} className="w-full px-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm resize-none focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"/></div>
           <p className="text-xs text-[#6B6F76]">Saving sets status to <strong>Ready for Review</strong> and notifies the client.</p>
-          <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-[#6B6F76]">Cancel</button><button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50">{saving?'Saving…':'Save & Notify'}</button></div>
+          <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm text-[#6B6F76]">Cancel</button><button type="submit" disabled={saving} className="px-5 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] disabled:opacity-50">{saving?'Savingâ€¦':'Save & Notify'}</button></div>
         </form>
       </div>
     </div>
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function RequestDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -358,7 +358,7 @@ export default function RequestDetail() {
               <h1 className="text-sm font-bold text-white truncate">{request.title}</h1>
               <div className="flex items-center gap-1.5 text-xs text-white/50">
                 <span className="truncate max-w-[120px]">{request.organization?.name}</span>
-                <span>·</span><span>{connIcon}</span>
+                <span>Â·</span><span>{connIcon}</span>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -366,7 +366,7 @@ export default function RequestDetail() {
               {isAdmin && (
                 <>
                   <div className="relative">
-                    <button onClick={()=>setShowStatusMenu(v=>!v)} className="px-2.5 py-1.5 text-xs font-semibold border border-white/20 rounded-xl hover:border-white/60 text-white/70 transition-colors">Status ▾</button>
+                    <button onClick={()=>setShowStatusMenu(v=>!v)} className="px-2.5 py-1.5 text-xs font-semibold border border-white/20 rounded-xl hover:border-white/60 text-white/70 transition-colors">Status â–¾</button>
                     {showStatusMenu && (
                       <div className="absolute right-0 mt-1 w-44 bg-white border border-[#E8E5E0] rounded-xl shadow-lg z-20 py-1">
                         {Object.entries(STATUS_LABELS).map(([v,l])=>(
@@ -413,12 +413,12 @@ export default function RequestDetail() {
                     <div className="absolute left-4 top-0 bottom-0 w-px bg-[#E8E5E0]"/>
                     <div className="space-y-4">
                       {timeline.map(ev => {
-                        const icons = { CREATED:'🟠', MESSAGE:'💬', FILE:'📎', MILESTONE:'🏁', MILESTONE_DONE:'✅', FINDING:'🔴', FINDING_RESOLVED:'🟢', REPORT:'📦' };
+                        const icons = { CREATED:'ðŸŸ ', MESSAGE:'ðŸ’¬', FILE:'ðŸ“Ž', MILESTONE:'ðŸ', MILESTONE_DONE:'âœ…', FINDING:'ðŸ”´', FINDING_RESOLVED:'ðŸŸ¢', REPORT:'ðŸ“¦' };
                         const colors = { CREATED:'bg-[#F2782E]', MESSAGE:'bg-blue-500', FILE:'bg-purple-500', MILESTONE:'bg-amber-500', MILESTONE_DONE:'bg-green-500', FINDING:'bg-red-500', FINDING_RESOLVED:'bg-green-600', REPORT:'bg-[#0E0E0F]' };
                         return (
                           <div key={ev.id} className="flex gap-4 items-start relative">
                             <div className={`w-8 h-8 rounded-full ${colors[ev.type]||'bg-gray-400'} flex items-center justify-center text-white text-xs flex-shrink-0 z-10 shadow`}>
-                              <span>{icons[ev.type]||'•'}</span>
+                              <span>{icons[ev.type]||'â€¢'}</span>
                             </div>
                             <div className="flex-1 min-w-0 pb-2">
                               <p className="text-sm font-semibold text-[#0E0E0F]">{ev.title}</p>
@@ -448,8 +448,8 @@ export default function RequestDetail() {
                         <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${isNote?'bg-amber-50 border border-amber-200 text-amber-900':isOwn?'bg-[#F2782E] text-white':'bg-[#F7F5F2] text-[#0E0E0F]'}`}>
                           <div className="flex items-center gap-2 mb-1 text-[11px] opacity-70">
                             <span className="font-semibold">{msg.sender?.name}</span>
-                            {isNote&&<span className="uppercase tracking-wide font-bold">· Internal Note</span>}
-                            <span>· {new Date(msg.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+                            {isNote&&<span className="uppercase tracking-wide font-bold">Â· Internal Note</span>}
+                            <span>Â· {new Date(msg.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
                           </div>
                           <p className="text-sm leading-relaxed">{msg.message}</p>
                           {msg.attachments?.length>0&&<div className="mt-1.5 space-y-1">{msg.attachments.map(att=>(
@@ -461,7 +461,7 @@ export default function RequestDetail() {
                       </div>
                     );
                   })}
-                  {typingUsers.length>0&&<div className="flex justify-start"><div className="bg-[#F7F5F2] rounded-2xl px-4 py-2 text-xs text-[#6B6F76]">{typingUsers.map(u=>u.name).join(', ')} typing…</div></div>}
+                  {typingUsers.length>0&&<div className="flex justify-start"><div className="bg-[#F7F5F2] rounded-2xl px-4 py-2 text-xs text-[#6B6F76]">{typingUsers.map(u=>u.name).join(', ')} typingâ€¦</div></div>}
                   <div ref={messagesEndRef}/>
                 </div>
                 {/* Compose */}
@@ -479,7 +479,7 @@ export default function RequestDetail() {
                       {isUploading?<Loader2 className="h-4 w-4 animate-spin"/>:<Paperclip className="h-4 w-4"/>}
                     </button>
                     <input value={newMessage} onChange={e=>setNewMessage(e.target.value)} onKeyDown={handleTyping}
-                      placeholder={isInternal?'Internal note…':'Type a message…'}
+                      placeholder={isInternal?'Internal noteâ€¦':'Type a messageâ€¦'}
                       className={`flex-1 px-3 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent ${isInternal?'border-amber-300 bg-amber-50':'border-[#E8E5E0]'}`}/>
                     <button type="submit" disabled={isSending||(!newMessage.trim()&&pendingAtts.length===0)} className="p-2.5 bg-[#F2782E] text-white rounded-xl hover:bg-[#D9601A] disabled:opacity-50 flex-shrink-0">
                       {isSending?<Loader2 className="h-4 w-4 animate-spin"/>:<Send className="h-4 w-4"/>}
@@ -499,7 +499,7 @@ export default function RequestDetail() {
                     {milestones.map((m,i)=>(
                       <div key={m.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${m.status==='COMPLETE'?'bg-green-50 border-green-200':'bg-[#F7F5F2] border-[#E8E5E0]'}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${m.status==='COMPLETE'?'bg-green-500 text-white':m.status==='IN_PROGRESS'?'bg-[#F2782E] text-white':'bg-[#E8E5E0] text-[#6B6F76]'}`}>
-                          {m.status==='COMPLETE'?'✓':i+1}
+                          {m.status==='COMPLETE'?'âœ“':i+1}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`font-semibold text-sm ${m.status==='COMPLETE'?'line-through text-[#6B6F76]':'text-[#0E0E0F]'}`}>{m.title}</p>
@@ -580,7 +580,7 @@ export default function RequestDetail() {
               {request.reportUrl&&<a href={request.reportUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 w-full mb-3 p-3 bg-[#F2782E]/5 border border-[#F2782E]/20 rounded-xl text-sm font-semibold text-[#F2782E] hover:bg-[#F2782E]/10"><FileText className="h-4 w-4"/>Download Deliverable</a>}
               {request.reportSummary&&<div className="mb-3 p-3 bg-[#F7F5F2] rounded-xl text-sm text-[#6B6F76]"><p className="text-xs font-bold text-[#0E0E0F] mb-1">Summary</p><p className="whitespace-pre-wrap">{request.reportSummary}</p></div>}
               <div className="space-y-2.5 text-sm">
-                {[['Service',SERVICE_LABELS[request.serviceType]],['Status',STATUS_LABELS[request.status]],['Created',new Date(request.createdAt).toLocaleDateString()],['Assigned',request.assignedAdmin?.name||'—'],['Budget',request.budget||'—'],['Deadline',request.deadline?new Date(request.deadline).toLocaleDateString():'—']].map(([l,v])=>(
+                {[['Service',SERVICE_LABELS[request.serviceType]],['Status',STATUS_LABELS[request.status]],['Created',new Date(request.createdAt).toLocaleDateString()],['Assigned',request.assignedAdmin?.name||'â€”'],['Budget',request.budget||'â€”'],['Deadline',request.deadline?new Date(request.deadline).toLocaleDateString():'â€”']].map(([l,v])=>(
                   <div key={l} className="flex justify-between"><span className="text-[#6B6F76]">{l}</span><span className="font-semibold text-[#0E0E0F] text-right max-w-[60%]">{v}</span></div>
                 ))}
               </div>
@@ -601,7 +601,7 @@ export default function RequestDetail() {
                 </ul>
               </div>
             )}
-            {/* Feedback panel — visible to client on DELIVERED or already submitted */}
+            {/* Feedback panel â€” visible to client on DELIVERED or already submitted */}
             {user?.role === 'CLIENT' && (request.status === 'DELIVERED' || request.status === 'CLOSED') && (
               <FeedbackPanel request={request} onUpdated={fetchRequest} />
             )}
@@ -611,3 +611,4 @@ export default function RequestDetail() {
     </div>
   );
 }
+

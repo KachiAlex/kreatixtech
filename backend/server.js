@@ -55,6 +55,7 @@ await Promise.all([
   tryImport('projects',      './routes/projects.js'),
   tryImport('requests',      './routes/requests.js'),
   tryImport('analytics',      './routes/analytics.js'),
+  tryImport('emails',         './routes/emails.js'),
   tryImport('authMiddleware','./middleware/auth.js'),
 ]);
 
@@ -80,6 +81,7 @@ const serviceRequestRoutes  = get('serviceRequests')?.default;
 const serviceMessageRoutes  = get('serviceMessages')?.default;
 const serviceFindingRoutes  = get('serviceFindings')?.default;
 const analyticsRoutes       = get('analytics')?.default;
+const emailRoutes           = get('emails')?.default;
 const authMiddleware     = get('authMiddleware');
 const authenticateToken  = authMiddleware?.authenticateToken;
 const requireAdmin       = authMiddleware?.requireAdmin;
@@ -122,12 +124,14 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       imgSrc: ["'self'", 'data:', 'https:'],
       connectSrc: ["'self'", 'wss:', 'https:'],
-      fontSrc: ["'self'", 'data:', 'https:'],
+      fontSrc: ["'self'", 'data:', 'https:', 'https://fonts.gstatic.com'],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
+      baseUri: ["'none'"],
+      formAction: ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -146,6 +150,13 @@ const strictLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, max: 5,
   message: { error: 'Too many attempts. Please try again in an hour.' },
 });
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 100,
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
+app.use('/api/', apiLimiter);
 
 app.use('/api/auth/login',           authLimiter);
 app.use('/api/auth/register',        authLimiter);
@@ -170,6 +181,7 @@ if (serviceFindingRoutes) app.use('/api/service-findings',  authenticateToken, s
 if (auditRoutes)          app.use('/api/audit',             authenticateToken, auditRoutes);
 if (invitationRoutes)     app.use('/api/invitations',       invitationRoutes);
 if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
+if (emailRoutes)          app.use('/api/emails',             emailRoutes);
 
 // Log mounted routes
 logger.info('Mounted API routes:');
@@ -191,6 +203,7 @@ logger.info('Mounted API routes:');
   ['audit', auditRoutes, '/api/audit'],
   ['invitations', invitationRoutes, '/api/invitations'],
   ['analytics', analyticsRoutes, '/api/analytics'],
+  ['emails', emailRoutes, '/api/emails'],
 ].forEach(([name, route, path]) => {
   logger.info(`  ${route ? '✅' : '❌'} ${path} (${name})`);
 });
@@ -199,20 +212,24 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
 
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui { max-width: 1200px; margin: 0 auto; }',
-  customSiteTitle: 'Kreatix API Docs',
-}));
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui { max-width: 1200px; margin: 0 auto; }',
+    customSiteTitle: 'Kreatix API Docs',
+  }));
+}
 
-app.get('/api/debug/db', async (req, res) => {
-  try {
-    const userCount = await prisma.user.count();
-    const orgCount  = await prisma.organization.count();
-    res.json({ dbConnected: true, userCount, orgCount });
-  } catch (err) {
-    res.status(500).json({ dbConnected: false, error: err.message });
-  }
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/debug/db', async (req, res) => {
+    try {
+      const userCount = await prisma.user.count();
+      const orgCount  = await prisma.organization.count();
+      res.json({ dbConnected: true, userCount, orgCount });
+    } catch (err) {
+      res.status(500).json({ dbConnected: false, error: 'Database error' });
+    }
+  });
+}
 
 // 404 handler — returns JSON so the frontend never gets HTML parse errors
 app.use('/api/*', (req, res) => {
@@ -222,7 +239,7 @@ app.use('/api/*', (req, res) => {
 // Global error handler — returns JSON for any unhandled errors
 app.use((err, req, res, next) => {
   logger.error({ err }, 'Unhandled error');
-  res.status(500).json({ error: 'Internal server error', detail: err.message });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Socket.io auth middleware
