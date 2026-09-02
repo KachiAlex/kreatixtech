@@ -113,7 +113,13 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
       const attachmentPayload = await Promise.all(
         attachments.map(async (file) => {
           const buffer = await file.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+          const bytes = new Uint8Array(buffer);
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          const base64 = btoa(binary);
           return {
             filename: file.name,
             mimeType: file.type || 'application/octet-stream',
