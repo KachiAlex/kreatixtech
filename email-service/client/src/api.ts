@@ -142,7 +142,7 @@ export const emailApi = {
   delete: (id: number) => apiDelete(`/emails/${id}`),
   bulk: (ids: number[], action: string, folder_id?: number) =>
     apiPost('/emails/bulk', { ids, action, folder_id }),
-  send: (data: { to: string | string[]; cc?: string; bcc?: string; subject: string; body: string; html?: string; from?: string; fromName?: string; replyToId?: number }) =>
+  send: (data: { to: string | string[]; cc?: string; bcc?: string; subject: string; body: string; html?: string; from?: string; fromName?: string; replyToId?: number; attachments?: { filename: string; mimeType: string; content: string }[] }) =>
     apiPost('/send', data),
   setLabels: (emailId: number, labelIds: number[]) =>
     apiPost(`/emails/${emailId}/labels`, { label_ids: labelIds }),

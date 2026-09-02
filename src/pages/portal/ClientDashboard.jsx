@@ -122,46 +122,46 @@ export default function ClientDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-ink">Service Request Dashboard</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-ink">Service Request Dashboard</h1>
           <p className="mt-2 text-grey-dark">
             Manage your service requests and project engagements
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <FileText className="h-6 w-6 text-blue-600" />
+        <div className="grid grid-cols-3 md:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-border">
+            <div className="flex items-center gap-3 sm:gap-0">
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-xl flex-shrink-0">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Total Requests</p>
-                <p className="text-2xl font-bold text-ink">{stats.total}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-orange-100 rounded-xl">
-                <Clock className="h-6 w-6 text-orange" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Active</p>
-                <p className="text-2xl font-bold text-ink">{stats.active}</p>
+              <div className="sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-grey truncate">Total</p>
+                <p className="text-xl sm:text-2xl font-bold text-ink">{stats.total}</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-white p-6 rounded-xl border border-border">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-border">
+            <div className="flex items-center gap-3 sm:gap-0">
+              <div className="p-2 sm:p-3 bg-orange-100 rounded-xl flex-shrink-0">
+                <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-orange" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-grey">Completed</p>
-                <p className="text-2xl font-bold text-ink">{stats.completed}</p>
+              <div className="sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-grey truncate">Active</p>
+                <p className="text-xl sm:text-2xl font-bold text-ink">{stats.active}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 sm:p-6 rounded-xl border border-border">
+            <div className="flex items-center gap-3 sm:gap-0">
+              <div className="p-2 sm:p-3 bg-green-100 rounded-xl flex-shrink-0">
+                <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+              </div>
+              <div className="sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-grey truncate">Done</p>
+                <p className="text-xl sm:text-2xl font-bold text-ink">{stats.completed}</p>
               </div>
             </div>
           </div>
@@ -171,23 +171,23 @@ export default function ClientDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <h2 className="text-xl font-bold text-ink flex-1">Your Requests</h2>
           <div className="flex gap-2 flex-wrap">
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-grey" />
               <input type="text" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)}
                 className="pl-9 pr-4 py-2 border border-border rounded-xl text-sm focus:ring-2 focus:ring-orange focus:border-transparent w-full sm:w-44" />
             </div>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-border rounded-xl text-sm bg-white focus:ring-2 focus:ring-orange focus:border-transparent">
+              className="px-3 py-2 border border-border rounded-xl text-sm bg-white focus:ring-2 focus:ring-orange focus:border-transparent flex-1 sm:flex-initial">
               <option value="all">All Status</option>
               {Object.entries(statusLabels).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-border rounded-xl text-sm bg-white focus:ring-2 focus:ring-orange focus:border-transparent">
+              className="px-3 py-2 border border-border rounded-xl text-sm bg-white focus:ring-2 focus:ring-orange focus:border-transparent flex-1 sm:flex-initial">
               <option value="all">All Types</option>
               {Object.entries(SERVICE_LABELS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             <Link to="/portal/request/new"
-              className="inline-flex items-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep transition-colors whitespace-nowrap">
+              className="inline-flex items-center justify-center px-4 py-2 bg-orange text-white rounded-xl font-medium hover:bg-orange-deep transition-colors whitespace-nowrap flex-1 sm:flex-initial">
               <Plus className="h-4 w-4 mr-1.5" /> New Request
             </Link>
           </div>
@@ -220,16 +220,16 @@ export default function ClientDashboard() {
                 <Link
                   key={request.id}
                   to={`/portal/request/${request.id}`}
-                  className="block p-6 hover:bg-offwhite transition-colors"
+                  className="block p-4 sm:p-6 hover:bg-offwhite transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center mb-2 gap-2 flex-wrap">
                         <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${SERVICE_COLORS[request.serviceType]}`}>
                           <ServiceIcon className="h-3 w-3" />
                           {SERVICE_LABELS[request.serviceType]}
                         </span>
-                        <h3 className="text-lg font-semibold text-ink">
+                        <h3 className="text-base sm:text-lg font-semibold text-ink">
                           {request.title}
                         </h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[request.status]}`}>
@@ -239,7 +239,7 @@ export default function ClientDashboard() {
                       <p className="text-sm text-grey mb-3 line-clamp-2">
                         {request.description}
                       </p>
-                      <div className="flex items-center text-sm text-grey space-x-4">
+                      <div className="flex items-center text-sm text-grey gap-3 sm:space-x-4 flex-wrap">
                         <span className="flex items-center">
                           <Clock className="h-4 w-4 mr-1" />
                           {new Date(request.createdAt).toLocaleDateString()}
@@ -258,7 +258,7 @@ export default function ClientDashboard() {
                         )}
                       </div>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-grey ml-4" />
+                    <ChevronRight className="h-5 w-5 text-grey flex-shrink-0" />
                   </div>
                 </Link>
                 );
@@ -297,7 +297,7 @@ function NotifBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-[#E8E5E0] z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-80 bg-white rounded-xl shadow-2xl border border-[#E8E5E0] z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E8E5E0]">
             <p className="font-bold text-sm text-[#0E0E0F]">Notifications</p>
             {unreadCount > 0 && (

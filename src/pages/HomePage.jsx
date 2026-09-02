@@ -148,8 +148,8 @@ function WorkCard({ title, description, desc, tags, liveUrl, href, external, pre
     : { to: target };
 
   return (
-    <Tag {...props} className="flex-none w-[340px] border border-[#E8E5E0] rounded-[20px] overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl group">
-      <div className="h-[200px] bg-[#F7F5F2] relative overflow-hidden">
+    <Tag {...props} className="flex-none w-[280px] sm:w-[340px] border border-[#E8E5E0] rounded-[20px] overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl group">
+      <div className="h-[180px] sm:h-[200px] bg-[#F7F5F2] relative overflow-hidden">
         {previewUrl ? (
           <>
             <img
@@ -200,9 +200,9 @@ function WorkCard({ title, description, desc, tags, liveUrl, href, external, pre
 // ── ServicePanel ─────────────────────────────────────────────────────────────
 function ServicePanel({ data, active }) {
   return (
-    <div className={`${active ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-10 items-start`}>
-      <div className="bg-white rounded-3xl p-10 border border-[#E8E5E0]">
-        <h3 className="text-3xl font-extrabold mb-4">{data.title}</h3>
+    <div className={`${active ? 'grid' : 'hidden'} grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-10 items-start`}>
+      <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E8E5E0]">
+        <h3 className="text-2xl sm:text-3xl font-extrabold mb-4">{data.title}</h3>
         <p className="text-[#6B6F76] text-base leading-relaxed mb-8">{data.desc}</p>
         <div className="flex flex-col gap-3.5 mb-8">
           {data.features.map(f => (
@@ -218,7 +218,7 @@ function ServicePanel({ data, active }) {
       </div>
       <div className="flex flex-col gap-4">
         {data.cards.map(c => (
-          <div key={c.label} className="bg-white border border-[#E8E5E0] rounded-2xl p-7 hover:border-[#F2782E] hover:-translate-y-1 transition-all duration-200">
+          <div key={c.label} className="bg-white border border-[#E8E5E0] rounded-2xl p-5 sm:p-7 hover:border-[#F2782E] hover:-translate-y-1 transition-all duration-200">
             <div className="text-[11px] font-bold tracking-widest text-[#F2782E] uppercase mb-2.5">{c.label}</div>
             <h4 className="text-base font-bold mb-2">{c.title}</h4>
             <p className="text-sm text-[#6B6F76]">{c.body}</p>
@@ -342,7 +342,7 @@ export default function HomePage() {
       </div>
 
       {/* ── STATS STRIP ────────────────────────────────────────────────────── */}
-      <div ref={statsRef} className="bg-[#F2782E] py-14 px-6 md:px-12 grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div ref={statsRef} className="bg-[#F2782E] py-10 sm:py-14 px-6 md:px-12 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
         {[
           { target: 120, suffix: '+', label: 'Projects delivered' },
           { target: 40,  suffix: '+', label: 'Security assessments' },
@@ -363,7 +363,7 @@ export default function HomePage() {
       </div>
 
       {/* ── SERVICES ───────────────────────────────────────────────────────── */}
-      <section ref={servicesRef} className="py-24 px-6 md:px-12 bg-[#F7F5F2]" id="services">
+      <section ref={servicesRef} className="py-16 sm:py-24 px-6 md:px-12 bg-[#F7F5F2]" id="services">
         <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-5">What we do</span>
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-start mb-14 fade-in-up ${servicesVisible ? 'visible' : ''}`}>
           <h2 className="font-extrabold leading-[1.1]" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>
@@ -395,7 +395,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CYBERSECURITY ──────────────────────────────────────────────────── */}
-      <section ref={cyberRef} className="py-24 px-6 md:px-12 bg-[#0E0E0F] text-white" id="cyber">
+      <section ref={cyberRef} className="py-16 sm:py-24 px-6 md:px-12 bg-[#0E0E0F] text-white" id="cyber">
         <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-5">Cybersecurity services</span>
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-start mb-14 fade-in-up ${cyberVisible ? 'visible' : ''}`}>
           <h2 className="font-extrabold leading-[1.1]" style={{ fontSize: 'clamp(34px,5vw,56px)' }}>
@@ -412,7 +412,7 @@ export default function HomePage() {
         </div>
 
         {/* cyber cards 2×2 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 mb-8">
           {[
             { abbr: 'VA', title: 'Vulnerability assessment & pen testing', body: 'Scoped, methodical testing of your systems — web apps, APIs, networks, cloud — with clear, actionable reporting you can act on immediately.' },
             { abbr: 'TD', title: 'Threat detection & response',            body: 'EDR, XDR and MDR services that monitor your environment around the clock and respond to threats as they emerge — not after the damage is done.' },
@@ -420,7 +420,7 @@ export default function HomePage() {
             { abbr: 'AS', title: 'API security',                           body: 'Discovery, testing and continuous protection for the APIs connecting your services, partners and customers.' },
           ].map(c => (
             <div key={c.abbr}
-              className="rounded-[20px] p-8 border transition-all duration-200 hover:-translate-y-1"
+              className="rounded-[20px] p-6 sm:p-8 border transition-all duration-200 hover:-translate-y-1"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(242,120,46,0.08)'; e.currentTarget.style.borderColor = 'rgba(242,120,46,0.3)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
@@ -435,7 +435,7 @@ export default function HomePage() {
         </div>
 
         {/* VAPT flow */}
-        <div className="rounded-3xl p-10 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-10 items-center"
+        <div className="rounded-3xl p-6 sm:p-10 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center"
           style={{ background: 'linear-gradient(135deg,rgba(242,120,46,0.12),rgba(242,120,46,0.03))', border: '1px solid rgba(242,120,46,0.25)' }}>
           <div>
             <h3 className="font-extrabold leading-[1.2] mb-3.5" style={{ fontSize: 'clamp(22px,3vw,30px)' }}>
@@ -469,7 +469,7 @@ export default function HomePage() {
       </section>
 
       {/* ── WORK ───────────────────────────────────────────────────────────── */}
-      <section ref={workRef} className="py-24 pl-6 md:pl-12 pr-0 bg-white overflow-hidden" id="work">
+      <section ref={workRef} className="py-16 sm:py-24 pl-6 md:pl-12 pr-0 bg-white overflow-hidden" id="work">
         <div className={`flex justify-between items-end mb-12 pr-6 md:pr-12 fade-in-up ${workVisible ? 'visible' : ''}`}>
           <div>
             <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-4">Selected work</span>
@@ -490,7 +490,7 @@ export default function HomePage() {
       <Testimonials />
 
       {/* ── CTA ────────────────────────────────────────────────────────────── */}
-      <section ref={ctaRef} className="bg-[#0E0E0F] py-28 px-6 md:px-12 text-center relative overflow-hidden" id="contact">
+      <section ref={ctaRef} className="bg-[#0E0E0F] py-20 sm:py-28 px-6 md:px-12 text-center relative overflow-hidden" id="contact">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] pointer-events-none rounded-full"
           style={{ background: 'radial-gradient(ellipse,rgba(242,120,46,0.2),transparent 70%)' }} />
         <div className={`relative z-10 fade-in-up ${ctaVisible ? 'visible' : ''}`}>

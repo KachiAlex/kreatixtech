@@ -30,10 +30,10 @@ const services = [
 export default function CybersecurityPage() {
   return (
     <div className="bg-surface-50 text-ink-900 min-h-screen">
-      <section className="pt-32 pb-24 border-b border-surface-300">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-6">Cybersecurity</p>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-8">
+      <section className="pt-28 sm:pt-32 pb-16 sm:pb-24 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4 sm:mb-6">Cybersecurity</p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter leading-none mb-6 sm:mb-8">
             Uncompromising<br />Security.
           </h1>
           <p className="text-ink-500 text-lg max-w-xl leading-relaxed">
@@ -42,11 +42,11 @@ export default function CybersecurityPage() {
           </p>
         </div>
       </section>
-      <section className="py-24">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+      <section className="py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid md:grid-cols-2 gap-px bg-surface-300">
             {services.map(({ title, body, items }) => (
-              <div key={title} className="bg-surface-50 p-10 hover:bg-surface-100 transition-colors">
+              <div key={title} className="bg-surface-50 p-6 sm:p-10 hover:bg-surface-100 transition-colors">
                 <h3 className="text-xl font-bold text-ink-900 mb-4">{title}</h3>
                 <p className="text-ink-500 text-sm leading-relaxed mb-6">{body}</p>
                 <ul className="space-y-2.5">
@@ -62,10 +62,10 @@ export default function CybersecurityPage() {
           </div>
         </div>
       </section>
-      <section className="py-24 border-t border-surface-300 bg-surface-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+      <section className="py-16 sm:py-24 border-t border-surface-300 bg-surface-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="max-w-2xl">
-            <h2 className="text-3xl font-black tracking-tight text-ink-900 mb-4">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-ink-900 mb-4">
               Secure Your Infrastructure Today
             </h2>
             <p className="text-ink-500 text-sm leading-relaxed mb-8">

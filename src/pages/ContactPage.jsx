@@ -37,10 +37,10 @@ export default function ContactPage() {
 
   return (
     <div className="bg-surface-50 text-ink-900 min-h-screen">
-      <section className="pt-32 pb-24 border-b border-surface-300">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-6">Contact</p>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-8">
+      <section className="pt-28 sm:pt-32 pb-16 sm:pb-24 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4 sm:mb-6">Contact</p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter leading-none mb-6 sm:mb-8">
             Let&apos;s Talk.
           </h1>
           <p className="text-ink-500 text-lg max-w-xl leading-relaxed">
@@ -49,8 +49,8 @@ export default function ContactPage() {
           </p>
         </div>
       </section>
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-        <div className="grid lg:grid-cols-5 gap-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-20">
+        <div className="grid lg:grid-cols-5 gap-8 sm:gap-16">
           <div className="lg:col-span-2 space-y-8">
             <div>
               <p className="text-xs font-semibold text-ink-400 uppercase tracking-widest mb-4">Email Us</p>
@@ -82,7 +82,7 @@ export default function ContactPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Full Name *</label>
                     <input {...register('name', { required: true })} placeholder="John Doe" className="input-field" />

@@ -41,7 +41,7 @@ export default function Navbar() {
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         scrolled ? 'bg-paper/85 backdrop-blur-[12px] border-b border-border shadow-sm' : 'bg-paper/85 backdrop-blur-[12px]'
       )} role="navigation" aria-label="Main navigation">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 lg:px-14 py-5">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-14 py-4 sm:py-5">
         {/* Brand */}
         <Logo size="md" />
 

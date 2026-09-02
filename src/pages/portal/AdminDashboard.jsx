@@ -279,14 +279,14 @@ export default function AdminDashboard() {
             <button onClick={() => setError(null)} className="text-red-500 hover:text-red-800 font-bold">Ã—</button>
           </div>
         )}
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-[#0E0E0F]">Admin Dashboard</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0E0E0F]">Admin Dashboard</h1>
           <p className="mt-1 text-[#6B6F76]">Manage service requests across all disciplines</p>
         </div>
 
         {/* â”€â”€ Stats â”€â”€ */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
             {[
               { label: 'Total',       value: stats.total,                                       icon: FileText,    bg: 'bg-blue-50',   ic: 'text-blue-600' },
               { label: 'New',         value: stats.statuses?.SUBMITTED || 0,                    icon: Clock,       bg: 'bg-yellow-50', ic: 'text-yellow-600' },
@@ -294,12 +294,12 @@ export default function AdminDashboard() {
               { label: 'Delivered',   value: (stats.statuses?.DELIVERED||0)+(stats.statuses?.CLOSED||0), icon: CheckCircle, bg: 'bg-green-50', ic: 'text-green-600' },
               { label: 'Clients',     value: stats.clients,                                     icon: Users,       bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
             ].map(s => (
-              <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-5">
-                <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center mb-3`}>
-                  <s.icon className={`h-5 w-5 ${s.ic}`} />
+              <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-4 sm:p-5">
+                <div className={`w-9 h-9 sm:w-10 sm:h-10 ${s.bg} rounded-xl flex items-center justify-center mb-2 sm:mb-3`}>
+                  <s.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${s.ic}`} />
                 </div>
-                <p className="text-2xl font-bold text-[#0E0E0F]">{s.value ?? 0}</p>
-                <p className="text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
+                <p className="text-xl sm:text-2xl font-bold text-[#0E0E0F]">{s.value ?? 0}</p>
+                <p className="text-xs sm:text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
@@ -356,7 +356,7 @@ export default function AdminDashboard() {
           <div className="flex-1 min-w-0">
           <div className={activeSection === 'requests' ? 'block' : 'hidden'}>
         <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
-          <div className="p-5 border-b border-[#E8E5E0] flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="p-4 sm:p-5 border-b border-[#E8E5E0] flex flex-col sm:flex-row sm:items-center gap-4">
             <h2 className="text-lg font-bold text-[#0E0E0F] flex-1">All Requests</h2>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative">
@@ -416,7 +416,7 @@ export default function AdminDashboard() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-4 border-t border-[#E8E5E0]">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-t border-[#E8E5E0]">
               <span className="text-sm text-[#6B6F76]">Page {page} of {totalPages}</span>
               <div className="flex gap-2">
                 <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
@@ -494,8 +494,8 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
   const [showActions, setShowActions] = useState(false);
 
   return (
-    <div className="p-5 hover:bg-[#F7F5F2] transition-colors">
-      <div className="flex items-start justify-between gap-4">
+    <div className="p-4 sm:p-5 hover:bg-[#F7F5F2] transition-colors">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
         {/* Left: info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -543,7 +543,7 @@ function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
         </div>
 
         {/* Right: actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
           <Link to={`/portal/request/${a.id}`}
             className="px-3 py-1.5 text-xs font-semibold bg-[#0E0E0F] text-white rounded-lg hover:bg-[#F2782E] transition-colors">
             Open
@@ -601,7 +601,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-[#E8E5E0] z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-80 bg-white rounded-xl shadow-2xl border border-[#E8E5E0] z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E8E5E0]">
             <p className="font-bold text-sm text-[#0E0E0F]">Notifications</p>
             {unreadCount > 0 && (
@@ -699,7 +699,7 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-lg font-bold text-[#0E0E0F]">Team Members ({team.length})</h2>
         <div className="flex gap-2">
           <button onClick={onRefresh} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] transition-colors"><RefreshCw className="h-4 w-4"/></button>
@@ -769,7 +769,7 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
         <div className="bg-white rounded-2xl border border-[#E8E5E0] overflow-hidden">
           <div className="divide-y divide-[#E8E5E0]">
             {team.map(m => (
-              <div key={m.id} className="p-4 flex items-center gap-4">
+              <div key={m.id} className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
                 <div className="w-9 h-9 rounded-full bg-[#F7F5F2] flex items-center justify-center flex-shrink-0">
                   <span className="text-sm font-bold text-[#F2782E]">{m.name.charAt(0).toUpperCase()}</span>
                 </div>
@@ -777,10 +777,10 @@ function TeamPanel({ team, pendingInvites, loading, onRefresh, showInviteForm, s
                   <p className="text-sm font-semibold text-[#0E0E0F] truncate">{m.name} {m.id === currentUserId && <span className="text-xs text-[#6B6F76] font-normal">(you)</span>}</p>
                   <p className="text-xs text-[#6B6F76] truncate">{m.email}</p>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   <select value={m.role} onChange={e => changeRole(m.id, e.target.value)}
                     disabled={m.id === currentUserId}
-                    className={`text-xs font-bold px-2.5 py-1 rounded-full border-0 cursor-pointer ${ROLE_COLORS[m.role]} disabled:opacity-60 disabled:cursor-default`}>
+                    className={`text-xs font-bold px-2 py-1 rounded-full border-0 cursor-pointer ${ROLE_COLORS[m.role]} disabled:opacity-60 disabled:cursor-default`}>
                     <option value="ADMIN">Admin</option>
                     <option value="ANALYST">Analyst</option>
                     <option value="CLIENT">Client</option>
@@ -845,15 +845,15 @@ function CompaniesPanel({ companies, loading, onRefresh }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <p className="text-sm text-[#6B6F76]">{companies.length} registered companies</p>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
             <input
               type="text" placeholder="Search companiesâ€¦" value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-52"
+              className="pl-9 pr-4 py-2 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent w-full sm:w-52"
             />
           </div>
           <button onClick={onRefresh} className="p-2 border border-[#E8E5E0] rounded-xl text-[#6B6F76] hover:text-[#0E0E0F] hover:border-[#0E0E0F] transition-colors">
@@ -899,18 +899,18 @@ function CompaniesPanel({ companies, loading, onRefresh }) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 sm:gap-3 md:gap-4 flex-shrink-0 text-right sm:ml-auto">
-                    <div>
-                      <p className="text-lg font-bold text-[#0E0E0F]">{reqCount}</p>
-                      <p className="text-xs text-[#6B6F76]">Requests</p>
+                  <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0 sm:ml-auto">
+                    <div className="text-center">
+                      <p className="text-base sm:text-lg font-bold text-[#0E0E0F]">{reqCount}</p>
+                      <p className="text-[10px] sm:text-xs text-[#6B6F76]">Requests</p>
                     </div>
-                    <div>
-                      <p className="text-lg font-bold text-purple-600">{activeReqs}</p>
-                      <p className="text-xs text-[#6B6F76]">Active</p>
+                    <div className="text-center">
+                      <p className="text-base sm:text-lg font-bold text-purple-600">{activeReqs}</p>
+                      <p className="text-[10px] sm:text-xs text-[#6B6F76]">Active</p>
                     </div>
-                    <div>
-                      <p className="text-lg font-bold text-[#0E0E0F]">{c.users?.length ?? 0}</p>
-                      <p className="text-xs text-[#6B6F76]">Users</p>
+                    <div className="text-center">
+                      <p className="text-base sm:text-lg font-bold text-[#0E0E0F]">{c.users?.length ?? 0}</p>
+                      <p className="text-[10px] sm:text-xs text-[#6B6F76]">Users</p>
                     </div>
                     <ChevronRight className={`h-4 w-4 text-[#6B6F76] transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                   </div>
@@ -1158,7 +1158,7 @@ function ProjectsPanel({ projects, apiCall, onRefresh }) {
           onClose={() => { setShowForm(false); setEditing(null); }}
         />
       )}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <p className="text-sm text-[#6B6F76]">These projects appear on the homepage and portfolio page.</p>
         <button onClick={() => { setEditing(null); setShowForm(true); }}
           className="flex items-center gap-1.5 px-4 py-2 bg-[#F2782E] text-white text-sm font-bold rounded-xl hover:bg-[#D9601A] transition-colors">
@@ -1358,7 +1358,7 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
 
       {/* Recent visitor log */}
       <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#E8E5E0]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#E8E5E0]">
           <h3 className="text-sm font-bold text-[#0E0E0F]">Recent Visitor Activity</h3>
         </div>
         {analytics.recentEvents.length === 0 ? (
@@ -1366,7 +1366,7 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
         ) : (
           <div className="max-h-80 overflow-y-auto divide-y divide-[#F7F5F2]">
             {analytics.recentEvents.map(e => (
-              <div key={e.id} className="px-6 py-3 flex items-center gap-3">
+              <div key={e.id} className="px-4 sm:px-6 py-3 flex items-center gap-3">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                   e.type === 'PAGE_VIEW' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-[#F2782E]'
                 }`}>
@@ -1375,13 +1375,11 @@ function AnalyticsPanel({ analytics, loading, days, setDays }) {
                 <span className="text-sm text-[#0E0E0F] font-medium truncate flex-1">
                   {e.page}{e.label && ` â€” ${e.label}`}
                 </span>
-                {e.country && (
-                  <span className="text-xs text-[#6B6F76] flex items-center gap-1 flex-shrink-0">
-                    <MapPin className="h-3 w-3" />
-                    {e.country}{e.city && `, ${e.city}`}
-                  </span>
-                )}
-                <span className="text-xs text-[#9CA3AF] flex-shrink-0">
+                <span className="hidden sm:flex text-xs text-[#6B6F76] items-center gap-1 flex-shrink-0">
+                  <MapPin className="h-3 w-3" />
+                  {e.country}{e.city && `, ${e.city}`}
+                </span>
+                <span className="hidden sm:block text-xs text-[#9CA3AF] flex-shrink-0">
                   {new Date(e.createdAt).toLocaleString()}
                 </span>
               </div>
@@ -1498,8 +1496,8 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
         <div className="bg-white rounded-xl border border-[#E8E5E0] overflow-hidden">
           <div className="divide-y divide-[#E8E5E0]">
             {filtered.map(post => (
-              <div key={post.id} className="p-4 flex items-center gap-4 hover:bg-[#F7F5F2] transition-colors">
-                <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-[#F7F5F2]">
+              <div key={post.id} className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 hover:bg-[#F7F5F2] transition-colors">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden flex-shrink-0 bg-[#F7F5F2]">
                   {post.coverImage ? (
                     <img src={post.coverImage} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -1542,7 +1540,7 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => togglePublish(post)}
-                    className={`p-2 rounded-lg transition-colors ${post.published ? 'text-green-600 hover:bg-green-50' : 'text-[#6B6F76] hover:bg-[#F7F5F2]'}`}
+                    className={`p-1.5 sm:p-2 rounded-lg transition-colors ${post.published ? 'text-green-600 hover:bg-green-50' : 'text-[#6B6F76] hover:bg-[#F7F5F2]'}`}
                     title={post.published ? 'Unpublish' : 'Publish'}
                   >
                     {post.published ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
@@ -1551,7 +1549,7 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
                     <a
                       href={`${import.meta.env.VITE_API_URL || ''}/blog/${post.slug}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
+                      className="p-1.5 sm:p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
                       title="View live"
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -1559,14 +1557,14 @@ function BlogPanel({ posts, loading, onRefresh, apiCall }) {
                   )}
                   <button
                     onClick={() => { setEditingPost(post); setShowEditor(true); }}
-                    className="p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
+                    className="p-1.5 sm:p-2 text-[#6B6F76] hover:text-[#F2782E] transition-colors"
                     title="Edit"
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(post.id)}
-                    className="p-2 text-[#6B6F76] hover:text-red-500 transition-colors"
+                    className="p-1.5 sm:p-2 text-[#6B6F76] hover:text-red-500 transition-colors"
                     title="Delete"
                   >
                     <Trash2 className="h-4 w-4" />

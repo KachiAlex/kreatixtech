@@ -130,10 +130,10 @@ export default function VaptPage() {
 
   return (
     <div className="bg-surface-50 text-ink-900 min-h-screen">
-      <section className="pt-32 pb-16 border-b border-surface-300">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-6">Client Portal</p>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-none mb-4">
+      <section className="pt-28 sm:pt-32 pb-16 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4 sm:mb-6">Client Portal</p>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter leading-none mb-4">
             Client Security Portal
           </h1>
           <p className="text-ink-500 text-base">Manage your vulnerability assessments and security audits.</p>
@@ -152,11 +152,11 @@ export default function VaptPage() {
           </div>
         </div>
       </section>
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
-        <div className="grid lg:grid-cols-5 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-12 sm:py-16">
+        <div className="grid lg:grid-cols-5 gap-8 sm:gap-12">
           <div className="lg:col-span-3">
             {step === 3 ? (
-              <div className="card p-10 text-center bg-white">
+              <div className="card p-8 sm:p-10 text-center bg-white">
                 <div className="w-16 h-16 rounded-full bg-coral-500/10 border border-coral-500/20 flex items-center justify-center mx-auto mb-6">
                   <CheckCircle2 size={28} className="text-coral-500" />
                 </div>
@@ -184,9 +184,9 @@ export default function VaptPage() {
                   ))}
                 </div>
                 {step === 1 && (
-                  <form onSubmit={handleNext} className="p-8 space-y-5">
+                  <form onSubmit={handleNext} className="p-5 sm:p-8 space-y-5">
                     <h2 className="text-ink-900 font-bold text-lg mb-2">Submit VAPT Scope</h2>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="label">Company Name *</label>
                         <input {...register('companyName', { required: true })} placeholder="Acme Corp" className="input-field" />
@@ -198,7 +198,7 @@ export default function VaptPage() {
                         {errors.contactName && <p className="text-coral-500 text-xs mt-1">Required</p>}
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="label">Email *</label>
                         <input {...register('email', { required: true })} type="email" placeholder="john@company.com" className="input-field" />
@@ -248,7 +248,7 @@ export default function VaptPage() {
                   </form>
                 )}
                 {step === 2 && (
-                  <div className="p-8 space-y-6">
+                  <div className="p-5 sm:p-8 space-y-6">
                     <h2 className="text-ink-900 font-bold text-lg mb-2">Upload Supporting Documents</h2>
                     <div
                       onDragOver={e => { e.preventDefault(); setDragging(true); }}

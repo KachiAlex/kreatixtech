@@ -42,9 +42,9 @@ export default function BlogPage() {
         pathname="/blog"
       />
 
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="mb-12">
-          <h1 className="text-4xl font-black text-ink mb-3">Blog</h1>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-4xl font-black text-ink mb-3">Blog</h1>
           <p className="text-grey text-lg max-w-2xl">
             Insights on software development, cybersecurity, cloud architecture, and technology trends.
           </p>

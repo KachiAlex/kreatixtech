@@ -47,7 +47,7 @@ export default function BlogPost() {
         pathname={`/blog/${post.slug}`}
       />
 
-      <article className="max-w-3xl mx-auto px-6">
+      <article className="max-w-3xl mx-auto px-4 sm:px-6">
         <Link to="/blog" className="inline-flex items-center gap-1 text-sm text-orange hover:text-orange-deep mb-8">
           <ArrowLeft className="h-4 w-4" />
           Back to Blog
@@ -55,7 +55,7 @@ export default function BlogPost() {
 
         {post.coverImage && (
           <div className="rounded-2xl overflow-hidden mb-8">
-            <img src={post.coverImage} alt={post.title} className="w-full h-64 md:h-80 object-cover" />
+            <img src={post.coverImage} alt={post.title} className="w-full h-48 sm:h-64 md:h-80 object-cover" />
           </div>
         )}
 
@@ -67,9 +67,9 @@ export default function BlogPost() {
           ))}
         </div>
 
-        <h1 className="text-3xl md:text-4xl font-black text-ink mb-4">{post.title}</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-ink mb-4">{post.title}</h1>
 
-        <div className="flex items-center gap-4 text-sm text-grey mb-8 pb-8 border-b border-border">
+        <div className="flex items-center gap-3 sm:gap-4 text-sm text-grey mb-8 pb-8 border-b border-border">
           <span className="font-medium text-ink">{post.author}</span>
           <span className="flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />

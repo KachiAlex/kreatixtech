@@ -36,17 +36,17 @@ export default function TeamPage() {
         pathname="/team"
       />
 
-      <div className="max-w-5xl mx-auto px-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-black text-ink mb-4">Our Team</h1>
+        <div className="text-center mb-12 sm:mb-16">
+          <h1 className="text-3xl sm:text-4xl font-black text-ink mb-4">Our Team</h1>
           <p className="text-grey text-lg max-w-2xl mx-auto">
             The people behind Kreatix Technologies — driven by innovation, security, and a commitment to delivering exceptional results for every client.
           </p>
         </div>
 
         {/* Team Grid */}
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           {team.map((member) => (
             <div
               key={member.name}
@@ -98,8 +98,8 @@ export default function TeamPage() {
         </div>
 
         {/* Join CTA */}
-        <div className="mt-16 text-center bg-white rounded-2xl border border-border p-10">
-          <h2 className="text-2xl font-bold text-ink mb-3">Join Our Team</h2>
+        <div className="mt-12 sm:mt-16 text-center bg-white rounded-2xl border border-border p-8 sm:p-10">
+          <h2 className="text-xl sm:text-2xl font-bold text-ink mb-3">Join Our Team</h2>
           <p className="text-grey max-w-xl mx-auto mb-6">
             We are always looking for exceptional talent in cybersecurity, cloud engineering, and software development.
           </p>

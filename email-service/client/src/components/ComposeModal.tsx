@@ -109,6 +109,19 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
     try {
       const bodyHtml = editorRef.current?.innerHTML || '';
       const bodyText = editorRef.current?.innerText || '';
+
+      const attachmentPayload = await Promise.all(
+        attachments.map(async (file) => {
+          const buffer = await file.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+          return {
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            content: base64,
+          };
+        })
+      );
+
       await emailApi.send({
         to,
         cc: cc || undefined,
@@ -119,6 +132,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
         from: user?.email,
         fromName: user?.display_name,
         replyToId: replyTo?.id,
+        attachments: attachmentPayload,
       });
       onClose();
     } catch (err: any) {

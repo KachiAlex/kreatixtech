@@ -144,17 +144,17 @@ export interface AuthRequest extends Request {
 export async function authMiddleware(request: Request, env: any): Promise<{ user: JwtPayload | null; error?: Response }> {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { user: null, error: new Response(JSON.stringify({ error: 'No token provided' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) };
+    return { user: null, error: new Response(JSON.stringify({ error: 'No token provided' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Secret' } }) };
   }
 
   const token = authHeader.slice(7);
   const payload = await verifyJwt(token);
   if (!payload) {
-    return { user: null, error: new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) };
+    return { user: null, error: new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Secret' } }) };
   }
 
   if (payload.type !== 'access') {
-    return { user: null, error: new Response(JSON.stringify({ error: 'Invalid token type' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) };
+    return { user: null, error: new Response(JSON.stringify({ error: 'Invalid token type' }), { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Secret' } }) };
   }
 
   return { user: payload };
@@ -164,7 +164,7 @@ export async function requireAdmin(request: Request, env: any): Promise<{ user: 
   const { user, error } = await authMiddleware(request, env);
   if (error) return { user: null, error };
   if (user!.role !== 'admin') {
-    return { user: null, error: new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } }) };
+    return { user: null, error: new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Secret' } }) };
   }
   return { user };
 }

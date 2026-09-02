@@ -71,7 +71,7 @@ export default function SoftwarePage() {
   return (
     <div className="min-h-screen pt-20">
       {/* Hero */}
-      <section className="relative py-24 overflow-hidden">
+      <section className="relative py-16 sm:py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-brand-900/15 via-transparent to-purple-900/10" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-brand-600/10 rounded-full blur-3xl" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -80,7 +80,7 @@ export default function SoftwarePage() {
               <Code2 size={14} />
               Software Development
             </div>
-            <h1 className="text-5xl md:text-6xl font-black mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-6">
               We Build Software
               <br />
               <span className="gradient-text">That Scales</span>
@@ -102,10 +102,10 @@ export default function SoftwarePage() {
       </section>
 
       {/* Services Grid */}
-      <section className="py-20">
+      <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-black mb-4">
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="text-3xl sm:text-4xl font-black mb-4">
               What We <span className="gradient-text">Build</span>
             </h2>
             <p className="text-gray-400 max-w-xl mx-auto">
@@ -134,10 +134,10 @@ export default function SoftwarePage() {
       </section>
 
       {/* Process */}
-      <section className="py-20 bg-dark-800/40">
+      <section className="py-16 sm:py-20 bg-dark-800/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-black mb-4">
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="text-3xl sm:text-4xl font-black mb-4">
               Our <span className="gradient-text">Process</span>
             </h2>
             <p className="text-gray-400 max-w-xl mx-auto">
@@ -160,7 +160,7 @@ export default function SoftwarePage() {
       </section>
 
       {/* Tech stack badges */}
-      <section className="py-16 border-y border-white/5">
+      <section className="py-12 sm:py-16 border-y border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-gray-500 text-sm mb-6 uppercase tracking-widest">Technologies We Work With</p>
           <div className="flex flex-wrap justify-center gap-3">
@@ -179,13 +179,13 @@ export default function SoftwarePage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20">
+      <section className="py-16 sm:py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="glass-card border border-brand-500/20 p-12 relative overflow-hidden">
+          <div className="glass-card border border-brand-500/20 p-8 sm:p-12 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-brand-500/5 to-accent-500/5" />
             <div className="relative">
               <Zap size={36} className="text-brand-400 mx-auto mb-4" />
-              <h2 className="text-3xl font-black mb-4">
+              <h2 className="text-2xl sm:text-3xl font-black mb-4">
                 Have a Project in Mind?
               </h2>
               <p className="text-gray-400 mb-8 max-w-xl mx-auto">

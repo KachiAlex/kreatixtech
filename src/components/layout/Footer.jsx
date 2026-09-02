@@ -12,7 +12,7 @@ export default function Footer() {
 
   return (
     <>
-      <footer className="py-16 lg:py-20 px-6 lg:px-14">
+      <footer className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-14">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10">
           <div className="footer-brand sm:col-span-2 lg:col-span-2">
             <Link to="/" className="inline-flex items-center gap-3 mb-4">
@@ -51,7 +51,7 @@ export default function Footer() {
           </div>
         </div>
       </footer>
-      <div className="py-6 px-6 lg:px-14 border-t border-border">
+      <div className="py-6 px-4 sm:px-6 lg:px-14 border-t border-border">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between flex-wrap gap-4 text-sm text-grey font-medium">
           <span>© 2026 Kreatix Technologies</span>
           <div className="flex gap-6">

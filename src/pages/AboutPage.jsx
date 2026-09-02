@@ -20,10 +20,10 @@ const process = [
 export default function AboutPage() {
   return (
     <div className="bg-surface-50 text-ink-900 min-h-screen">
-      <section className="pt-32 pb-24 border-b border-surface-300">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-6">About</p>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-8">
+      <section className="pt-28 sm:pt-32 pb-16 sm:pb-24 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4 sm:mb-6">About</p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter leading-none mb-6 sm:mb-8">
             Innovation via<br />creativity.
           </h1>
           <p className="text-ink-500 text-lg max-w-2xl leading-relaxed">
@@ -33,9 +33,9 @@ export default function AboutPage() {
           </p>
         </div>
       </section>
-      <section className="py-24 border-b border-surface-300">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <div className="flex items-end justify-between mb-10">
+      <section className="py-16 sm:py-24 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="flex items-end justify-between mb-8 sm:mb-10">
             <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest">Core Values.</p>
             <Link to="/team" className="text-sm font-bold text-coral-500 flex items-center gap-1.5 hover:gap-3 transition-all">
               Meet the team <ArrowUpRight size={14} />
@@ -43,7 +43,7 @@ export default function AboutPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-5">
             {values.map(({ title, body }) => (
-              <div key={title} className="card p-8 bg-white">
+              <div key={title} className="card p-6 sm:p-8 bg-white">
                 <h3 className="text-ink-900 font-bold text-lg mb-3">{title}</h3>
                 <p className="text-ink-500 text-sm leading-relaxed">{body}</p>
               </div>
@@ -51,9 +51,9 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-      <section className="py-24">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <div className="flex items-end justify-between mb-10">
+      <section className="py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <div className="flex items-end justify-between mb-8 sm:mb-10">
             <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest">Our Process.</p>
             <Link to="/contact" className="text-sm font-bold text-coral-500 flex items-center gap-1.5 hover:gap-3 transition-all">
               Start a project <ArrowUpRight size={14} />
@@ -61,8 +61,8 @@ export default function AboutPage() {
           </div>
           <div className="grid md:grid-cols-2 gap-px bg-surface-300">
             {process.map(({ num, title, body }) => (
-              <div key={num} className="bg-surface-50 p-10 hover:bg-surface-100 transition-colors">
-                <p className="text-surface-400 font-black text-5xl tracking-tighter mb-5">{num}.</p>
+              <div key={num} className="bg-surface-50 p-6 sm:p-10 hover:bg-surface-100 transition-colors">
+                <p className="text-surface-400 font-black text-3xl sm:text-5xl tracking-tighter mb-4 sm:mb-5">{num}.</p>
                 <h3 className="text-ink-900 font-bold text-xl mb-3">{title}</h3>
                 <p className="text-ink-500 text-sm leading-relaxed">{body}</p>
               </div>
@@ -70,9 +70,9 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
-      <section className="py-24 border-t border-surface-300 bg-surface-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <h2 className="text-3xl font-black tracking-tight text-ink-900 mb-6">
+      <section className="py-16 sm:py-24 border-t border-surface-300 bg-surface-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-ink-900 mb-6">
             Work with us.
           </h2>
           <div className="flex flex-wrap gap-3">

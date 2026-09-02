@@ -22,7 +22,7 @@ export interface Env {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Secret',
 };
 
 function json(data: any, status = 200): Response {
@@ -448,8 +448,18 @@ export default {
         const { user, error: authError } = await authMiddleware(request, env);
         if (authError) return authError;
 
-        const { to, cc, bcc, subject, body, html, from, fromName, replyToId } = await request.json() as any;
+        const { to, cc, bcc, subject, body, html, from, fromName, replyToId, attachments: clientAttachments } = await request.json() as any;
         if (!to || !subject) return errorResp('To and subject are required', 400);
+
+        const splitEmails = (val: any): string[] | null => {
+          if (!val) return null;
+          if (Array.isArray(val)) return val;
+          return val.split(',').map((s: string) => s.trim()).filter(Boolean);
+        };
+
+        const toList = splitEmails(to);
+        const ccList = splitEmails(cc);
+        const bccList = splitEmails(bcc);
 
         const dbUser = await env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user!.sub).first() as any;
         const senderEmail = from || dbUser.email;
@@ -468,12 +478,18 @@ export default {
             },
             body: JSON.stringify({
               from: `${senderName} <${senderEmail}>`,
-              to: Array.isArray(to) ? to : [to],
-              ...(cc ? { cc: Array.isArray(cc) ? cc : [cc] } : {}),
-              ...(bcc ? { bcc: Array.isArray(bcc) ? bcc : [bcc] } : {}),
+              to: toList,
+              ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
+              ...(bccList && bccList.length > 0 ? { bcc: bccList } : {}),
               subject,
               text: body || '',
               html: htmlContent,
+              ...(clientAttachments && clientAttachments.length > 0 ? {
+                attachments: clientAttachments.map((att: any) => ({
+                  filename: att.filename,
+                  content: att.content,
+                })),
+              } : {}),
             }),
           });
 
@@ -490,8 +506,8 @@ export default {
             messageId: resendResult.id,
             fromAddress: senderEmail,
             fromName: senderName,
-            toAddress: Array.isArray(to) ? to.join(',') : to,
-            ccAddress: cc || null,
+            toAddress: toList!.join(','),
+            ccAddress: ccList?.join(',') || null,
             subject,
             text: body || '',
             html: htmlContent,
@@ -502,22 +518,48 @@ export default {
 
           const snippet = generateSnippet(body || '');
 
+          let totalSize = new TextEncoder().encode(body || '').length;
+          if (clientAttachments) {
+            for (const att of clientAttachments) {
+              totalSize += att.content.length;
+            }
+          }
+
           const emailResult = await env.DB.prepare(
-            `INSERT INTO emails (user_id, message_id, thread_id, from_address, from_name, to_address, cc_address, bcc_address, subject, text, html, snippet, folder_id, is_read, direction, status, sent_at, size)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'outbound', 'sent', datetime('now'), ?)`
+            `INSERT INTO emails (user_id, message_id, thread_id, from_address, from_name, to_address, cc_address, bcc_address, subject, text, html, snippet, folder_id, is_read, direction, status, sent_at, size, has_attachments)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'outbound', 'sent', datetime('now'), ?, ?)`
           ).bind(
             user!.sub, resendResult.id || null, threadId,
             senderEmail, senderName,
-            Array.isArray(to) ? to.join(',') : to,
-            cc || null, bcc || null,
+            toList!.join(','),
+            ccList?.join(',') || null, bccList?.join(',') || null,
             subject, body || '', htmlContent, snippet,
             sentFolder?.id,
-            new TextEncoder().encode(body || '').length
+            totalSize,
+            clientAttachments && clientAttachments.length > 0 ? 1 : 0
           ).run();
 
           if (sentFolder) await updateFolderCounts(env, user!.sub, sentFolder.id);
 
-          const recipients = Array.isArray(to) ? to : [to];
+          const sentEmailId = emailResult.meta?.last_row_id;
+
+          if (clientAttachments && clientAttachments.length > 0 && sentEmailId) {
+            for (const att of clientAttachments) {
+              const attId = crypto.randomUUID();
+              const r2Key = `attachments/${user!.sub}/${sentEmailId}/${attId}/${att.filename}`;
+              const binaryStr = atob(att.content);
+              const bytes = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+              await env.R2_BUCKET.put(r2Key, bytes.buffer, {
+                httpMetadata: { contentType: att.mimeType },
+              });
+              await env.DB.prepare(
+                'INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, null)'
+              ).bind(attId, sentEmailId, user!.sub, att.filename, att.mimeType, att.content.length, r2Key).run();
+            }
+          }
+
+          const recipients = toList!;
           for (const r of recipients) await upsertContact(env, user!.sub, r);
 
           await auditLog(env, user!.sub, 'send', 'email', String(emailResult.meta?.last_row_id), request, { to, subject });

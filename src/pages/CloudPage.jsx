@@ -64,7 +64,7 @@ export default function CloudPage() {
   return (
     <div className="min-h-screen pt-20">
       {/* Hero */}
-      <section className="relative py-24 overflow-hidden">
+      <section className="relative py-16 sm:py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-accent-900/10 via-transparent to-brand-900/5" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-accent-500/10 rounded-full blur-3xl" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -73,7 +73,7 @@ export default function CloudPage() {
               <Cloud size={14} />
               Cloud Services
             </div>
-            <h1 className="text-5xl md:text-6xl font-black mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black mb-6">
               Cloud Infrastructure
               <br />
               <span className="text-accent-400">Built to Scale</span>
@@ -109,10 +109,10 @@ export default function CloudPage() {
       </section>
 
       {/* Services */}
-      <section className="py-20">
+      <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-black mb-4">
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="text-3xl sm:text-4xl font-black mb-4">
               Our Cloud <span className="gradient-text">Capabilities</span>
             </h2>
           </div>
@@ -139,11 +139,11 @@ export default function CloudPage() {
       </section>
 
       {/* Why cloud section */}
-      <section className="py-16 bg-dark-800/40">
+      <section className="py-12 sm:py-16 bg-dark-800/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-8 sm:gap-16 items-center">
             <div>
-              <h2 className="text-4xl font-black mb-6">
+              <h2 className="text-3xl sm:text-4xl font-black mb-6">
                 Cloud-Native by <span className="gradient-text">Design</span>
               </h2>
               <p className="text-gray-400 leading-relaxed mb-8">
@@ -152,7 +152,7 @@ export default function CloudPage() {
                 or an enterprise modernising legacy infrastructure, we tailor solutions 
                 to your exact needs.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { icon: Shield, title: 'Security First', desc: 'Every architecture follows zero-trust and least-privilege principles.' },
                   { icon: Zap, title: 'High Performance', desc: 'CDNs, edge computing, and auto-scaling for global performance.' },
@@ -167,7 +167,7 @@ export default function CloudPage() {
                 ))}
               </div>
             </div>
-            <div className="glass-card border border-accent-500/20 p-8">
+            <div className="glass-card border border-accent-500/20 p-6 sm:p-8">
               <h3 className="text-white font-bold text-xl mb-6">Free Cloud Assessment</h3>
               <p className="text-gray-400 text-sm mb-6">
                 Not sure where to start? We offer a free 30-minute cloud readiness assessment 

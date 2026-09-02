@@ -19,10 +19,10 @@ export default function PortfolioPage() {
 
   return (
     <div className="bg-surface-50 text-ink-900 min-h-screen">
-      <section className="pt-32 pb-24 border-b border-surface-300">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-6">Portfolio</p>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-8">
+      <section className="pt-28 sm:pt-32 pb-16 sm:pb-24 border-b border-surface-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <p className="text-coral-500 text-xs font-semibold uppercase tracking-widest mb-4 sm:mb-6">Portfolio</p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter leading-none mb-6 sm:mb-8">
             Our Work.
           </h1>
           <p className="text-ink-500 text-lg max-w-xl leading-relaxed">
@@ -32,8 +32,8 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      <section className="py-24">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+      <section className="py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           {loading ? (
             <div className="flex items-center justify-center py-24">
               <Loader2 className="h-8 w-8 text-coral-500 animate-spin" />
@@ -57,7 +57,7 @@ export default function PortfolioPage() {
                       />
                     </div>
                   )}
-                  <div className="p-8 flex flex-col flex-1">
+                  <div className="p-6 sm:p-8 flex flex-col flex-1">
                     <div className="flex items-start justify-between mb-6">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-surface-200 border border-surface-300 flex items-center justify-center">
@@ -91,9 +91,9 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      <section className="py-24 border-t border-surface-300 bg-surface-100">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <h2 className="text-3xl font-black tracking-tight text-ink-900 mb-6">
+      <section className="py-16 sm:py-24 border-t border-surface-300 bg-surface-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-ink-900 mb-6">
             Ready to build something exceptional?
           </h2>
           <div className="flex flex-wrap gap-3">
