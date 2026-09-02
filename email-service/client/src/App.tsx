@@ -13,9 +13,10 @@ import CalendarView from './components/CalendarView';
 import ContactsView from './components/ContactsView';
 import ChatView from './components/ChatView';
 import FilesView from './components/FilesView';
+import OutboxView from './components/OutboxView';
 import { emailApi, snoozeApi } from './api';
 import type { Email, Folder } from './types';
-import { Mail, CalendarDays, Users, MessageCircle, File } from 'lucide-react';
+import { Mail, CalendarDays, Users, MessageCircle, File, Send } from 'lucide-react';
 
 function MailApp() {
   const { user, loading } = useAuth();
@@ -55,7 +56,7 @@ function MailApp() {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) return;
       if (e.key === 'c' && !isComposeOpen) { e.preventDefault(); setIsComposeOpen(true); }
-      if (e.key === '/' ) { e.preventDefault(); document.querySelector('.search input')?.focus(); }
+      if (e.key === '/' ) { e.preventDefault(); (document.querySelector('.search input') as HTMLInputElement)?.focus(); }
       if (e.key === 'Escape') { setSelectedEmail(null); }
     };
     document.addEventListener('keydown', handler);
@@ -120,6 +121,7 @@ function MailApp() {
       case 'contacts': return <div className="non-mail-view"><ContactsView /></div>;
       case 'chat': return <div className="non-mail-view" style={{ overflow: 'hidden', padding: 0 }}><ChatView /></div>;
       case 'files': return <div className="non-mail-view"><FilesView /></div>;
+      case 'outbox': return <div className="non-mail-view"><OutboxView /></div>;
       default:
         return (
           <>
@@ -168,6 +170,7 @@ function MailApp() {
     { type: 'contacts', icon: Users, label: 'Contacts' },
     { type: 'chat', icon: MessageCircle, label: 'Chat' },
     { type: 'files', icon: File, label: 'Files' },
+    { type: 'outbox', icon: Send, label: 'Outbox' },
   ];
 
   return (

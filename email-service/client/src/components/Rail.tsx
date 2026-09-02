@@ -1,7 +1,7 @@
 import React from 'react';
-import { Mail, CalendarDays, Users, MessageCircle, File, BriefcaseBusiness } from 'lucide-react';
+import { Mail, CalendarDays, Users, MessageCircle, File, BriefcaseBusiness, Send } from 'lucide-react';
 
-export type ViewType = 'mail' | 'calendar' | 'contacts' | 'chat' | 'files';
+export type ViewType = 'mail' | 'calendar' | 'contacts' | 'chat' | 'files' | 'outbox';
 
 interface RailProps {
   current: ViewType;
@@ -15,6 +15,7 @@ const Rail: React.FC<RailProps> = ({ current, onChange }) => {
     { type: 'contacts', icon: Users, label: 'Contacts' },
     { type: 'chat', icon: MessageCircle, label: 'Chat' },
     { type: 'files', icon: File, label: 'Files' },
+    { type: 'outbox', icon: Send, label: 'Outbox' },
   ];
 
   return (

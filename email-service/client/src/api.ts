@@ -2,7 +2,7 @@ import type {
   AuthResponse, User, UserSettings, Email, EmailListResponse,
   Folder, Label, Draft, Signature, Alias, Contact, Session,
   AuditLog, AdminStats, CalendarEvent, ChatConversation, ChatMessage,
-  FileItem, StorageInfo,
+  FileItem, StorageInfo, OutboxItem,
 } from './types';
 
 const API_URL = '/api';
@@ -290,4 +290,27 @@ export const filesApi = {
 
 export const storageApi = {
   get: () => apiGet<StorageInfo>('/storage'),
+};
+
+// ── Outbox API ─────────────────────────────────────────────────────────────
+
+export const outboxApi = {
+  list: () => apiGet<{ outbox: OutboxItem[] }>('/outbox'),
+  retry: (id: number) => apiPost(`/outbox/${id}/retry`),
+  delete: (id: number) => apiDelete(`/outbox/${id}`),
+};
+
+// ── Signature Image API ────────────────────────────────────────────────────
+
+export const signatureImageApi = {
+  upload: async (file: File): Promise<{ success: boolean; url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const headers: Record<string, string> = {};
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    const res = await fetch(`${API_URL}/settings/signature-image`, { method: 'POST', headers, body: formData });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Upload failed'); }
+    return res.json();
+  },
+  remove: () => apiDelete('/settings/signature-image'),
 };

@@ -436,8 +436,11 @@ app.post('/api/send', async (req, res) => {
     const senderEmail = from || dbUser.email;
     const senderName = fromName || dbUser.display_name || 'Kreatix Mail User';
 
-    const settings = env.DB.prepare('SELECT signature_html FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
-    const signatureHtml = settings?.signature_html || '';
+    const settings = env.DB.prepare('SELECT signature_html, signature_image_url FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
+    let signatureHtml = settings?.signature_html || '';
+    if (settings?.signature_image_url) {
+      signatureHtml = `<img src="${settings.signature_image_url}" alt="Signature" style="max-height: 80px; max-width: 300px; margin-bottom: 8px;" />${signatureHtml}`;
+    }
     const htmlContent = html || buildEmailHtml(body || '', signatureHtml);
 
     try {
@@ -463,7 +466,12 @@ app.post('/api/send', async (req, res) => {
 
       if (!resendResponse.ok) {
         const errorText = await resendResponse.text();
-        return sendResult(res, json({ error: `Resend API error: ${errorText}` }, 500));
+        // Save to outbox on failure
+        env.DB.prepare(
+          `INSERT INTO outbox (user_id, to_address, cc_address, bcc_address, subject, body, html, from_address, from_name, reply_to_id, attachments, error_message, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'failed')`
+        ).bind(user!.sub, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, senderEmail, senderName, replyToId || null, clientAttachments ? JSON.stringify(clientAttachments) : null, `Resend API error: ${errorText}`).run();
+        return sendResult(res, json({ error: `Resend API error: ${errorText}`, saved_to_outbox: true }, 500));
       }
 
       const resendResult = await resendResponse.json() as any;
@@ -507,8 +515,160 @@ app.post('/api/send', async (req, res) => {
       await auditLog(env, user!.sub, 'send', 'email', String(emailResult.meta?.last_row_id), req, { to, subject });
 
       sendResult(res, json({ success: true, id: emailResult.meta?.last_row_id, messageId: resendResult.id }));
-    } catch (e: any) { sendResult(res, json({ error: e.message }, 500)); }
+    } catch (e: any) {
+      // Save to outbox on network/exception failure
+      env.DB.prepare(
+        `INSERT INTO outbox (user_id, to_address, cc_address, bcc_address, subject, body, html, from_address, from_name, reply_to_id, attachments, error_message, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'failed')`
+      ).bind(user!.sub, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, senderEmail, senderName, replyToId || null, clientAttachments ? JSON.stringify(clientAttachments) : null, e.message).run();
+      sendResult(res, json({ error: e.message, saved_to_outbox: true }, 500));
+    }
   } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// OUTBOX
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/outbox', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM outbox WHERE user_id = ? AND status = ? ORDER BY created_at DESC').bind(user!.sub, 'failed').all();
+    sendResult(res, json({ outbox: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/outbox/:id/retry', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const id = req.params.id;
+    const item = env.DB.prepare('SELECT * FROM outbox WHERE id = ? AND user_id = ?').bind(id, user!.sub).first() as any;
+    if (!item) return sendResult(res, errorResp('Outbox item not found', 404));
+
+    const toList = item.to_address.split(',').map((s: string) => s.trim()).filter(Boolean);
+    const ccList = item.cc_address ? item.cc_address.split(',').map((s: string) => s.trim()).filter(Boolean) : null;
+    const bccList = item.bcc_address ? item.bcc_address.split(',').map((s: string) => s.trim()).filter(Boolean) : null;
+    const clientAttachments = item.attachments ? JSON.parse(item.attachments) : null;
+
+    env.DB.prepare("UPDATE outbox SET status = 'retrying', retry_count = retry_count + 1, updated_at = datetime('now') WHERE id = ?").bind(id).run();
+
+    try {
+      const resendResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `${item.from_name} <${item.from_address}>`,
+          to: toList,
+          ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
+          ...(bccList && bccList.length > 0 ? { bcc: bccList } : {}),
+          subject: item.subject,
+          text: item.body || '',
+          html: item.html || '',
+          ...(clientAttachments && clientAttachments.length > 0 ? {
+            attachments: clientAttachments.map((att: any) => ({ filename: att.filename, content: att.content })),
+          } : {}),
+        }),
+      });
+
+      if (!resendResponse.ok) {
+        const errorText = await resendResponse.text();
+        env.DB.prepare("UPDATE outbox SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?").bind(`Resend API error: ${errorText}`, id).run();
+        return sendResult(res, json({ error: `Retry failed: ${errorText}` }, 500));
+      }
+
+      const resendResult = await resendResponse.json() as any;
+
+      // Move to sent emails
+      const sentFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'sent').first();
+      const threadId = generateThreadId({
+        messageId: resendResult.id, fromAddress: item.from_address, fromName: item.from_name,
+        toAddress: item.to_address, ccAddress: item.cc_address, subject: item.subject,
+        text: item.body || '', html: item.html || '', inReplyTo: item.reply_to_id ? String(item.reply_to_id) : null,
+        references: null, attachments: [],
+      });
+      const snippet = generateSnippet(item.body || '');
+      const emailResult = env.DB.prepare(
+        `INSERT INTO emails (user_id, message_id, thread_id, from_address, from_name, to_address, cc_address, bcc_address, subject, text, html, snippet, folder_id, is_read, direction, status, sent_at, size, has_attachments)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'outbound', 'sent', datetime('now'), ?, ?)`
+      ).bind(user!.sub, resendResult.id || null, threadId, item.from_address, item.from_name, item.to_address, item.cc_address, item.bcc_address, item.subject, item.body || '', item.html || '', snippet, sentFolder?.id, item.body?.length || 0, clientAttachments && clientAttachments.length > 0 ? 1 : 0).run();
+
+      if (sentFolder) await updateFolderCounts(env, user!.sub, sentFolder.id);
+
+      const sentEmailId = emailResult.meta?.last_row_id;
+      if (clientAttachments && clientAttachments.length > 0 && sentEmailId) {
+        for (const att of clientAttachments) {
+          const attId = crypto.randomUUID();
+          const r2Key = `attachments/${user!.sub}/${sentEmailId}/${attId}/${att.filename}`;
+          const binaryStr = Buffer.from(att.content, 'base64');
+          await env.R2_BUCKET.put(r2Key, binaryStr, { httpMetadata: { contentType: att.mimeType } });
+          env.DB.prepare('INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, null)')
+            .bind(attId, sentEmailId, user!.sub, att.filename, att.mimeType, att.content.length, r2Key).run();
+        }
+      }
+
+      for (const r of toList) await upsertContact(env, user!.sub, r);
+      await auditLog(env, user!.sub, 'send', 'email', String(sentEmailId), req, { to: item.to_address, subject: item.subject, retried: true });
+
+      // Mark outbox item as sent
+      env.DB.prepare("UPDATE outbox SET status = 'sent', updated_at = datetime('now') WHERE id = ?").bind(id).run();
+
+      sendResult(res, json({ success: true, id: sentEmailId, messageId: resendResult.id }));
+    } catch (e: any) {
+      env.DB.prepare("UPDATE outbox SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?").bind(e.message, id).run();
+      sendResult(res, json({ error: e.message }, 500));
+    }
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/outbox/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const id = req.params.id;
+    env.DB.prepare('DELETE FROM outbox WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// SIGNATURE IMAGE UPLOAD
+// ══════════════════════════════════════════════════════════════════════════
+
+app.post('/api/settings/signature-image', upload.single('file'), async (req: any, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const file = req.file;
+    if (!file) return sendResult(res, errorResp('No file provided', 400));
+    const fileId = crypto.randomUUID();
+    const ext = file.originalname.split('.').pop() || 'png';
+    const r2Key = `signatures/${user!.sub}/${fileId}.${ext}`;
+    await env.R2_BUCKET.put(r2Key, file.buffer, { httpMetadata: { contentType: file.mimetype } });
+    const imageUrl = `/api/signature-image/${user!.sub}/${fileId}.${ext}`;
+    env.DB.prepare('UPDATE user_settings SET signature_image_url = ?, updated_at = datetime(\'now\') WHERE user_id = ?').bind(imageUrl, user!.sub).run();
+    sendResult(res, json({ success: true, url: imageUrl }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/settings/signature-image', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('UPDATE user_settings SET signature_image_url = NULL, updated_at = datetime(\'now\') WHERE user_id = ?').bind(user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.get('/api/signature-image/:userId/:filename', async (req, res) => {
+  try {
+    const r2Key = `signatures/${req.params.userId}/${req.params.filename}`;
+    const obj = await env.R2_BUCKET.get(r2Key);
+    if (!obj) return res.status(404).send('Not found');
+    res.set('Content-Type', obj.httpMetadata?.contentType || 'image/png');
+    res.send(obj.body);
+  } catch (e: any) { res.status(500).send(e.message); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -689,7 +849,7 @@ app.put('/api/settings', async (req, res) => {
     const { user, error: authError } = await authMiddleware(req);
     if (authError) return sendResult(res, authError);
     const body = req.body;
-    const allowed = ['theme', 'density', 'language', 'signature_html', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email'];
+    const allowed = ['theme', 'density', 'language', 'signature_html', 'signature_image_url', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email'];
     const updates: string[] = [];
     const params: any[] = [];
     for (const [key, value] of Object.entries(body)) {

@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   density             TEXT NOT NULL DEFAULT 'comfortable', -- comfortable | compact
   language            TEXT NOT NULL DEFAULT 'en',
   signature_html      TEXT,
+  signature_image_url TEXT,
   auto_save_drafts    INTEGER NOT NULL DEFAULT 1,
   show_snippets       INTEGER NOT NULL DEFAULT 1,
   items_per_page      INTEGER NOT NULL DEFAULT 50,
@@ -289,3 +290,26 @@ CREATE TABLE IF NOT EXISTS files (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
+
+-- ── Outbox (failed email sends) ─────────────────────────────
+CREATE TABLE IF NOT EXISTS outbox (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  to_address    TEXT NOT NULL,
+  cc_address    TEXT,
+  bcc_address   TEXT,
+  subject       TEXT NOT NULL,
+  body          TEXT,
+  html          TEXT,
+  from_address  TEXT,
+  from_name     TEXT,
+  reply_to_id   INTEGER,
+  attachments   TEXT,                                       -- JSON array of {filename, mimeType, content}
+  error_message TEXT,
+  retry_count   INTEGER NOT NULL DEFAULT 0,
+  status        TEXT NOT NULL DEFAULT 'failed',             -- failed | retrying | sent
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_outbox_user ON outbox(user_id);

@@ -17,6 +17,7 @@ export interface UserSettings {
   density: 'comfortable' | 'compact';
   language: string;
   signature_html?: string;
+  signature_image_url?: string;
   auto_save_drafts: number;
   show_snippets: number;
   items_per_page: number;
@@ -225,4 +226,22 @@ export interface FileItem {
 export interface StorageInfo {
   quota: number;
   used: number;
+}
+
+export interface OutboxItem {
+  id: number;
+  user_id: number;
+  to_address: string;
+  cc_address?: string;
+  bcc_address?: string;
+  subject: string;
+  body?: string;
+  html?: string;
+  from_address: string;
+  from_name?: string;
+  error_message?: string;
+  retry_count: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor } from 'lucide-react';
-import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi } from '../api';
+import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon } from 'lucide-react';
+import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi, signatureImageApi } from '../api';
 import { useAuth } from '../auth-context';
 import type { UserSettings, Signature, Alias, Session, Label } from '../types';
 
@@ -20,6 +20,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const [newLabel, setNewLabel] = useState({ name: '', color: '#6B7280' });
   const [newAlias, setNewAlias] = useState({ alias_email: '', forward_to: '' });
   const [newSig, setNewSig] = useState({ name: 'Default', html: '' });
+  const [sigImageUploading, setSigImageUploading] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -76,6 +77,25 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
 
   const handleDeleteSession = async (id: string) => {
     try { await sessionApi.delete(id); loadAll(); } catch (e) { console.error(e); }
+  };
+
+  const handleSigImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Please upload an image file'); return; }
+    setSigImageUploading(true);
+    try {
+      const result = await signatureImageApi.upload(file);
+      setSettings((prev) => prev ? { ...prev, signature_image_url: result.url } : prev);
+    } catch (e: any) { alert('Upload failed: ' + e.message); }
+    setSigImageUploading(false);
+  };
+
+  const handleSigImageRemove = async () => {
+    try {
+      await signatureImageApi.remove();
+      setSettings((prev) => prev ? { ...prev, signature_image_url: undefined } : prev);
+    } catch (e) { console.error(e); }
   };
 
   const tabs = [
@@ -144,21 +164,73 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
               </div>
             )}
 
-            {tab === 'signature' && (
-              <div className="space-y-4">
-                {signatures.map(sig => (
-                  <div key={sig.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                    <div>
-                      <p className="text-sm font-bold text-gray-700">{sig.name} {sig.is_default === 1 && <span className="text-xs text-orange ml-2">Default</span>}</p>
-                      <p className="text-xs text-gray-400 truncate max-w-md">{sig.html?.substring(0, 80) || 'No content'}</p>
+            {tab === 'signature' && settings && (
+              <div className="space-y-5">
+                {/* Signature Image Upload */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Signature Image</label>
+                  <p className="text-xs text-gray-400 mb-3">Upload an image of your handwritten signature. It will appear above your signature text in outgoing emails.</p>
+                  {settings.signature_image_url ? (
+                    <div className="flex items-center gap-4 p-3 border border-gray-200 rounded-lg">
+                      <img src={settings.signature_image_url} alt="Signature" style={{ maxHeight: 60, maxWidth: 200, objectFit: 'contain' }} />
+                      <button onClick={handleSigImageRemove} className="flex items-center gap-1 px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium">
+                        <Trash2 className="w-4 h-4" /> Remove
+                      </button>
                     </div>
-                    <button onClick={() => handleDeleteSig(sig.id)} className="p-2 hover:bg-red-50 rounded text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  ) : (
+                    <label className={`flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 cursor-pointer hover:border-orange hover:text-orange transition-colors ${sigImageUploading ? 'opacity-50' : ''}`}>
+                      <Upload className="w-4 h-4" />
+                      {sigImageUploading ? 'Uploading...' : 'Click to upload signature image'}
+                      <input type="file" accept="image/*" onChange={handleSigImageUpload} className="hidden" />
+                    </label>
+                  )}
+                </div>
+
+                {/* Signature Text (HTML) */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Signature Text</label>
+                  <textarea
+                    placeholder="Enter your signature text as HTML. Example:&#10;Onyedikachi Akoma<br>+234 7039612627<br>akoma@kreatixtech.com"
+                    value={settings.signature_html || ''}
+                    onChange={(e) => setSettings({ ...settings, signature_html: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm min-h-[120px] font-mono"
+                  />
+                </div>
+
+                {/* Preview */}
+                {(settings.signature_image_url || settings.signature_html) && (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Preview</label>
+                    <div className="p-4 border border-gray-200 rounded-lg bg-gray-50" style={{ minHeight: 80 }}>
+                      {settings.signature_image_url && (
+                        <img src={settings.signature_image_url} alt="Signature" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 8, display: 'block' }} />
+                      )}
+                      <div dangerouslySetInnerHTML={{ __html: settings.signature_html || '' }} />
+                    </div>
                   </div>
-                ))}
-                <div className="border-t border-gray-100 pt-4 space-y-3">
-                  <input type="text" placeholder="Signature name" value={newSig.name} onChange={(e) => setNewSig({ ...newSig, name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-                  <textarea placeholder="Signature HTML" value={newSig.html} onChange={(e) => setNewSig({ ...newSig, html: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm min-h-[100px]" />
-                  <button onClick={handleCreateSig} className="flex items-center gap-2 px-4 py-2 bg-orange text-white rounded-lg text-sm font-bold hover:bg-orange-deep"><Plus className="w-4 h-4" /> Add Signature</button>
+                )}
+
+                <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-orange text-white rounded-lg font-bold text-sm hover:bg-orange-deep disabled:opacity-50">
+                  <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Signature'}
+                </button>
+
+                {/* Saved Signatures */}
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-sm font-bold text-gray-700 mb-3">Saved Signatures</h3>
+                  {signatures.map(sig => (
+                    <div key={sig.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg mb-2">
+                      <div>
+                        <p className="text-sm font-bold text-gray-700">{sig.name} {sig.is_default === 1 && <span className="text-xs text-orange ml-2">Default</span>}</p>
+                        <p className="text-xs text-gray-400 truncate max-w-md">{sig.html?.substring(0, 80) || 'No content'}</p>
+                      </div>
+                      <button onClick={() => handleDeleteSig(sig.id)} className="p-2 hover:bg-red-50 rounded text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  ))}
+                  <div className="space-y-3 mt-3">
+                    <input type="text" placeholder="Signature name" value={newSig.name} onChange={(e) => setNewSig({ ...newSig, name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                    <textarea placeholder="Signature HTML" value={newSig.html} onChange={(e) => setNewSig({ ...newSig, html: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm min-h-[80px]" />
+                    <button onClick={handleCreateSig} className="flex items-center gap-2 px-4 py-2 bg-orange text-white rounded-lg text-sm font-bold hover:bg-orange-deep"><Plus className="w-4 h-4" /> Add Signature</button>
+                  </div>
                 </div>
               </div>
             )}
