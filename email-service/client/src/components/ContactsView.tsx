@@ -25,7 +25,7 @@ const Contacts: React.FC = () => {
   const getColor = (name: string) => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: '31px clamp(28px,4vw,68px) 50px' }}>
+    <div style={{ height: '100%' }}>
       <div style={{ marginBottom: 24 }}>
         <span className="eyebrow">CONTACTS</span>
         <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-.03em' }}>All Contacts</h1>

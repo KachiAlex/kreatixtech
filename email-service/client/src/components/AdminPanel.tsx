@@ -63,9 +63,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="modal-overlay fixed inset-0 bg-black/30 z-40 flex items-center justify-center p-4">
+      <div className="modal-box bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-orange" />
             <h2 className="text-lg font-bold text-ink">Admin Panel</h2>
@@ -76,7 +76,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-48 border-r border-gray-100 p-3 space-y-1">
+          <div className="modal-tabs w-48 border-r border-gray-100 p-3 space-y-1 flex-shrink-0">
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -88,9 +88,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="modal-content flex-1 overflow-y-auto p-6">
             {tab === 'stats' && stats && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-5 bg-orange-light/30 rounded-xl border border-orange/10">
                   <Users className="w-6 h-6 text-orange mb-2" />
                   <p className="text-2xl font-black text-ink">{stats.totalUsers}</p>
@@ -134,7 +134,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 )}
 
                 {users.map(u => (
-                  <div key={u.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                  <div key={u.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg flex-wrap gap-2">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-orange/10 flex items-center justify-center text-orange font-bold text-sm">
                         {u.display_name?.[0]?.toUpperCase() || 'U'}

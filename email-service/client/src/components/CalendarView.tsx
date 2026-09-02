@@ -38,8 +38,8 @@ const Calendar: React.FC = () => {
   };
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: '31px clamp(28px,4vw,68px) 50px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+    <div style={{ height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <span className="eyebrow">CALENDAR</span>
           <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-.03em' }}>Events</h1>
@@ -88,7 +88,7 @@ const Calendar: React.FC = () => {
             <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <input placeholder="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required style={{ height: 42, border: '1px solid var(--line)', borderRadius: 8, padding: '0 12px', fontSize: 14 }} />
               <input placeholder="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} style={{ height: 42, border: '1px solid var(--line)', borderRadius: 8, padding: '0 12px', fontSize: 14 }} />
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <label style={{ flex: 1, fontSize: 12, color: 'var(--muted)' }}>Start
                   <input type="datetime-local" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} required style={{ width: '100%', height: 38, border: '1px solid var(--line)', borderRadius: 8, padding: '0 8px', fontSize: 13 }} />
                 </label>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Plus, X, MessageCircle, Trash2 } from 'lucide-react';
+import { Send, Plus, X, MessageCircle, Trash2, ArrowLeft } from 'lucide-react';
 import { chatApi } from '../api';
 import { useAuth } from '../auth-context';
 import type { ChatConversation, ChatMessage } from '../types';
@@ -58,8 +58,8 @@ const Chat: React.FC = () => {
   const getColor = (name: string) => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
 
   return (
-    <div style={{ height: '100%', display: 'grid', gridTemplateColumns: '320px 1fr' }}>
-      <div style={{ borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', overflow: 'hidden', position: 'relative' }}>
+      <div className="chat-mobile-list" style={{ borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
         <div style={{ padding: '20px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <span className="eyebrow">CHAT</span>
@@ -67,7 +67,7 @@ const Chat: React.FC = () => {
           </div>
           <button className="icon-btn" onClick={() => setShowNewConv(true)} title="New chat"><Plus /></button>
         </div>
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div style={{ flex: 1, overflow: 'auto', '-webkit-overflow-scrolling': 'touch' } as any}>
           {conversations.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#999', fontSize: 13 }}>No conversations yet</div>
           ) : (
@@ -92,23 +92,24 @@ const Chat: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className={`chat-mobile-chat${activeConv ? ' show-mobile' : ''}`} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
         {activeConv ? (
           <>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <button className="icon-btn" onClick={() => setActiveConv(null)} style={{ flexShrink: 0 }} title="Back"><ArrowLeft /></button>
               <div className="sender-avatar" style={{ background: getColor(activeConv.participant_name || activeConv.participant_email), width: 32, height: 32 }}>
                 {(activeConv.participant_name || activeConv.participant_email)[0].toUpperCase()}
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: 14 }}>{activeConv.participant_name || activeConv.participant_email}</strong>
                 <small style={{ display: 'block', color: 'var(--muted)', fontSize: 11 }}>{activeConv.participant_email}</small>
               </div>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '20px', '-webkit-overflow-scrolling': 'touch' } as any}>
               {messages.map(msg => (
                 <div key={msg.id} style={{ display: 'flex', justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
                   <div style={{
-                    maxWidth: '70%', padding: '10px 14px', borderRadius: 14, fontSize: 14, lineHeight: 1.5,
+                    maxWidth: '75%', padding: '10px 14px', borderRadius: 14, fontSize: 14, lineHeight: 1.5,
                     background: msg.direction === 'outbound' ? '#F2782E' : '#f3f1ed',
                     color: msg.direction === 'outbound' ? '#fff' : '#36383c',
                   }}>
@@ -119,7 +120,7 @@ const Chat: React.FC = () => {
               ))}
               <div ref={msgEndRef} />
             </div>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--line)', display: 'flex', gap: 8 }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--line)', display: 'flex', gap: 8, flexShrink: 0 }}>
               <input
                 type="text"
                 placeholder="Type a message..."

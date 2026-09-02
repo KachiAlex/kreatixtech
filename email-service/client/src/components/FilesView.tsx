@@ -45,8 +45,8 @@ const Files: React.FC = () => {
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', padding: '31px clamp(28px,4vw,68px) 50px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+    <div style={{ height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <span className="eyebrow">FILES</span>
           <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-.03em' }}>All Files</h1>

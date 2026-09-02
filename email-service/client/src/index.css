@@ -170,6 +170,9 @@ svg { width: 18px; height: 18px; stroke-width: 1.8; }
 .popup button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 14px; border-radius: 6px; font-size: 13px; color: #45474b; }
 .popup button:hover { background: #f3f1ed; }
 
+/* Mobile Bottom Nav */
+.mobile-nav { display: none; }
+
 /* Responsive */
 @media(max-width:1230px) {
   .topbar { grid-template-columns: 64px minmax(320px,620px) 1fr; padding-left: 0; }
@@ -178,10 +181,18 @@ svg { width: 18px; height: 18px; stroke-width: 1.8; }
   .sidebar { display: none; }
 }
 @media(max-width:900px) {
-  .topbar { height: 62px; grid-template-columns: 45px 1fr auto; gap: 8px; padding: 0 10px 0 6px; }
+  .topbar { height: 56px; grid-template-columns: 40px 1fr auto; gap: 8px; padding: 0 10px 0 8px; }
   .top-actions > .icon-btn { display: none; }
-  .workspace { height: calc(100dvh - 62px); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .brand svg { width: 120px !important; height: 34px !important; }
+
+  .mobile-nav { display: flex; height: 56px; border-top: 1px solid var(--line); background: #fff; align-items: center; justify-content: space-around; flex-shrink: 0; z-index: 10; }
+  .mobile-nav button { border: 0; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #999; font-size: 10px; font-weight: 600; padding: 4px 8px; border-radius: 8px; }
+  .mobile-nav button.active { color: var(--orange); }
+  .mobile-nav button svg { width: 20px; height: 20px; }
+
+  .workspace { height: calc(100dvh - 56px - 56px); display: flex; flex-direction: column; overflow: hidden; position: relative; }
   .rail { display: none; }
+
   .mail-list { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; border-right: none; }
   .list-head { flex-shrink: 0; }
   .list-tools { flex-shrink: 0; }
@@ -190,17 +201,36 @@ svg { width: 18px; height: 18px; stroke-width: 1.8; }
   .reader-tools { flex-shrink: 0; }
   .mail-list.hide-mobile { display: none; }
   .mail-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; }
-  .reader-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding: 24px 20px 45px; }
-  .composer { inset: 8px; width: auto; height: auto; }
+  .reader-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding: 24px 16px 45px; }
+
+  .non-mail-view { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 0; padding: 20px 16px 40px; }
+
+  .chat-mobile-list { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .chat-mobile-chat { flex: 1; display: none; flex-direction: column; overflow: hidden; min-height: 0; position: absolute; inset: 0; z-index: 10; background: #fff; }
+  .chat-mobile-chat.show-mobile { display: flex; }
+
+  .modal-overlay { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.3); display: flex; align-items: stretch; justify-content: stretch; padding: 0; }
+  .modal-box { width: 100%; max-width: none; max-height: none; height: 100%; border-radius: 0; flex: 1; flex-direction: column; overflow: hidden; display: flex; }
+  .modal-tabs { flex-direction: row; overflow-x: auto; scrollbar-width: none; border-right: none; border-bottom: 1px solid var(--line); width: auto; flex-shrink: 0; padding: 0 8px; gap: 0; }
+  .modal-tabs::-webkit-scrollbar { display: none; }
+  .modal-tabs button { flex-shrink: 0; white-space: nowrap; }
+  .modal-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
+
+  .composer { inset: 0; width: auto; height: auto; border-radius: 0; border: none; }
   .sender time { display: none; }
 }
 @media(max-width:620px) {
   .search kbd, .search .filter { display: none; }
-  .subject h1 { font-size: 25px; }
-  .formatting { min-height: 42px; display: flex; align-items: center; }
-  .formatting:before { content: "Formatting"; font-size: 12px; font-weight: 700; color: var(--muted); }
-  .format-row { display: none; }
+  .subject h1 { font-size: 22px; }
   .compose-footer { gap: 4px; }
   .footer-signature span { display: none; }
-  .mail-item { min-height: 122px; }
+  .mail-item { min-height: 110px; padding: 12px 10px; }
+  .list-head h1 { font-size: 18px; }
+  .reader-scroll { padding: 20px 14px 40px; }
+  .body-copy { font-size: 14px; }
+  .formatting { padding: 4px 8px; }
+  .format-row { gap: 1px; }
+  .fmt { width: 28px; height: 28px; }
+  .field > span { width: 36px; }
+  .compose-title { font-size: 12px; }
 }

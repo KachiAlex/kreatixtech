@@ -15,6 +15,7 @@ import ChatView from './components/ChatView';
 import FilesView from './components/FilesView';
 import { emailApi, snoozeApi } from './api';
 import type { Email, Folder } from './types';
+import { Mail, CalendarDays, Users, MessageCircle, File } from 'lucide-react';
 
 function MailApp() {
   const { user, loading } = useAuth();
@@ -115,10 +116,10 @@ function MailApp() {
 
   const renderView = () => {
     switch (view) {
-      case 'calendar': return <CalendarView />;
-      case 'contacts': return <ContactsView />;
+      case 'calendar': return <div className="non-mail-view"><CalendarView /></div>;
+      case 'contacts': return <div className="non-mail-view"><ContactsView /></div>;
       case 'chat': return <ChatView />;
-      case 'files': return <FilesView />;
+      case 'files': return <div className="non-mail-view"><FilesView /></div>;
       default:
         return (
           <>
@@ -161,6 +162,14 @@ function MailApp() {
     }
   };
 
+  const mobileNavItems: { type: ViewType; icon: React.ElementType; label: string }[] = [
+    { type: 'mail', icon: Mail, label: 'Mail' },
+    { type: 'calendar', icon: CalendarDays, label: 'Calendar' },
+    { type: 'contacts', icon: Users, label: 'Contacts' },
+    { type: 'chat', icon: MessageCircle, label: 'Chat' },
+    { type: 'files', icon: File, label: 'Files' },
+  ];
+
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <Header
@@ -172,6 +181,18 @@ function MailApp() {
         <Rail current={view} onChange={setView} />
         {renderView()}
       </div>
+      <nav className="mobile-nav">
+        {mobileNavItems.map(item => (
+          <button
+            key={item.type}
+            className={view === item.type ? 'active' : ''}
+            onClick={() => { setView(item.type); setSelectedEmail(null); }}
+          >
+            <item.icon />
+            {item.label}
+          </button>
+        ))}
+      </nav>
 
       {isComposeOpen && (
         <ComposeModal

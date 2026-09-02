@@ -87,9 +87,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/30 z-40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+    <div className="modal-overlay fixed inset-0 bg-black/30 z-40 flex items-center justify-center p-4">
+      <div className="modal-box bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <h2 className="text-lg font-bold text-ink">Settings</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
             <X className="w-5 h-5" />
@@ -97,7 +97,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-48 border-r border-gray-100 p-3 space-y-1">
+          <div className="modal-tabs w-48 border-r border-gray-100 p-3 space-y-1 flex-shrink-0">
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -109,7 +109,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="modal-content flex-1 overflow-y-auto p-6">
             {tab === 'general' && settings && (
               <div className="space-y-5">
                 <div>
