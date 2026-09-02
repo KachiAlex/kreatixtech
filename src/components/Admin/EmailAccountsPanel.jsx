@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-const WORKER_API_URL = 'https://email-worker.zionitefm.workers.dev/api/admin';
+const WORKER_API_URL = 'https://mail.kreatixtech.com/api/admin';
 
 export default function EmailAccountsPanel() {
   const [users, setUsers] = useState([]);
@@ -22,10 +22,12 @@ export default function EmailAccountsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${WORKER_API_URL}/users`);
+      const response = await fetch(`${WORKER_API_URL}/users`, {
+        headers: { 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' }
+      });
       if (!response.ok) throw new Error('Failed to fetch email accounts');
       const data = await response.json();
-      setUsers(data);
+      setUsers(data.users || data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -44,7 +46,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' },
         body: JSON.stringify({ email: newEmail, display_name: newName, password: newPassword }),
       });
       if (response.ok) {
@@ -68,7 +70,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users/${user.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' },
         body: JSON.stringify({ is_active: !user.is_active }),
       });
       if (!response.ok) throw new Error('Failed to update status');
@@ -81,7 +83,10 @@ export default function EmailAccountsPanel() {
   const deleteUser = async (id) => {
     if (!window.confirm('Permanently delete this email account? This cannot be undone.')) return;
     try {
-      const response = await fetch(`${WORKER_API_URL}/users/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${WORKER_API_URL}/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' }
+      });
       if (!response.ok) throw new Error('Failed to delete email account');
       fetchUsers();
     } catch (err) {

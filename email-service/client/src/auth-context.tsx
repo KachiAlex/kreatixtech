@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    if (!getAccessToken()) { setLoading(false); return; }
+    if (!getAccessToken()) { setLoading(false); setUser(null); return; }
     try {
       const data = await authApi.me();
       setUser(data.user);
