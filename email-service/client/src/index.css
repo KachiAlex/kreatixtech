@@ -16,8 +16,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body { margin: 0; overflow-x: hidden; background: #fff; color: var(--ink); }
+html { height: 100%; }
+body { margin: 0; overflow-x: hidden; background: #fff; color: var(--ink); min-height: 100dvh; }
 button, input, select { font: inherit; }
 button { color: inherit; cursor: pointer; }
 svg { width: 18px; height: 18px; stroke-width: 1.8; }
@@ -180,14 +180,16 @@ svg { width: 18px; height: 18px; stroke-width: 1.8; }
 @media(max-width:900px) {
   .topbar { height: 62px; grid-template-columns: 45px 1fr auto; gap: 8px; padding: 0 10px 0 6px; }
   .top-actions > .icon-btn { display: none; }
-  .workspace { height: calc(100dvh - 62px); display: block; position: relative; }
+  .workspace { height: calc(100dvh - 62px); display: block; position: relative; overflow: hidden; }
   .rail { display: none; }
-  .mail-list, .reader { position: absolute; inset: 0; }
+  .mail-list, .reader { position: absolute; inset: 0; overflow: hidden; }
+  .mail-list { display: grid; grid-template-rows: 73px 47px minmax(0,1fr); }
   .reader { display: none; }
-  .reader.show-mobile { display: grid; }
+  .reader.show-mobile { display: grid; grid-template-rows: 54px minmax(0,1fr); }
   .mail-list.hide-mobile { display: none; }
   .composer { inset: 8px; width: auto; height: auto; }
-  .reader-scroll { padding: 24px 20px 45px; }
+  .reader-scroll { padding: 24px 20px 45px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .mail-scroll { -webkit-overflow-scrolling: touch; }
   .sender time { display: none; }
 }
 @media(max-width:620px) {

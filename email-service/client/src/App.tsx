@@ -160,7 +160,7 @@ function MailApp() {
   };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <Header
         onSearch={setSearchQuery}
         onOpenSettings={() => setShowSettings(true)}
