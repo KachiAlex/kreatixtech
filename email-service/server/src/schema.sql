@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS emails (
   sent_at       TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  snooze_until  TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
 );
