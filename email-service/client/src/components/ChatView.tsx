@@ -58,7 +58,7 @@ const Chat: React.FC = () => {
   const getColor = (name: string) => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
 
   return (
-    <div style={{ height: '100%', display: 'flex', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ height: '100%', minHeight: 0, display: 'flex', overflow: 'hidden', position: 'relative' } as any}>
       <div className="chat-mobile-list" style={{ borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
         <div style={{ padding: '20px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
