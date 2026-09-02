@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Download, Trash2, FileText, File as FileIcon, Star } from 'lucide-react';
 import { filesApi } from '../api';
+import { useToast } from './Toast';
 import type { FileItem } from '../types';
 
 function formatBytes(bytes: number): string {
@@ -20,11 +21,12 @@ const Files: React.FC = () => {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { success: toastSuccess, error: toastError, confirm: confirmDialog } = useToast();
 
   useEffect(() => { loadFiles(); }, []);
 
   const loadFiles = async () => {
-    try { const data = await filesApi.list(); setFiles(data.files); } catch (e) { console.error(e); }
+    try { const data = await filesApi.list(); setFiles(data.files); } catch (e: any) { toastError('Failed to load files'); }
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,11 +37,14 @@ const Files: React.FC = () => {
         await filesApi.upload(file);
       }
       loadFiles();
-    } catch (err: any) { alert(err.message || 'Upload failed'); } finally { setUploading(false); }
+      toastSuccess('File(s) uploaded successfully');
+    } catch (err: any) { toastError(err.message || 'Failed to upload file'); } finally { setUploading(false); }
   };
 
   const handleDelete = async (id: string) => {
-    try { await filesApi.delete(id); loadFiles(); } catch (e) { console.error(e); }
+    const ok = await confirmDialog('Are you sure you want to delete this file?');
+    if (!ok) return;
+    try { await filesApi.delete(id); loadFiles(); toastSuccess('File deleted'); } catch (e: any) { toastError('Failed to delete file'); }
   };
 
   const totalSize = files.reduce((sum, f) => sum + f.size, 0);

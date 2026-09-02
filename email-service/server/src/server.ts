@@ -1304,6 +1304,131 @@ app.get('/api/storage', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
+// UNREAD COUNT (for polling)
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/emails/unread-count', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results: folders } = env.DB.prepare('SELECT id, name, type, unread_count, total_count FROM folders WHERE user_id = ? ORDER BY sort_order ASC').bind(user!.sub).all();
+    const totalUnread = env.DB.prepare('SELECT COUNT(*) as count FROM emails WHERE user_id = ? AND is_read = 0 AND folder_id IN (SELECT id FROM folders WHERE user_id = ? AND type = ?)').bind(user!.sub, user!.sub, 'inbox').first();
+    sendResult(res, json({ folders, totalUnread: totalUnread?.count || 0 }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// INBOUND EMAIL WEBHOOK (Resend Inbound)
+// ══════════════════════════════════════════════════════════════════════════
+
+app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) => {
+  try {
+    const rawEmail = req.body as Buffer;
+    const parsed = await parseRawEmail(rawEmail.buffer.slice(rawEmail.byteOffset, rawEmail.byteOffset + rawEmail.byteLength) as ArrayBuffer);
+
+    // Find the user by the recipient email
+    const recipientEmail = parsed.toAddress.split(',')[0].trim().toLowerCase();
+    const user = env.DB.prepare('SELECT id FROM users WHERE email = ? AND is_active = 1').bind(recipientEmail).first() as any;
+
+    if (!user) {
+      // Try linked accounts
+      const linked = env.DB.prepare('SELECT user_id FROM linked_accounts WHERE email = ? AND is_active = 1').bind(recipientEmail).first() as any;
+      if (!linked) {
+        console.log(`Rejected inbound email for ${recipientEmail} - no matching user`);
+        return res.status(200).json({ status: 'ignored', reason: 'no matching user' });
+      }
+      user.id = linked.user_id;
+    }
+
+    const inboxFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user.id, 'inbox').first() as any;
+    const threadId = generateThreadId(parsed);
+    const snippet = generateSnippet(parsed.text);
+    const size = new TextEncoder().encode(parsed.text + (parsed.html || '')).length;
+
+    const emailResult = env.DB.prepare(
+      `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, direction, status, size, has_attachments)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?)`
+    ).bind(
+      user.id, parsed.messageId, threadId, parsed.inReplyTo, parsed.references,
+      parsed.fromAddress, parsed.fromName, parsed.toAddress, parsed.ccAddress,
+      parsed.subject, parsed.text, parsed.html, snippet, inboxFolder?.id,
+      size, parsed.attachments.length > 0 ? 1 : 0
+    ).run();
+
+    const emailId = emailResult.meta?.last_row_id;
+
+    for (const attachment of parsed.attachments) {
+      const attId = crypto.randomUUID();
+      const r2Key = `attachments/${user.id}/${emailId}/${attId}/${attachment.filename}`;
+      await env.R2_BUCKET.put(r2Key, attachment.content, { httpMetadata: { contentType: attachment.mimeType } });
+      env.DB.prepare(
+        'INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(attId, emailId, user.id, attachment.filename, attachment.mimeType, attachment.size, r2Key, attachment.isInline ? 1 : 0, attachment.contentId || null).run();
+    }
+
+    if (inboxFolder) await updateFolderCounts(env, user.id, inboxFolder.id);
+    await upsertContact(env, user.id, parsed.fromAddress, parsed.fromName);
+
+    console.log(`Inbound email stored: ${parsed.subject} for ${recipientEmail}`);
+    res.status(200).json({ status: 'stored', emailId });
+  } catch (e: any) {
+    console.error('Inbound email error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// LINKED ACCOUNTS (Multi-account management)
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/linked-accounts', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM linked_accounts WHERE user_id = ? ORDER BY is_default DESC, created_at ASC').bind(user!.sub).all();
+    const dbUser = env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user!.sub).first();
+    sendResult(res, json({ accounts: results, primaryEmail: dbUser?.email, primaryName: dbUser?.display_name }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/linked-accounts', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { email, display_name } = req.body;
+    if (!email) return sendResult(res, errorResp('Email is required', 400));
+
+    const existing = env.DB.prepare('SELECT id FROM linked_accounts WHERE user_id = ? AND email = ?').bind(user!.sub, email.toLowerCase()).first();
+    if (existing) return sendResult(res, errorResp('This account is already linked', 409));
+
+    const result = env.DB.prepare(
+      'INSERT INTO linked_accounts (user_id, email, display_name) VALUES (?, ?, ?)'
+    ).bind(user!.sub, email.toLowerCase(), display_name || null).run();
+
+    sendResult(res, json({ id: result.meta?.last_row_id, email: email.toLowerCase(), display_name: display_name || null }, 201));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/linked-accounts/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('DELETE FROM linked_accounts WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.patch('/api/linked-accounts/:id/default', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('UPDATE linked_accounts SET is_default = 0 WHERE user_id = ?').bind(user!.sub).run();
+    env.DB.prepare('UPDATE linked_accounts SET is_default = 1 WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ══════════════════════════════════════════════════════════════════════════
 

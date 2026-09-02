@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Users, Activity, BarChart3, Plus, Trash2, Shield, UserCheck, UserX, Mail } from 'lucide-react';
 import { adminApi } from '../api';
 import { useAuth } from '../auth-context';
+import { useToast } from './Toast';
 import type { User, AdminStats, AuditLog } from '../types';
 
 interface AdminPanelProps {
@@ -10,6 +11,7 @@ interface AdminPanelProps {
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const { user } = useAuth();
+  const { success: toastSuccess, error: toastError, confirm: confirmDialog } = useToast();
   const [tab, setTab] = useState<'stats' | 'users' | 'audit'>('stats');
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -33,20 +35,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       setNewUser({ email: '', password: '', display_name: '', role: 'user' });
       setShowAddUser(false);
       loadAll();
-    } catch (e: any) { alert(e.message); }
+      toastSuccess('User created successfully');
+    } catch (e: any) { toastError(e.message || 'Failed to create user'); }
   };
 
   const handleToggleActive = async (u: User) => {
-    try { await adminApi.updateUser(u.id, { is_active: u.is_active ? 0 : 1 }); loadAll(); } catch (e) { console.error(e); }
+    try { await adminApi.updateUser(u.id, { is_active: u.is_active ? 0 : 1 }); loadAll(); toastSuccess(`User ${u.is_active ? 'deactivated' : 'activated'}`); } catch (e: any) { toastError('Failed to update user'); }
   };
 
   const handleToggleAdmin = async (u: User) => {
-    try { await adminApi.updateUser(u.id, { role: u.role === 'admin' ? 'user' : 'admin' }); loadAll(); } catch (e) { console.error(e); }
+    try { await adminApi.updateUser(u.id, { role: u.role === 'admin' ? 'user' : 'admin' }); loadAll(); toastSuccess(`User role changed to ${u.role === 'admin' ? 'user' : 'admin'}`); } catch (e: any) { toastError('Failed to update role'); }
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!confirm('Delete this user permanently?')) return;
-    try { await adminApi.deleteUser(id); loadAll(); } catch (e: any) { alert(e.message); }
+    const ok = await confirmDialog('Are you sure you want to permanently delete this user? This action cannot be undone.');
+    if (!ok) return;
+    try { await adminApi.deleteUser(id); loadAll(); toastSuccess('User deleted successfully'); } catch (e: any) { toastError(e.message || 'Failed to delete user'); }
   };
 
   const formatSize = (bytes: number) => {

@@ -245,3 +245,13 @@ export interface OutboxItem {
   created_at: string;
   updated_at: string;
 }
+
+export interface LinkedAccount {
+  id: number;
+  user_id: number;
+  email: string;
+  display_name?: string;
+  is_default: number;
+  is_active: number;
+  created_at: string;
+}

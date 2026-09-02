@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { emailApi, signatureApi } from '../api';
 import { useAuth } from '../auth-context';
+import { useAccount } from '../account-context';
+import { useToast } from './Toast';
 import type { Email, Signature as SigType } from '../types';
 
 interface ComposeModalProps {
@@ -17,6 +19,12 @@ interface ComposeModalProps {
 
 const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFrom }) => {
   const { user } = useAuth();
+  const { currentEmail, currentName, accounts, primaryEmail, switchAccount } = useAccount();
+  const { success: toastSuccess, error: toastError, info: toastInfo, prompt: promptDialog } = useToast();
+  const [fromEmail, setFromEmail] = useState(currentEmail);
+  const [fromName, setFromName] = useState(currentName);
+
+  useEffect(() => { setFromEmail(currentEmail); setFromName(currentName); }, [currentEmail, currentName]);
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
@@ -76,13 +84,13 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
     editorRef.current?.focus();
   };
 
-  const insertLink = () => {
-    const url = prompt('Enter URL:');
+  const insertLink = async () => {
+    const url = await promptDialog('Enter the URL to link:');
     if (url) exec('createLink', url);
   };
 
-  const insertImage = () => {
-    const url = prompt('Enter image URL:');
+  const insertImage = async () => {
+    const url = await promptDialog('Enter the image URL:');
     if (url) exec('insertImage', url);
   };
 
@@ -135,18 +143,29 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
         subject,
         body: bodyText,
         html: bodyHtml,
-        from: user?.email,
-        fromName: user?.display_name,
+        from: fromEmail || user?.email,
+        fromName: fromName || user?.display_name,
         replyToId: replyTo?.id,
         attachments: attachmentPayload,
       });
+      toastSuccess('Email sent successfully');
       onClose();
     } catch (err: any) {
-      alert(err.message || 'Failed to send email');
+      const msg = err.message || 'Failed to send email';
+      if (msg.includes('saved_to_outbox') || msg.includes('Outbox')) {
+        toastError('Email failed to send — saved to Outbox for retry');
+      } else {
+        toastError(msg);
+      }
     } finally {
       setIsSending(false);
     }
   };
+
+  const allFromAccounts = [
+    { email: primaryEmail || user?.email || '', name: user?.display_name || '' },
+    ...accounts.map(a => ({ email: a.email, name: a.display_name || '' })),
+  ].filter(a => a.email);
 
   if (minimized) {
     return (
@@ -176,6 +195,21 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
         </div>
 
         <div className="fields">
+          <div className="field">
+            <span>From</span>
+            <select
+              value={fromEmail}
+              onChange={(e) => {
+                const acct = allFromAccounts.find(a => a.email === e.target.value);
+                if (acct) { setFromEmail(acct.email); setFromName(acct.name || ''); }
+              }}
+              style={{ fontSize: 13, border: 'none', outline: 'none', background: 'transparent', cursor: 'pointer', color: '#555' }}
+            >
+              {allFromAccounts.map(acct => (
+                <option key={acct.email} value={acct.email}>{acct.name ? `${acct.name} <${acct.email}>` : acct.email}</option>
+              ))}
+            </select>
+          </div>
           <div className="field">
             <span>To</span>
             <input type="email" value={to} onChange={(e) => setTo(e.target.value)} required />
@@ -258,7 +292,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
               {showSendPopup && (
                 <div className="popup show" style={{ bottom: 40, left: 0 }}>
                   <button onClick={() => { setShowSendPopup(false); handleSubmit(); }}>Send now</button>
-                  <button onClick={() => { setShowSendPopup(false); alert('Schedule send - coming soon'); }}>Schedule send</button>
+                  <button onClick={() => { setShowSendPopup(false); toastInfo('Schedule send is coming soon'); }}>Schedule send</button>
                 </div>
               )}
             </div>

@@ -2,7 +2,7 @@ import type {
   AuthResponse, User, UserSettings, Email, EmailListResponse,
   Folder, Label, Draft, Signature, Alias, Contact, Session,
   AuditLog, AdminStats, CalendarEvent, ChatConversation, ChatMessage,
-  FileItem, StorageInfo, OutboxItem,
+  FileItem, StorageInfo, OutboxItem, LinkedAccount,
 } from './types';
 
 const API_URL = '/api';
@@ -313,4 +313,20 @@ export const signatureImageApi = {
     return res.json();
   },
   remove: () => apiDelete('/settings/signature-image'),
+};
+
+// ── Unread Count API (for polling) ──────────────────────────────────────────
+
+export const unreadApi = {
+  get: () => apiGet<{ folders: any[]; totalUnread: number }>('/emails/unread-count'),
+};
+
+// ── Linked Accounts API ─────────────────────────────────────────────────────
+
+export const linkedAccountsApi = {
+  list: () => apiGet<{ accounts: LinkedAccount[]; primaryEmail: string; primaryName: string }>('/linked-accounts'),
+  create: (email: string, display_name?: string) =>
+    apiPost<LinkedAccount>('/linked-accounts', { email, display_name }),
+  delete: (id: number) => apiDelete(`/linked-accounts/${id}`),
+  setDefault: (id: number) => apiPatch(`/linked-accounts/${id}/default`),
 };

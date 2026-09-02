@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Trash2, AlertCircle, Mail } from 'lucide-react';
 import { outboxApi } from '../api';
+import { useToast } from './Toast';
 import type { OutboxItem } from '../types';
 
 const OutboxView: React.FC = () => {
   const [items, setItems] = useState<OutboxItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState<number | null>(null);
+  const { success: toastSuccess, error: toastError, confirm: confirmDialog } = useToast();
 
   const load = async () => {
     setLoading(true);
@@ -24,15 +26,17 @@ const OutboxView: React.FC = () => {
     try {
       await outboxApi.retry(id);
       await load();
+      toastSuccess('Email sent successfully on retry');
     } catch (e: any) {
-      alert('Retry failed: ' + e.message);
+      toastError(e.message || 'Retry failed — email remains in outbox');
     }
     setRetrying(null);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this failed email?')) return;
-    try { await outboxApi.delete(id); await load(); } catch (e) { console.error(e); }
+    const ok = await confirmDialog('Delete this failed email? This action cannot be undone.');
+    if (!ok) return;
+    try { await outboxApi.delete(id); await load(); toastSuccess('Failed email removed from outbox'); } catch (e: any) { toastError('Failed to delete outbox item'); }
   };
 
   if (loading) {

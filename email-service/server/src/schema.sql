@@ -313,3 +313,16 @@ CREATE TABLE IF NOT EXISTS outbox (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_outbox_user ON outbox(user_id);
+
+-- ── Linked Accounts (multi-account like Gmail) ──────────────
+CREATE TABLE IF NOT EXISTS linked_accounts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  email         TEXT NOT NULL,
+  display_name  TEXT,
+  is_default    INTEGER NOT NULL DEFAULT 0,
+  is_active     INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_linked_accounts_user ON linked_accounts(user_id);

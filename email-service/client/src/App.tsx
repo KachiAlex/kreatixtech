@@ -14,12 +14,15 @@ import ContactsView from './components/ContactsView';
 import ChatView from './components/ChatView';
 import FilesView from './components/FilesView';
 import OutboxView from './components/OutboxView';
-import { emailApi, snoozeApi } from './api';
+import { ToastProvider, useToast } from './components/Toast';
+import { AccountProvider, useAccount } from './account-context';
+import { emailApi, snoozeApi, unreadApi } from './api';
 import type { Email, Folder } from './types';
 import { Mail, CalendarDays, Users, MessageCircle, File, Send } from 'lucide-react';
 
 function MailApp() {
   const { user, loading } = useAuth();
+  const { confirm: confirmDialog, prompt: promptDialog, success: toastSuccess, error: toastError } = useToast();
   const [view, setView] = useState<ViewType>('mail');
   const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
   const [showStarred, setShowStarred] = useState(false);
@@ -50,6 +53,24 @@ function MailApp() {
   useEffect(() => {
     if (user && view === 'mail') fetchEmails();
   }, [fetchEmails, user, view]);
+
+  // Auto-refresh: poll for new emails every 30 seconds
+  const [lastUnreadCount, setLastUnreadCount] = useState(0);
+  useEffect(() => {
+    if (!user || view !== 'mail') return;
+    const poll = async () => {
+      try {
+        const data = await unreadApi.get();
+        if (data.totalUnread > lastUnreadCount && lastUnreadCount > 0) {
+          toastSuccess(`You have ${data.totalUnread - lastUnreadCount} new email(s)`);
+          fetchEmails();
+        }
+        setLastUnreadCount(data.totalUnread);
+      } catch { /* ignore polling errors */ }
+    };
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, [user, view, lastUnreadCount, fetchEmails, toastSuccess]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -89,17 +110,17 @@ function MailApp() {
   };
 
   const handleDelete = async (id: number) => {
-    try { await emailApi.delete(id); setSelectedEmail(null); fetchEmails(); } catch (e) { console.error(e); }
+    try { await emailApi.delete(id); setSelectedEmail(null); fetchEmails(); toastSuccess('Email moved to trash'); } catch (e: any) { toastError(e.message || 'Failed to delete email'); }
   };
 
   const handleArchive = async (id: number) => {
-    try { await emailApi.bulk([id], 'archive'); setSelectedEmail(null); fetchEmails(); } catch (e) { console.error(e); }
+    try { await emailApi.bulk([id], 'archive'); setSelectedEmail(null); fetchEmails(); toastSuccess('Email archived'); } catch (e: any) { toastError(e.message || 'Failed to archive email'); }
   };
 
   const handleSnooze = async (id: number) => {
-    const until = prompt('Snooze until (YYYY-MM-DD HH:MM):');
+    const until = await promptDialog('Snooze this email until (YYYY-MM-DD HH:MM):');
     if (!until) return;
-    try { await snoozeApi.snooze(id, until); fetchEmails(); } catch (e) { console.error(e); }
+    try { await snoozeApi.snooze(id, until); toastSuccess('Email snoozed successfully'); fetchEmails(); } catch (e: any) { toastError(e.message || 'Failed to snooze email'); }
   };
 
   if (loading) {
@@ -214,7 +235,11 @@ function MailApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MailApp />
+      <ToastProvider>
+        <AccountProvider>
+          <MailApp />
+        </AccountProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon } from 'lucide-react';
 import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi, signatureImageApi } from '../api';
 import { useAuth } from '../auth-context';
+import { useToast } from './Toast';
 import type { UserSettings, Signature, Alias, Session, Label } from '../types';
 
 interface SettingsPanelProps {
@@ -10,6 +11,7 @@ interface SettingsPanelProps {
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const { user, refreshUser } = useAuth();
+  const { success: toastSuccess, error: toastError, info: toastInfo } = useToast();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [aliases, setAliases] = useState<Alias[]>([]);
@@ -45,49 +47,51 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
     try {
       await settingsApi.update(settings);
       await refreshUser();
-    } catch (e) { console.error('Failed to save settings', e); }
+      toastSuccess('Settings saved successfully');
+    } catch (e: any) { toastError(e.message || 'Failed to save settings'); }
     setSaving(false);
   };
 
   const handleCreateLabel = async () => {
     if (!newLabel.name) return;
-    try { await labelApi.create(newLabel.name, newLabel.color); setNewLabel({ name: '', color: '#6B7280' }); loadAll(); } catch (e) { alert('Label already exists'); }
+    try { await labelApi.create(newLabel.name, newLabel.color); setNewLabel({ name: '', color: '#6B7280' }); loadAll(); toastSuccess('Label created'); } catch (e: any) { toastError('A label with this name already exists'); }
   };
 
   const handleDeleteLabel = async (id: number) => {
-    try { await labelApi.delete(id); loadAll(); } catch (e) { console.error(e); }
+    try { await labelApi.delete(id); loadAll(); toastSuccess('Label deleted'); } catch (e: any) { toastError('Failed to delete label'); }
   };
 
   const handleCreateAlias = async () => {
     if (!newAlias.alias_email || !newAlias.forward_to) return;
-    try { await aliasApi.create(newAlias.alias_email, newAlias.forward_to); setNewAlias({ alias_email: '', forward_to: '' }); loadAll(); } catch (e) { alert('Alias already exists'); }
+    try { await aliasApi.create(newAlias.alias_email, newAlias.forward_to); setNewAlias({ alias_email: '', forward_to: '' }); loadAll(); toastSuccess('Alias created successfully'); } catch (e: any) { toastError('This alias already exists'); }
   };
 
   const handleDeleteAlias = async (id: number) => {
-    try { await aliasApi.delete(id); loadAll(); } catch (e) { console.error(e); }
+    try { await aliasApi.delete(id); loadAll(); toastSuccess('Alias removed'); } catch (e: any) { toastError('Failed to remove alias'); }
   };
 
   const handleCreateSig = async () => {
-    try { await signatureApi.create(newSig.name, newSig.html, true); setNewSig({ name: 'Default', html: '' }); loadAll(); } catch (e) { console.error(e); }
+    try { await signatureApi.create(newSig.name, newSig.html, true); setNewSig({ name: 'Default', html: '' }); loadAll(); toastSuccess('Signature added'); } catch (e: any) { toastError('Failed to create signature'); }
   };
 
   const handleDeleteSig = async (id: number) => {
-    try { await signatureApi.delete(id); loadAll(); } catch (e) { console.error(e); }
+    try { await signatureApi.delete(id); loadAll(); toastSuccess('Signature deleted'); } catch (e: any) { toastError('Failed to delete signature'); }
   };
 
   const handleDeleteSession = async (id: string) => {
-    try { await sessionApi.delete(id); loadAll(); } catch (e) { console.error(e); }
+    try { await sessionApi.delete(id); loadAll(); toastSuccess('Session revoked'); } catch (e: any) { toastError('Failed to revoke session'); }
   };
 
   const handleSigImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { alert('Please upload an image file'); return; }
+    if (!file.type.startsWith('image/')) { toastError('Please upload an image file (PNG, JPG, etc.)'); return; }
     setSigImageUploading(true);
     try {
       const result = await signatureImageApi.upload(file);
       setSettings((prev) => prev ? { ...prev, signature_image_url: result.url } : prev);
-    } catch (e: any) { alert('Upload failed: ' + e.message); }
+      toastSuccess('Signature image uploaded');
+    } catch (e: any) { toastError(e.message || 'Failed to upload image'); }
     setSigImageUploading(false);
   };
 
@@ -95,7 +99,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
     try {
       await signatureImageApi.remove();
       setSettings((prev) => prev ? { ...prev, signature_image_url: undefined } : prev);
-    } catch (e) { console.error(e); }
+      toastSuccess('Signature image removed');
+    } catch (e: any) { toastError('Failed to remove image'); }
   };
 
   const tabs = [
