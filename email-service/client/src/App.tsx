@@ -142,6 +142,7 @@ function MailApp() {
                   onRefresh={fetchEmails}
                   selectedEmailId={selectedEmail?.id}
                   folderName={showStarred ? 'Starred' : currentFolder?.name || 'Inbox'}
+                  mobileHidden={!!selectedEmail}
                 />
                 <EmailView
                   email={selectedEmail}
@@ -151,6 +152,7 @@ function MailApp() {
                   onArchive={handleArchive}
                   onSnooze={handleSnooze}
                   onBack={() => setSelectedEmail(null)}
+                  mobileVisible={!!selectedEmail}
                 />
               </>
             )}

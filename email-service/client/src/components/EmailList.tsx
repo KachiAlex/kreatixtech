@@ -9,6 +9,7 @@ interface EmailListProps {
   onRefresh: () => void;
   selectedEmailId?: number | null;
   folderName?: string;
+  mobileHidden?: boolean;
 }
 
 function formatTime(receivedAt: string): string {
@@ -22,7 +23,7 @@ function formatTime(receivedAt: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh, selectedEmailId, folderName }) => {
+const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh, selectedEmailId, folderName, mobileHidden }) => {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [starred, setStarred] = useState<Set<number>>(new Set(
     emails.filter(e => e.is_starred === 1).map(e => e.id)
@@ -53,7 +54,7 @@ const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh,
   };
 
   return (
-    <section className="mail-list">
+    <section className={`mail-list${mobileHidden ? ' hide-mobile' : ''}`}>
       <div className="list-head">
         <div>
           <h1>{folderName || 'Inbox'}</h1>

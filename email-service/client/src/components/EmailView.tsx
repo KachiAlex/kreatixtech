@@ -11,6 +11,7 @@ interface EmailViewProps {
   onArchive: (id: number) => void;
   onSnooze: (id: number) => void;
   onBack?: () => void;
+  mobileVisible?: boolean;
 }
 
 function formatFullDate(dateStr: string): string {
@@ -33,7 +34,7 @@ function getAvatarColor(name: string): string {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
-const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onForward, onDelete, onArchive, onSnooze, onBack }) => {
+const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onForward, onDelete, onArchive, onSnooze, onBack, mobileVisible }) => {
   const [starred, setStarred] = React.useState(false);
 
   React.useEffect(() => {
@@ -42,7 +43,7 @@ const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onForward, onDele
 
   if (!email) {
     return (
-      <main className="reader">
+      <main className={`reader${mobileVisible ? ' show-mobile' : ''}`}>
         <div className="reader-tools">
           <div className="reader-actions">
             <button className="icon-btn" title="Back" onClick={onBack}><Archive /></button>
@@ -68,7 +69,7 @@ const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onForward, onDele
   const initials = senderName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
 
   return (
-    <main className="reader">
+    <main className={`reader${mobileVisible ? ' show-mobile' : ''}`}>
       <div className="reader-tools">
         <div className="reader-actions">
           <button className="icon-btn" title="Back" onClick={onBack}><Archive /></button>
