@@ -10,6 +10,44 @@ const isElectron = typeof window !== 'undefined' && ((window as any).electronAPI
 const SERVER_URL = 'https://mail.kreatixtech.com';
 const API_URL = (Capacitor.isNativePlatform() || isElectron) ? `${SERVER_URL}/api` : '/api';
 
+// ── Network readiness (for Electron/Capacitor cold starts) ──────────────────
+
+let networkReady = false;
+let networkCheckPromise: Promise<void> | null = null;
+
+async function ensureNetworkReady(): Promise<void> {
+  if (networkReady) return;
+  if (networkCheckPromise) return networkCheckPromise;
+
+  networkCheckPromise = (async () => {
+    const isNative = Capacitor.isNativePlatform() || isElectron;
+    if (!isNative) { networkReady = true; return; }
+
+    // Retry health check until the server is reachable (max ~15 seconds)
+    for (let attempt = 0; attempt < 8; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch(`${API_URL}/health`, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (res.ok) { networkReady = true; return; }
+      } catch {
+        // Network not ready yet, wait and retry
+        await new Promise(r => setTimeout(r, 1500 + attempt * 500));
+      }
+    }
+    // Even if health check failed, proceed — the actual API call may still work
+    networkReady = true;
+  })();
+
+  return networkCheckPromise;
+}
+
+// Call ensureNetworkReady immediately on load for native platforms
+if (typeof window !== 'undefined' && (Capacitor.isNativePlatform() || isElectron)) {
+  ensureNetworkReady();
+}
+
 // ── Token management ──────────────────────────────────────────────────────
 
 let accessToken: string | null = localStorage.getItem('kreatix_access_token');
@@ -40,7 +78,7 @@ async function refreshAccessToken(): Promise<string | null> {
 
   refreshPromise = (async () => {
     try {
-      const res = await fetch(`${API_URL}/auth/refresh`, {
+      const res = await fetchWithRetry(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -63,7 +101,30 @@ async function refreshAccessToken(): Promise<string | null> {
 
 // ── Core fetch wrapper with auto-refresh ──────────────────────────────────
 
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeout);
+      return res;
+    } catch (err: any) {
+      lastError = err;
+      // Only retry on network errors (TypeError: Failed to fetch), not on HTTP errors
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError || new Error('Network request failed after retries');
+}
+
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  // Wait for network to be ready (important for Electron/Capacitor cold starts)
+  await ensureNetworkReady();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -71,13 +132,13 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
 
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
 
-  let res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let res = await fetchWithRetry(`${API_URL}${path}`, { ...options, headers });
 
   if (res.status === 401 && refreshToken) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
-      res = await fetch(`${API_URL}${path}`, { ...options, headers });
+      res = await fetchWithRetry(`${API_URL}${path}`, { ...options, headers });
     }
   }
 

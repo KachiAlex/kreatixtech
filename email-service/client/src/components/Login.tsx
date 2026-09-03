@@ -56,6 +56,8 @@ const Login: React.FC = () => {
       if (err.message === '2FA_REQUIRED') {
         setNeeds2FA(true);
         setError('');
+      } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Cannot connect to the server. Please check your internet connection and try again.');
       } else {
         setError(err.message || 'Authentication failed');
       }
