@@ -14,3 +14,33 @@ Thumbs.db
 deploy-vps.ps1
 setup-ssh.ps1
 fix-vps.sh
+
+# Build artifacts
+email-service/client/release/
+email-service/client/build/
+email-service/client/android/app/build/
+email-service/client/android/.gradle/
+email-service/client/android/captures/
+email-service/client/android/local.properties
+
+# Temp screenshots & test files
+*.png
+email-service/client/test-login.json
+email-service/test-login.json
+
+# Temp server check/test scripts
+email-service/server/check-*.cjs
+email-service/server/check-*.sh
+email-service/server/test-*.cjs
+email-service/server/fix-*.cjs
+email-service/server/import-*.cjs
+email-service/server/migrate.js
+email-service/server/add-mx.sh
+email-service/server/nginx-mail.conf
+email-service/server/ecosystem.config.cjs
+
+# Keystore
+*.keystore
+
+# Remove test file with embedded API key
+email-service/server/src/test-send.ts

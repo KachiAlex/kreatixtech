@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url    TEXT,
   storage_quota INTEGER NOT NULL DEFAULT 5368709120,  -- 5 GB default
   storage_used  INTEGER NOT NULL DEFAULT 0,
+  totp_secret   TEXT,                                  -- encrypted TOTP secret for 2FA
+  totp_enabled  INTEGER NOT NULL DEFAULT 0,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
   last_login_at TEXT
 );
@@ -180,6 +182,11 @@ CREATE TABLE IF NOT EXISTS user_settings (
   reply_to_address    TEXT,
   forward_to_address  TEXT,
   notify_on_new_email INTEGER NOT NULL DEFAULT 0,
+  vacation_enabled    INTEGER NOT NULL DEFAULT 0,
+  vacation_subject    TEXT,
+  vacation_body       TEXT,
+  vacation_start      TEXT,
+  vacation_end        TEXT,
   created_at          TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -364,3 +371,50 @@ CREATE TABLE IF NOT EXISTS security_log (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_security_log_user ON security_log(user_id, created_at DESC);
+
+-- ── Email Templates ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS email_templates (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  name          TEXT NOT NULL,
+  subject       TEXT,
+  body          TEXT,
+  html          TEXT,
+  category      TEXT DEFAULT 'general',               -- general | follow_up | thank_you | meeting | invoice
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_templates_user ON email_templates(user_id);
+
+-- ── Email Rules / Filters ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS email_rules (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  name          TEXT NOT NULL,
+  condition_field TEXT NOT NULL,                      -- from | subject | to | body
+  condition_op  TEXT NOT NULL,                        -- contains | equals | starts_with | ends_with
+  condition_value TEXT NOT NULL,
+  action        TEXT NOT NULL,                        -- move_to_folder | mark_read | mark_star | label | delete | block_sender
+  action_value  TEXT,                                  -- folder_id | label_id | etc
+  priority      INTEGER NOT NULL DEFAULT 0,
+  is_active     INTEGER NOT NULL DEFAULT 1,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_rules_user ON email_rules(user_id);
+
+-- ── Read Receipts ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS read_receipts (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  email_id      INTEGER NOT NULL,
+  recipient     TEXT NOT NULL,
+  read_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  ip_address    TEXT,
+  user_agent    TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_read_receipts_email ON read_receipts(email_id);
+CREATE INDEX IF NOT EXISTS idx_read_receipts_user ON read_receipts(user_id);

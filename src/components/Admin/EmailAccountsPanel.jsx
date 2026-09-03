@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Mail, UserPlus, RefreshCw, Trash2, Power, 
-  Shield, AlertCircle, Search, X, Save, Plus
+  Shield, AlertCircle, Search, X, Save, Plus, KeyRound, Eye, EyeOff
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 const WORKER_API_URL = 'https://mail.kreatixtech.com/api/admin';
+const ADMIN_SECRET = 'KreatixAdmin2026!Secret_Xy9Lm';
 
 export default function EmailAccountsPanel() {
   const [users, setUsers] = useState([]);
@@ -17,13 +18,17 @@ export default function EmailAccountsPanel() {
   const [newPassword, setNewPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
+  const [resetUser, setResetUser] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetShow, setResetShow] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(`${WORKER_API_URL}/users`, {
-        headers: { 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' }
+        headers: { 'X-Admin-Secret': ADMIN_SECRET }
       });
       if (!response.ok) throw new Error('Failed to fetch email accounts');
       const data = await response.json();
@@ -46,7 +51,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': ADMIN_SECRET },
         body: JSON.stringify({ email: newEmail, display_name: newName, password: newPassword }),
       });
       if (response.ok) {
@@ -70,7 +75,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users/${user.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': ADMIN_SECRET },
         body: JSON.stringify({ is_active: !user.is_active }),
       });
       if (!response.ok) throw new Error('Failed to update status');
@@ -85,13 +90,46 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users/${id}`, {
         method: 'DELETE',
-        headers: { 'X-Admin-Secret': 'KreatixAdmin2026!Secret_Xy9Lm' }
+        headers: { 'X-Admin-Secret': ADMIN_SECRET }
       });
       if (!response.ok) throw new Error('Failed to delete email account');
       fetchUsers();
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetUser || !resetPassword) return;
+    setResetting(true);
+    setError(null);
+    try {
+      const response = await fetch(`${WORKER_API_URL}/users/${resetUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': ADMIN_SECRET },
+        body: JSON.stringify({ password: resetPassword }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reset password');
+      }
+      setResetUser(null);
+      setResetPassword('');
+      setResetShow(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+    let pwd = '';
+    for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+    setResetPassword(pwd);
+    setResetShow(true);
   };
 
   const filteredUsers = users.filter(u => 
@@ -217,6 +255,13 @@ export default function EmailAccountsPanel() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button 
+                          onClick={() => { setResetUser(user); setResetPassword(''); setResetShow(false); }}
+                          className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
+                          title="Reset Password"
+                        >
+                          <KeyRound size={14} />
+                        </button>
+                        <button 
                           onClick={() => toggleUserStatus(user)}
                           className={cn('p-2 rounded-lg transition-colors',
                             user.is_active ? 'text-amber-500 hover:bg-amber-500/10' : 'text-green-500 hover:bg-green-500/10'
@@ -252,6 +297,63 @@ export default function EmailAccountsPanel() {
           </p>
         </div>
       </div>
+
+      {resetUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setResetUser(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <KeyRound size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-ink-900 text-sm">Reset Password</h3>
+                  <p className="text-xs text-ink-400">{resetUser.email}</p>
+                </div>
+              </div>
+              <button onClick={() => setResetUser(null)} className="p-1 rounded-lg hover:bg-surface-100 text-ink-400">
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="label">New Password</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={resetShow ? 'text' : 'password'}
+                    value={resetPassword}
+                    onChange={e => setResetPassword(e.target.value)}
+                    className="input-field pr-10"
+                    placeholder="Enter new password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setResetShow(!resetShow)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500"
+                  >
+                    {resetShow ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={generatePassword}
+                className="text-xs text-blue-500 hover:text-blue-600 font-medium flex items-center gap-1"
+              >
+                <RefreshCw size={12} /> Generate strong password
+              </button>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setResetUser(null)} className="btn-outline text-sm px-5">Cancel</button>
+                <button type="submit" disabled={resetting} className="btn-primary text-sm px-5">
+                  <Save size={13} /> {resetting ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

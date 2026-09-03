@@ -9,6 +9,8 @@ interface SidebarProps {
   onCompose: () => void;
   onShowStarred: () => void;
   showStarred: boolean;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -22,7 +24,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1073741824).toFixed(1)} GB`;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentFolderId, setCurrentFolder, onCompose, onShowStarred, showStarred }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentFolderId, setCurrentFolder, onCompose, onShowStarred, showStarred, mobileOpen, onCloseMobile }) => {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [storage, setStorage] = useState<StorageInfo | null>(null);
@@ -44,7 +46,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentFolderId, setCurrentFolder, on
   const storagePercent = storage ? Math.min(100, (storage.used / storage.quota) * 100) : 0;
 
   return (
-    <aside className="sidebar">
+    <>
+      {/* Mobile overlay */}
+      {mobileOpen && <div className="sidebar-overlay" onClick={onCloseMobile} />}
+    <aside className={`sidebar${mobileOpen ? ' sidebar-mobile-open' : ''}`}>
       <button className="compose-main" onClick={onCompose}>
         <PenLine /> Compose <kbd>C</kbd>
       </button>
@@ -103,6 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentFolderId, setCurrentFolder, on
         </div>
       )}
     </aside>
+    </>
   );
 };
 

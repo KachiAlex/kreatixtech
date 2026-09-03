@@ -3,7 +3,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'node:crypto';
+import http from 'node:http';
 import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
 import {
   hashPassword, generateSalt, verifyPassword,
   signJwt, verifyJwt, authMiddleware, requireAdmin,
@@ -17,12 +19,37 @@ import {
   buildEmailHtml,
 } from './email-utils.js';
 import { analyzeEmailSecurity } from './spam-detection.js';
+import { generateTotpSecret, verifyTotp, generateOtpAuthUrl } from './totp.js';
 import { prepare } from './db.js';
 import { storage } from './storage.js';
+import { startSyncInterval } from './d1-sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+
+// CORS — allow kreatixtech.com subdomains, Capacitor native apps, and Electron desktop app
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '';
+  const allowed = [
+    'https://www.kreatixtech.com',
+    'https://kreatixtech.com',
+    'https://mail.kreatixtech.com',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'null', // Electron loads from file:// which sends origin "null"
+  ];
+  if (allowed.includes(origin) || origin.includes('kreatixtech.com') || origin.startsWith('capacitor://') || origin.startsWith('https://localhost')) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-admin-secret');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -36,6 +63,23 @@ const env: any = {
 };
 
 const ADMIN_SECRET = 'KreatixAdmin2026!Secret_Xy9Lm';
+
+// ── Database migrations ──────────────────────────────────────────────────
+try {
+  env.DB.prepare(`CREATE TABLE IF NOT EXISTS delivery_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email_id INTEGER,
+    message_id TEXT,
+    recipient TEXT,
+    event_type TEXT,
+    event_data TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`).run();
+} catch (e) { console.error('Migration: delivery_events table:', e); }
+
+try {
+  env.DB.prepare(`ALTER TABLE emails ADD COLUMN delivery_status TEXT DEFAULT 'sent'`).run();
+} catch (e) { /* column already exists */ }
 
 function adminAuthCheck(req: any): boolean {
   return req.headers['x-admin-secret'] === ADMIN_SECRET;
@@ -142,6 +186,13 @@ app.post('/api/auth/login', async (req, res) => {
 
     const valid = await verifyPassword(password, user.password_salt, user.password_hash);
     if (!valid) return sendResult(res, errorResp('Invalid email or password', 401));
+
+    // 2FA check
+    if (user.totp_enabled === 1 && user.totp_secret) {
+      const { totp_code } = req.body;
+      if (!totp_code) return sendResult(res, json({ requires2FA: true, message: 'Two-factor authentication code required' }, 200));
+      if (!verifyTotp(user.totp_secret, totp_code)) return sendResult(res, errorResp('Invalid 2FA code', 401));
+    }
 
     const accessToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'access' });
     const refreshToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'refresh' }, REFRESH_EXPIRES_IN);
@@ -532,6 +583,13 @@ app.post('/api/send', async (req, res) => {
 
       const sentEmailId = emailResult.meta?.last_row_id;
 
+      // Add read receipt tracking pixel
+      if (sentEmailId) {
+        const trackingPixel = `<img src="${req.protocol}://${req.get('host')}/api/track/open/${sentEmailId}/${user!.sub}" width="1" height="1" alt="" style="display:none;"/>`;
+        const htmlWithTracking = (htmlContent || '') + trackingPixel;
+        env.DB.prepare("UPDATE emails SET html = ? WHERE id = ?").bind(htmlWithTracking, sentEmailId).run();
+      }
+
       if (clientAttachments && clientAttachments.length > 0 && sentEmailId) {
         for (const att of clientAttachments) {
           const attId = crypto.randomUUID();
@@ -883,7 +941,7 @@ app.put('/api/settings', async (req, res) => {
     const { user, error: authError } = await authMiddleware(req);
     if (authError) return sendResult(res, authError);
     const body = req.body;
-    const allowed = ['theme', 'density', 'language', 'signature_html', 'signature_image_url', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email'];
+    const allowed = ['theme', 'density', 'language', 'signature_html', 'signature_image_url', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email', 'vacation_enabled', 'vacation_subject', 'vacation_body', 'vacation_start', 'vacation_end'];
     const updates: string[] = [];
     const params: any[] = [];
     for (const [key, value] of Object.entries(body)) {
@@ -1402,20 +1460,60 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
     const spamFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user.id, 'spam').first() as any;
 
     // Route to spam folder if spam score >= 50
-    const targetFolder = security.isSpam ? spamFolder : inboxFolder;
+    let targetFolder = security.isSpam ? spamFolder : inboxFolder;
+    let markAsRead = 0;
+    let markAsStarred = 0;
+
+    // Apply email rules/filters (only if not spam)
+    if (!security.isSpam) {
+      const { results: rules } = env.DB.prepare('SELECT * FROM email_rules WHERE user_id = ? AND is_active = 1 ORDER BY priority ASC').bind(user.id).all();
+      for (const rule of rules as any[]) {
+        let matches = false;
+        const fieldValue = rule.condition_field === 'from' ? parsed.fromAddress.toLowerCase() :
+                           rule.condition_field === 'subject' ? (parsed.subject || '').toLowerCase() :
+                           rule.condition_field === 'to' ? parsed.toAddress.toLowerCase() :
+                           (parsed.text || '').toLowerCase();
+        const condValue = rule.condition_value.toLowerCase();
+        switch (rule.condition_op) {
+          case 'contains': matches = fieldValue.includes(condValue); break;
+          case 'equals': matches = fieldValue === condValue; break;
+          case 'starts_with': matches = fieldValue.startsWith(condValue); break;
+          case 'ends_with': matches = fieldValue.endsWith(condValue); break;
+        }
+        if (matches) {
+          switch (rule.action) {
+            case 'move_to_folder':
+              const ruleFolder = env.DB.prepare('SELECT id FROM folders WHERE id = ? AND user_id = ?').bind(parseInt(rule.action_value), user.id).first();
+              if (ruleFolder) targetFolder = ruleFolder as any;
+              break;
+            case 'mark_read': markAsRead = 1; break;
+            case 'mark_star': markAsStarred = 1; break;
+            case 'delete':
+              console.log(`Email deleted by rule: ${rule.name}`);
+              return res.status(200).json({ status: 'filtered', rule: rule.name });
+            case 'block_sender':
+              env.DB.prepare('INSERT OR IGNORE INTO blocked_senders (user_id, email_address, reason) VALUES (?, ?, ?)').bind(user.id, parsed.fromAddress.toLowerCase(), 'rule').run();
+              return res.status(200).json({ status: 'filtered', rule: rule.name });
+          }
+          break; // Only apply first matching rule
+        }
+      }
+    }
+
     const threadId = generateThreadId(parsed);
     const snippet = generateSnippet(parsed.text);
     const size = new TextEncoder().encode(parsed.text + (parsed.html || '')).length;
 
     const emailResult = env.DB.prepare(
-      `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, direction, status, size, has_attachments, spam_score, is_spam, security_flags)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?, ?, ?, ?)`
+      `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, direction, status, size, has_attachments, spam_score, is_spam, security_flags, is_read, is_starred)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       user.id, parsed.messageId, threadId, parsed.inReplyTo, parsed.references,
       parsed.fromAddress, parsed.fromName, parsed.toAddress, parsed.ccAddress,
       parsed.subject, parsed.text, parsed.html, snippet, targetFolder?.id,
       size, parsed.attachments.length > 0 ? 1 : 0,
-      security.spamScore, security.isSpam ? 1 : 0, JSON.stringify(security.flags)
+      security.spamScore, security.isSpam ? 1 : 0, JSON.stringify(security.flags),
+      markAsRead, markAsStarred
     ).run();
 
     const emailId = emailResult.meta?.last_row_id;
@@ -1443,7 +1541,50 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
 
     if (inboxFolder) await updateFolderCounts(env, user.id, inboxFolder.id);
     if (spamFolder && security.isSpam) await updateFolderCounts(env, user.id, spamFolder.id);
+    if (targetFolder && targetFolder !== inboxFolder && targetFolder !== spamFolder) await updateFolderCounts(env, user.id, targetFolder.id);
     await upsertContact(env, user.id, parsed.fromAddress, parsed.fromName);
+
+    // Send push notification via WebSocket
+    if (!security.isSpam) {
+      try {
+        const userEmail = env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(user.id).first() as any;
+        if (userEmail?.email) {
+          broadcastNotification(userEmail.email, {
+            type: 'new_email',
+            from: parsed.fromAddress,
+            from_name: parsed.fromName,
+            subject: parsed.subject || '(no subject)',
+            email_id: emailId,
+          });
+        }
+      } catch (pushErr) { console.error('WS notification failed:', pushErr); }
+    }
+
+    // Vacation auto-reply
+    if (!security.isSpam) {
+      const vacation = env.DB.prepare('SELECT vacation_enabled, vacation_subject, vacation_body, vacation_start, vacation_end FROM user_settings WHERE user_id = ?').bind(user.id).first() as any;
+      if (vacation?.vacation_enabled) {
+        const now = new Date();
+        const start = vacation.vacation_start ? new Date(vacation.vacation_start) : null;
+        const end = vacation.vacation_end ? new Date(vacation.vacation_end) : null;
+        const inRange = (!start || now >= start) && (!end || now <= end);
+        if (inRange && vacation.vacation_body) {
+          try {
+            const senderName = env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(user.id).first() as any;
+            await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from: `${senderName?.display_name || 'Auto-Reply'} <${senderName?.email}>`,
+                to: parsed.fromAddress,
+                subject: vacation.vacation_subject || 'Out of Office',
+                text: vacation.vacation_body,
+              }),
+            });
+          } catch (e) { console.error('Vacation auto-reply failed:', e); }
+        }
+      }
+    }
 
     console.log(`Inbound email stored: ${parsed.subject} for ${recipientEmail}`);
     res.status(200).json({ status: 'stored', emailId });
@@ -1579,6 +1720,311 @@ app.get('/api/security/log', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
+// 2FA (TOTP)
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/2fa/status', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const u = env.DB.prepare('SELECT totp_enabled FROM users WHERE id = ?').bind(user!.sub).first();
+    sendResult(res, json({ enabled: u?.totp_enabled === 1 }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/2fa/setup', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const u = env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(user!.sub).first();
+    const secret = generateTotpSecret();
+    // Store secret temporarily (not enabled yet)
+    env.DB.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').bind(secret, user!.sub).run();
+    const otpauthUrl = generateOtpAuthUrl(secret, u?.email || '');
+    sendResult(res, json({ secret, otpauthUrl }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/2fa/verify', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { code } = req.body;
+    if (!code) return sendResult(res, errorResp('Verification code is required', 400));
+    const u = env.DB.prepare('SELECT totp_secret FROM users WHERE id = ?').bind(user!.sub).first();
+    if (!u?.totp_secret) return sendResult(res, errorResp('2FA not set up. Call /api/2fa/setup first.', 400));
+    if (!verifyTotp(u.totp_secret, code)) return sendResult(res, errorResp('Invalid verification code', 401));
+    env.DB.prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').bind(user!.sub).run();
+    await auditLog(env, user!.sub, 'enable_2fa', 'user', String(user!.sub), req);
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/2fa/disable', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { code } = req.body;
+    const u = env.DB.prepare('SELECT totp_secret FROM users WHERE id = ?').bind(user!.sub).first();
+    if (u?.totp_secret && !verifyTotp(u.totp_secret, code || '')) return sendResult(res, errorResp('Invalid verification code', 401));
+    env.DB.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').bind(user!.sub).run();
+    await auditLog(env, user!.sub, 'disable_2fa', 'user', String(user!.sub), req);
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL TEMPLATES
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/templates', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM email_templates WHERE user_id = ? ORDER BY updated_at DESC').bind(user!.sub).all();
+    sendResult(res, json({ templates: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/templates', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { name, subject, body, html, category } = req.body;
+    if (!name) return sendResult(res, errorResp('Template name is required', 400));
+    const result = env.DB.prepare('INSERT INTO email_templates (user_id, name, subject, body, html, category) VALUES (?, ?, ?, ?, ?, ?)').bind(user!.sub, name, subject || null, body || null, html || null, category || 'general').run();
+    sendResult(res, json({ id: result.meta?.last_row_id }, 201));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.put('/api/templates/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { name, subject, body, html, category } = req.body;
+    env.DB.prepare('UPDATE email_templates SET name = ?, subject = ?, body = ?, html = ?, category = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').bind(name, subject, body, html, category || 'general', req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/templates/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('DELETE FROM email_templates WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL RULES / FILTERS
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/rules', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM email_rules WHERE user_id = ? ORDER BY priority ASC, created_at ASC').bind(user!.sub).all();
+    sendResult(res, json({ rules: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.post('/api/rules', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { name, condition_field, condition_op, condition_value, action, action_value, priority } = req.body;
+    if (!name || !condition_field || !condition_op || !condition_value || !action) return sendResult(res, errorResp('Missing required fields', 400));
+    const result = env.DB.prepare('INSERT INTO email_rules (user_id, name, condition_field, condition_op, condition_value, action, action_value, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(user!.sub, name, condition_field, condition_op, condition_value, action, action_value || null, priority || 0).run();
+    sendResult(res, json({ id: result.meta?.last_row_id }, 201));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.put('/api/rules/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { name, condition_field, condition_op, condition_value, action, action_value, priority, is_active } = req.body;
+    env.DB.prepare('UPDATE email_rules SET name = ?, condition_field = ?, condition_op = ?, condition_value = ?, action = ?, action_value = ?, priority = ?, is_active = ? WHERE id = ? AND user_id = ?').bind(name, condition_field, condition_op, condition_value, action, action_value || null, priority || 0, is_active !== undefined ? is_active : 1, req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.delete('/api/rules/:id', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    env.DB.prepare('DELETE FROM email_rules WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// READ RECEIPTS
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/emails/:id/receipts', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const { results } = env.DB.prepare('SELECT * FROM read_receipts WHERE email_id = ? AND user_id = ? ORDER BY read_at DESC').bind(req.params.id, user!.sub).all();
+    sendResult(res, json({ receipts: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+app.get('/api/emails/:id/delivery', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const emailId = parseInt(req.params.id);
+    const email = env.DB.prepare('SELECT id, delivery_status, to_address, cc_address, bcc_address, message_id FROM emails WHERE id = ? AND user_id = ?').bind(emailId, user!.sub).first() as any;
+    if (!email) return sendResult(res, errorResp('Email not found', 404));
+    const { results: events } = env.DB.prepare('SELECT id, recipient, event_type, event_data, created_at FROM delivery_events WHERE email_id = ? ORDER BY created_at ASC').bind(emailId).all();
+    sendResult(res, json({ delivery_status: email.delivery_status, message_id: email.message_id, events }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// RESEND WEBHOOK — delivery tracking
+// ══════════════════════════════════════════════════════════════════════════
+
+app.post('/api/webhooks/resend', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const rawBody = req.body.toString('utf8');
+
+    // Verify Svix signature
+    const svixId = req.headers['svix-id'] as string;
+    const svixTimestamp = req.headers['svix-timestamp'] as string;
+    const svixSignature = req.headers['svix-signature'] as string;
+    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET || '';
+
+    if (webhookSecret && svixId && svixTimestamp && svixSignature) {
+      // Check timestamp tolerance (5 minutes)
+      const now = Math.floor(Date.now() / 1000);
+      const ts = parseInt(svixTimestamp, 10);
+      if (Math.abs(now - ts) > 300) {
+        console.error('Webhook timestamp outside tolerance');
+        return res.status(401).json({ error: 'Stale webhook' });
+      }
+
+      // Decode secret (strip whsec_ prefix, base64 decode)
+      const secretKey = webhookSecret.startsWith('whsec_') ? webhookSecret.slice(6) : webhookSecret;
+      const secretBytes = Buffer.from(secretKey, 'base64');
+
+      // Compute expected signature: HMAC-SHA256 over "{id}.{timestamp}.{body}"
+      const signedContent = `${svixId}.${svixTimestamp}.${rawBody}`;
+      const expectedSig = crypto.createHmac('sha256', secretBytes).update(signedContent).digest('base64');
+
+      // Check against provided signatures (space-separated, each "v1,<sig>")
+      const signatures = svixSignature.split(' ');
+      const valid = signatures.some(sig => {
+        const parts = sig.split(',');
+        if (parts.length === 2 && parts[0] === 'v1') {
+          return crypto.timingSafeEqual(Buffer.from(parts[1]), Buffer.from(expectedSig));
+        }
+        return false;
+      });
+
+      if (!valid) {
+        console.error('Webhook signature verification failed');
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+    } else if (webhookSecret) {
+      console.error('Webhook missing Svix headers');
+      return res.status(401).json({ error: 'Missing signature headers' });
+    }
+
+    const { type, data } = JSON.parse(rawBody);
+    if (!type || !data) return res.status(200).json({ ok: true });
+
+    const messageId = data.email_id || data.message_id || null;
+    const recipient = data.to || data.recipient || null;
+
+    // Find the email by message_id
+    let emailRow = null;
+    if (messageId) {
+      emailRow = env.DB.prepare('SELECT id, user_id FROM emails WHERE message_id = ?').bind(messageId).first() as any;
+    }
+
+    // Map Resend event types to delivery status
+    const statusMap: Record<string, string> = {
+      'email.sent': 'sent',
+      'email.delivered': 'delivered',
+      'email.bounced': 'bounced',
+      'email.complained': 'complained',
+      'email.opened': 'opened',
+      'email.clicked': 'clicked',
+    };
+    const deliveryStatus = statusMap[type] || type;
+
+    // Store the event
+    env.DB.prepare(
+      'INSERT INTO delivery_events (email_id, message_id, recipient, event_type, event_data) VALUES (?, ?, ?, ?, ?)'
+    ).bind(
+      emailRow?.id || null,
+      messageId,
+      recipient,
+      type,
+      JSON.stringify(data)
+    ).run();
+
+    // Update email delivery_status (only for the most significant event)
+    if (emailRow?.id) {
+      const priority = ['bounced', 'complained', 'delivered', 'opened', 'clicked', 'sent'];
+      const current = env.DB.prepare('SELECT delivery_status FROM emails WHERE id = ?').bind(emailRow.id).first() as any;
+      const currentStatus = current?.delivery_status || 'sent';
+      if (priority.indexOf(deliveryStatus) < priority.indexOf(currentStatus)) {
+        env.DB.prepare('UPDATE emails SET delivery_status = ? WHERE id = ?').bind(deliveryStatus, emailRow.id).run();
+      }
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(200).json({ ok: true });
+  }
+});
+
+// Read receipt tracking pixel endpoint (no auth — called by email client)
+app.get('/api/track/open/:emailId/:userId', async (req, res) => {
+  try {
+    const emailId = parseInt(req.params.emailId);
+    const userId = parseInt(req.params.userId);
+    const email = env.DB.prepare('SELECT from_address, subject FROM emails WHERE id = ? AND user_id = ?').bind(emailId, userId).first() as any;
+    if (email) {
+      env.DB.prepare('INSERT INTO read_receipts (user_id, email_id, recipient, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').bind(
+        userId, emailId, email.from_address, req.headers['x-forwarded-for'] || req.socket.remoteAddress || null, req.headers['user-agent'] || null
+      ).run();
+    }
+    // Return 1x1 transparent GIF
+    const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+    res.setHeader('Content-Type', 'image/gif');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.send(pixel);
+  } catch { res.status(404).end(); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// VACATION RESPONDER (check on inbound email)
+// ══════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL THREAD (conversation view)
+// ══════════════════════════════════════════════════════════════════════════
+
+app.get('/api/emails/:id/thread', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const id = parseInt(req.params.id);
+    const emailData = env.DB.prepare('SELECT thread_id FROM emails WHERE id = ? AND user_id = ?').bind(id, user!.sub).first() as any;
+    if (!emailData?.thread_id) return sendResult(res, json({ thread: [] }));
+    const { results } = env.DB.prepare('SELECT id, from_address, from_name, to_address, subject, snippet, text, html, received_at, is_read, direction, has_attachments FROM emails WHERE thread_id = ? AND user_id = ? ORDER BY received_at ASC').bind(emailData.thread_id, user!.sub).all();
+    sendResult(res, json({ thread: results }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -1588,7 +2034,7 @@ app.get('/api/health', (req, res) => {
 
 // ── SPA fallback (serve index.html for non-API routes) ───────────────────
 app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
+  if (req.path.startsWith('/api/') || req.path.startsWith('/ws')) return res.status(404).json({ error: 'Not found' });
   const indexPath = path.join(distPath, 'index.html');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
@@ -1597,7 +2043,51 @@ app.get('*', (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════════════════════════════════
+// WEBSOCKET NOTIFICATION SERVER
+// ══════════════════════════════════════════════════════════════════════════
+
+const wsClients = new Map<string, Set<import('ws').WebSocket>>();
+
+function broadcastNotification(email: string, payload: object) {
+  const clients = wsClients.get(email.toLowerCase());
+  if (!clients) return;
+  const msg = JSON.stringify(payload);
+  for (const ws of clients) {
+    if (ws.readyState === ws.OPEN) ws.send(msg);
+  }
+}
+
+const httpServer = http.createServer(app);
+const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+wss.on('connection', async (ws: import('ws').WebSocket, req) => {
+  try {
+    const url = new URL(req.url || '', 'http://localhost');
+    const token = url.searchParams.get('token');
+    const email = url.searchParams.get('email');
+    if (!token || !email) { ws.close(1008, 'Missing credentials'); return; }
+
+    const payload = await verifyJwt(token) as JwtPayload | null;
+    if (!payload) { ws.close(1008, 'Invalid token'); return; }
+
+    const userKey = email.toLowerCase();
+    if (!wsClients.has(userKey)) wsClients.set(userKey, new Set());
+    wsClients.get(userKey)!.add(ws);
+
+    ws.on('close', () => {
+      const set = wsClients.get(userKey);
+      if (set) { set.delete(ws); if (set.size === 0) wsClients.delete(userKey); }
+    });
+
+    ws.send(JSON.stringify({ type: 'connected' }));
+  } catch (err) {
+    ws.close(1008, 'Auth error');
+  }
+});
+
 const PORT = parseInt(process.env.PORT || '3000');
-app.listen(PORT, '127.0.0.1', () => {
+httpServer.listen(PORT, '127.0.0.1', () => {
   console.log(`Kreatix Mail server running on http://127.0.0.1:${PORT}`);
+  startSyncInterval(env);
 });

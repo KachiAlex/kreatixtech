@@ -3,9 +3,10 @@ import {
   X, Minimize2, Maximize2, Trash2, Send, Paperclip, ChevronDown,
   Bold, Italic, Underline, Strikethrough, Link2, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, Image as ImageIcon,
-  Smile, Type, Palette, Signature, MoreVertical,
+  Smile, Type, Palette, Signature, MoreVertical, FileText, Lock,
 } from 'lucide-react';
-import { emailApi, signatureApi } from '../api';
+import { emailApi, signatureApi, templateApi } from '../api';
+import { encryptMessage } from '../crypto-utils';
 import { useAuth } from '../auth-context';
 import { useAccount } from '../account-context';
 import { useToast } from './Toast';
@@ -14,10 +15,11 @@ import type { Email, Signature as SigType } from '../types';
 interface ComposeModalProps {
   onClose: () => void;
   replyTo?: Email | null;
+  replyAll?: boolean;
   forwardFrom?: Email | null;
 }
 
-const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFrom }) => {
+const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, replyAll, forwardFrom }) => {
   const { user } = useAuth();
   const { currentEmail, currentName, accounts, primaryEmail, switchAccount } = useAccount();
   const { success: toastSuccess, error: toastError, info: toastInfo, prompt: promptDialog } = useToast();
@@ -37,16 +39,61 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
   const [signatures, setSignatures] = useState<SigType[]>([]);
   const [showSigPopup, setShowSigPopup] = useState(false);
   const [showSendPopup, setShowSendPopup] = useState(false);
+  const [showTemplatePopup, setShowTemplatePopup] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [encryptEnabled, setEncryptEnabled] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sigPopupRef = useRef<HTMLDivElement>(null);
   const sendPopupRef = useRef<HTMLDivElement>(null);
+  const templatePopupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (replyTo) {
-      setTo(replyTo.from_address);
+      // Build recipient list
+      // For sent (outbound) emails, reply should go to the original To recipients, not self
+      const isOutbound = replyTo.direction === 'outbound';
+      const allRecipients: string[] = isOutbound
+        ? replyTo.to_address.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [replyTo.from_address];
+      const ccRecipients: string[] = [];
+
+      if (replyAll) {
+        // Add original To recipients (excluding self)
+        const toAddrs = replyTo.to_address.split(',').map((s: string) => s.trim()).filter(Boolean);
+        for (const addr of toAddrs) {
+          if (addr.toLowerCase() !== (currentEmail || user?.email || '').toLowerCase() && !allRecipients.includes(addr)) {
+            allRecipients.push(addr);
+          }
+        }
+        // Add original CC recipients (excluding self)
+        if (replyTo.cc_address) {
+          const ccAddrs = replyTo.cc_address.split(',').map((s: string) => s.trim()).filter(Boolean);
+          for (const addr of ccAddrs) {
+            if (addr.toLowerCase() !== (currentEmail || user?.email || '').toLowerCase() && !ccRecipients.includes(addr) && !allRecipients.includes(addr)) {
+              ccRecipients.push(addr);
+            }
+          }
+        }
+      }
+
+      // For Reply All: first recipient goes in To, rest go in CC along with original CCs
+      if (replyAll && allRecipients.length > 1) {
+        const toAddr = allRecipients.shift()!;
+        setTo(toAddr);
+        const remainingCc = [...allRecipients, ...ccRecipients];
+        if (remainingCc.length > 0) {
+          setCc(remainingCc.join(', '));
+          setShowCc(true);
+        }
+      } else {
+        setTo(allRecipients.join(', '));
+        if (replyTo.cc_address && !replyAll) { setCc(replyTo.cc_address); setShowCc(true); }
+        else if (ccRecipients.length > 0) { setCc(ccRecipients.join(', ')); setShowCc(true); }
+        else { setCc(''); }
+      }
+
       setSubject(replyTo.subject.startsWith('Re: ') ? replyTo.subject : `Re: ${replyTo.subject}`);
-      if (replyTo.cc_address) { setCc(replyTo.cc_address); setShowCc(true); }
       setTimeout(() => {
         if (editorRef.current) {
           editorRef.current.innerHTML = `<br><br><blockquote style="border-left:2px solid #E8E5E0;padding-left:12px;margin:0;color:#6B6F76;font-size:13px;">On ${replyTo.received_at}, ${replyTo.from_name || replyTo.from_address} wrote:<br><br>${replyTo.html || replyTo.text?.replace(/\n/g, '<br>') || ''}</blockquote>`;
@@ -61,12 +108,14 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
       }, 100);
     }
     loadSignatures();
-  }, [replyTo, forwardFrom]);
+    loadTemplates();
+  }, [replyTo, replyAll, forwardFrom]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (sigPopupRef.current && !sigPopupRef.current.contains(e.target as Node)) setShowSigPopup(false);
       if (sendPopupRef.current && !sendPopupRef.current.contains(e.target as Node)) setShowSendPopup(false);
+      if (templatePopupRef.current && !templatePopupRef.current.contains(e.target as Node)) setShowTemplatePopup(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -101,6 +150,23 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
     setShowSigPopup(false);
   };
 
+  const loadTemplates = async () => {
+    try {
+      const data = await templateApi.list();
+      setTemplates(data.templates);
+    } catch (e) { console.error(e); }
+  };
+
+  const applyTemplate = (tpl: any) => {
+    if (tpl.subject && !subject) setSubject(tpl.subject);
+    if (tpl.html && editorRef.current) {
+      editorRef.current.innerHTML = tpl.html;
+    } else if (tpl.body && editorRef.current) {
+      editorRef.current.innerHTML = tpl.body.replace(/\n/g, '<br>');
+    }
+    setShowTemplatePopup(false);
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setAttachments([...attachments, ...Array.from(e.target.files)]);
@@ -115,8 +181,17 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
     if (!to || !subject) return;
     setIsSending(true);
     try {
-      const bodyHtml = editorRef.current?.innerHTML || '';
-      const bodyText = editorRef.current?.innerText || '';
+      let bodyHtml = editorRef.current?.innerHTML || '';
+      let bodyText = editorRef.current?.innerText || '';
+
+      // Encrypt if enabled
+      if (encryptEnabled) {
+        const passphrase = await promptDialog('Enter encryption passphrase (share this with recipient securely):');
+        if (!passphrase) { setIsSending(false); return; }
+        const encrypted = await encryptMessage(bodyText, passphrase);
+        bodyText = `-----BEGIN ENCRYPTED MESSAGE-----\n${encrypted}\n-----END ENCRYPTED MESSAGE-----`;
+        bodyHtml = `<div style="background:#f0f0f0;padding:16px;border-radius:8px;font-family:monospace;font-size:12px;white-space:pre-wrap;">${bodyText}</div>`;
+      }
 
       const attachmentPayload = await Promise.all(
         attachments.map(async (file) => {
@@ -186,7 +261,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
       <div className={`overlay ${expanded ? 'show' : ''}`} onClick={() => expanded && setExpanded(false)} />
       <div className={`composer ${expanded ? 'expanded' : ''} show`}>
         <div className="compose-title">
-          <span><i></i> {replyTo ? 'Reply' : forwardFrom ? 'Forward' : 'New Message'}</span>
+          <span><i></i> {replyTo ? (replyAll ? 'Reply All' : 'Reply') : forwardFrom ? 'Forward' : 'New Message'}</span>
           <div className="window-actions">
             <button onClick={() => setMinimized(true)} title="Minimize"><Minimize2 /></button>
             <button onClick={() => setExpanded(!expanded)} title="Maximize"><Maximize2 /></button>
@@ -302,6 +377,32 @@ const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo, forwardFr
             <button className="fmt" onClick={() => fileInputRef.current?.click()} title="Attach file"><Paperclip /></button>
             <button className="fmt" onClick={insertImage} title="Insert image"><ImageIcon /></button>
             <button className="fmt" title="Emoji"><Smile /></button>
+            <button
+              className={`fmt${encryptEnabled ? ' active' : ''}`}
+              onClick={() => setEncryptEnabled(!encryptEnabled)}
+              title="Encrypt message"
+              style={encryptEnabled ? { background: '#F2782E', color: '#fff', borderRadius: 6 } : {}}
+            >
+              <Lock style={{ width: 16, height: 16 }} />
+            </button>
+            <div ref={templatePopupRef} style={{ position: 'relative' }}>
+              <button className="fmt" onClick={() => setShowTemplatePopup(!showTemplatePopup)} title="Templates" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <FileText style={{ width: 16, height: 16 }} /><span style={{ fontSize: 12 }}>Templates</span>
+              </button>
+              {showTemplatePopup && (
+                <div className="popup show" style={{ bottom: 40, left: 0, minWidth: 200 }}>
+                  {templates.length === 0 ? (
+                    <button onClick={() => setShowTemplatePopup(false)}>No templates configured</button>
+                  ) : (
+                    templates.map(tpl => (
+                      <button key={tpl.id} onClick={() => applyTemplate(tpl)}>
+                        {tpl.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <div ref={sigPopupRef} style={{ position: 'relative' }}>
               <button className="fmt footer-signature" onClick={() => setShowSigPopup(!showSigPopup)} title="Signature">
                 <Signature /><span>Signature</span>

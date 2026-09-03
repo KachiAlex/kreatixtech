@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   settings: UserSettings | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, totp_code?: string) => Promise<void>;
   register: (email: string, password: string, display_name?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -36,8 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refreshUser(); }, [refreshUser]);
 
-  const login = async (email: string, password: string) => {
-    const res = await authApi.login(email, password);
+  const login = async (email: string, password: string, totp_code?: string) => {
+    const res = await authApi.login(email, password, totp_code);
+    if ((res as any).requires2FA) throw new Error('2FA_REQUIRED');
     setTokens(res.accessToken, res.refreshToken);
     localStorage.setItem('kreatix_user', JSON.stringify(res.user));
     setUser(res.user);

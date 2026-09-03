@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import type {
   AuthResponse, User, UserSettings, Email, EmailListResponse,
   Folder, Label, Draft, Signature, Alias, Contact, Session,
@@ -5,7 +6,9 @@ import type {
   FileItem, StorageInfo, OutboxItem, LinkedAccount,
 } from './types';
 
-const API_URL = '/api';
+const isElectron = typeof window !== 'undefined' && ((window as any).electronAPI?.isElectron || (navigator as any).userAgent?.toLowerCase().includes('electron'));
+const SERVER_URL = 'https://mail.kreatixtech.com';
+const API_URL = (Capacitor.isNativePlatform() || isElectron) ? `${SERVER_URL}/api` : '/api';
 
 // ── Token management ──────────────────────────────────────────────────────
 
@@ -116,8 +119,8 @@ async function apiDelete<T>(path: string): Promise<T> {
 export const authApi = {
   register: (email: string, password: string, display_name?: string) =>
     apiPost<AuthResponse>('/auth/register', { email, password, display_name }),
-  login: (email: string, password: string) =>
-    apiPost<AuthResponse>('/auth/login', { email, password }),
+  login: (email: string, password: string, totp_code?: string) =>
+    apiPost<AuthResponse>('/auth/login', { email, password, totp_code }),
   logout: () => apiPost('/auth/logout', { refreshToken }),
   me: () => apiGet<{ user: User; settings: UserSettings }>('/auth/me'),
 };
@@ -343,4 +346,52 @@ export const securityApi = {
     apiPost('/security/trust', { email_address }),
   untrustSender: (id: number) => apiDelete(`/security/trusted/${id}`),
   getLog: (limit?: number) => apiGet<{ events: any[] }>(`/security/log${limit ? `?limit=${limit}` : ''}`),
+};
+
+// ── 2FA API ─────────────────────────────────────────────────────────────────
+
+export const twoFactorApi = {
+  status: () => apiGet<{ enabled: boolean }>('/2fa/status'),
+  setup: () => apiPost<{ secret: string; otpauthUrl: string }>('/2fa/setup'),
+  verify: (code: string) => apiPost('/2fa/verify', { code }),
+  disable: (code: string) => apiPost('/2fa/disable', { code }),
+};
+
+// ── Email Templates API ─────────────────────────────────────────────────────
+
+export const templateApi = {
+  list: () => apiGet<{ templates: any[] }>('/templates'),
+  create: (data: { name: string; subject?: string; body?: string; html?: string; category?: string }) =>
+    apiPost<{ id: number }>('/templates', data),
+  update: (id: number, data: { name: string; subject?: string; body?: string; html?: string; category?: string }) =>
+    apiPut(`/templates/${id}`, data),
+  delete: (id: number) => apiDelete(`/templates/${id}`),
+};
+
+// ── Email Rules / Filters API ───────────────────────────────────────────────
+
+export const rulesApi = {
+  list: () => apiGet<{ rules: any[] }>('/rules'),
+  create: (data: { name: string; condition_field: string; condition_op: string; condition_value: string; action: string; action_value?: string; priority?: number }) =>
+    apiPost<{ id: number }>('/rules', data),
+  update: (id: number, data: any) => apiPut(`/rules/${id}`, data),
+  delete: (id: number) => apiDelete(`/rules/${id}`),
+};
+
+// ── Read Receipts API ───────────────────────────────────────────────────────
+
+export const receiptApi = {
+  list: (emailId: number) => apiGet<{ receipts: any[] }>(`/emails/${emailId}/receipts`),
+};
+
+// ── Delivery Tracking API ───────────────────────────────────────────────────
+
+export const deliveryApi = {
+  get: (emailId: number) => apiGet<{ delivery_status: string; message_id: string; events: any[] }>(`/emails/${emailId}/delivery`),
+};
+
+// ── Thread API ──────────────────────────────────────────────────────────────
+
+export const threadApi = {
+  get: (emailId: number) => apiGet<{ thread: any[] }>(`/emails/${emailId}/thread`),
 };

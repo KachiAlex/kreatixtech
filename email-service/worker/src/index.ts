@@ -11,6 +11,9 @@ import {
   upsertContact, createDefaultFolders, updateFolderCounts,
   buildEmailHtml,
 } from './email-utils';
+import {
+  generateTotpSecret, generateTotp, verifyTotp, generateOtpAuthUrl,
+} from './totp';
 
 export interface Env {
   DB: D1Database;
@@ -141,7 +144,7 @@ export default {
           return errorResp('Too many login attempts. Please try again later.', 429);
         }
 
-        const { email, password } = await request.json() as any;
+        const { email, password, totp_code } = await request.json() as any;
         if (!email || !password) return errorResp('Email and password are required', 400);
 
         const user = await env.DB.prepare(
@@ -152,6 +155,15 @@ export default {
 
         const valid = await verifyPassword(password, user.password_salt, user.password_hash);
         if (!valid) return errorResp('Invalid email or password', 401);
+
+        // 2FA check
+        if (user.totp_enabled === 1 && user.totp_secret) {
+          if (!totp_code) {
+            return json({ requires2FA: true }, 200);
+          }
+          const validTotp = await verifyTotp(user.totp_secret, totp_code);
+          if (!validTotp) return errorResp('Invalid 2FA code', 401);
+        }
 
         const accessToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'access' });
         const refreshToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'refresh' }, REFRESH_EXPIRES_IN);
@@ -562,6 +574,13 @@ export default {
           const recipients = toList!;
           for (const r of recipients) await upsertContact(env, user!.sub, r);
 
+          // Add read receipt tracking pixel
+          if (sentEmailId) {
+            const trackingPixel = `<img src="https://mail.kreatixtech.com/api/receipts/track/${sentEmailId}" width="1" height="1" alt="" style="display:none;" />`;
+            const updatedHtml = htmlContent + trackingPixel;
+            await env.DB.prepare('UPDATE emails SET html = ? WHERE id = ?').bind(updatedHtml, sentEmailId).run();
+          }
+
           await auditLog(env, user!.sub, 'send', 'email', String(emailResult.meta?.last_row_id), request, { to, subject });
 
           return json({ success: true, id: emailResult.meta?.last_row_id, messageId: resendResult.id });
@@ -725,7 +744,7 @@ export default {
         const { user, error: authError } = await authMiddleware(request, env);
         if (authError) return authError;
         const body = await request.json() as any;
-        const allowed = ['theme', 'density', 'language', 'signature_html', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email'];
+        const allowed = ['theme', 'density', 'language', 'signature_html', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email', 'vacation_enabled', 'vacation_subject', 'vacation_body', 'vacation_start', 'vacation_end'];
         const updates: string[] = [];
         const params: any[] = [];
         for (const [key, value] of Object.entries(body)) {
@@ -1161,6 +1180,230 @@ export default {
       }
 
       // ════════════════════════════════════════════════════════════════
+      // 2FA (Two-Factor Authentication)
+      // ════════════════════════════════════════════════════════════════
+
+      if (path === '/api/2fa/setup' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const secret = generateTotpSecret();
+        const dbUser = await env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(user!.sub).first() as any;
+        const otpauthUrl = generateOtpAuthUrl(secret, dbUser.email);
+        await env.DB.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').bind(secret, user!.sub).run();
+        return json({ secret, otpauthUrl });
+      }
+
+      if (path === '/api/2fa/verify' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { code } = await request.json() as any;
+        const dbUser = await env.DB.prepare('SELECT totp_secret FROM users WHERE id = ?').bind(user!.sub).first() as any;
+        if (!dbUser?.totp_secret) return errorResp('2FA not set up', 400);
+        const valid = await verifyTotp(dbUser.totp_secret, code);
+        if (!valid) return errorResp('Invalid code', 400);
+        await env.DB.prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').bind(user!.sub).run();
+        return json({ success: true });
+      }
+
+      if (path === '/api/2fa/disable' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { code } = await request.json() as any;
+        const dbUser = await env.DB.prepare('SELECT totp_secret FROM users WHERE id = ?').bind(user!.sub).first() as any;
+        if (!dbUser?.totp_secret) return errorResp('2FA not set up', 400);
+        const valid = await verifyTotp(dbUser.totp_secret, code);
+        if (!valid) return errorResp('Invalid code', 400);
+        await env.DB.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').bind(user!.sub).run();
+        return json({ success: true });
+      }
+
+      if (path === '/api/2fa/status' && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const dbUser = await env.DB.prepare('SELECT totp_enabled, totp_secret FROM users WHERE id = ?').bind(user!.sub).first() as any;
+        return json({ enabled: dbUser?.totp_enabled === 1, hasSecret: !!dbUser?.totp_secret });
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // EMAIL TEMPLATES
+      // ════════════════════════════════════════════════════════════════
+
+      if (path === '/api/templates' && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { results } = await env.DB.prepare('SELECT * FROM email_templates WHERE user_id = ? ORDER BY updated_at DESC').bind(user!.sub).all();
+        return json({ templates: results });
+      }
+
+      if (path === '/api/templates' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { name, subject, body, html, category } = await request.json() as any;
+        if (!name) return errorResp('Template name is required', 400);
+        const result = await env.DB.prepare(
+          'INSERT INTO email_templates (user_id, name, subject, body, html, category) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(user!.sub, name, subject || null, body || null, html || null, category || 'general').run();
+        return json({ id: result.meta?.last_row_id, success: true }, 201);
+      }
+
+      if (path === '/api/templates' && method === 'PUT') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { id, name, subject, body, html, category } = await request.json() as any;
+        if (!id) return errorResp('Template id is required', 400);
+        await env.DB.prepare(
+          'UPDATE email_templates SET name = ?, subject = ?, body = ?, html = ?, category = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?'
+        ).bind(name, subject, body, html, category || 'general', id, user!.sub).run();
+        return json({ success: true });
+      }
+
+      if (path.startsWith('/api/templates/') && method === 'DELETE') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const id = parseInt(path.split('/')[3]);
+        await env.DB.prepare('DELETE FROM email_templates WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
+        return json({ success: true });
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // EMAIL RULES / FILTERS
+      // ════════════════════════════════════════════════════════════════
+
+      if (path === '/api/rules' && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { results } = await env.DB.prepare('SELECT * FROM email_rules WHERE user_id = ? ORDER BY priority ASC, created_at DESC').bind(user!.sub).all();
+        return json({ rules: results });
+      }
+
+      if (path === '/api/rules' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { name, condition_field, condition_op, condition_value, action, action_value, priority } = await request.json() as any;
+        if (!name || !condition_value) return errorResp('Name and condition value are required', 400);
+        const result = await env.DB.prepare(
+          'INSERT INTO email_rules (user_id, name, condition_field, condition_op, condition_value, action, action_value, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(user!.sub, name, condition_field || 'from', condition_op || 'contains', condition_value, action || 'move_to_folder', action_value || null, priority || 0).run();
+        return json({ id: result.meta?.last_row_id, success: true }, 201);
+      }
+
+      if (path === '/api/rules' && method === 'PUT') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { id, name, condition_field, condition_op, condition_value, action, action_value, priority, is_active } = await request.json() as any;
+        if (!id) return errorResp('Rule id is required', 400);
+        await env.DB.prepare(
+          'UPDATE email_rules SET name = ?, condition_field = ?, condition_op = ?, condition_value = ?, action = ?, action_value = ?, priority = ?, is_active = ? WHERE id = ? AND user_id = ?'
+        ).bind(name, condition_field, condition_op, condition_value, action, action_value, priority || 0, is_active ?? 1, id, user!.sub).run();
+        return json({ success: true });
+      }
+
+      if (path.startsWith('/api/rules/') && method === 'DELETE') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const id = parseInt(path.split('/')[3]);
+        await env.DB.prepare('DELETE FROM email_rules WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
+        return json({ success: true });
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // READ RECEIPTS
+      // ════════════════════════════════════════════════════════════════
+
+      if (path.startsWith('/api/receipts/track/') && method === 'GET') {
+        const emailId = parseInt(path.split('/')[4]);
+        if (emailId) {
+          const email = await env.DB.prepare('SELECT user_id, to_address FROM emails WHERE id = ?').bind(emailId).first() as any;
+          if (email) {
+            await env.DB.prepare('INSERT INTO read_receipts (email_id, user_id, recipient, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)')
+              .bind(emailId, email.user_id, email.to_address, request.headers.get('CF-Connecting-IP') || null, request.headers.get('User-Agent') || null).run();
+          }
+        }
+        // Return a 1x1 transparent GIF
+        const pixel = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x21, 0xF9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3B]);
+        return new Response(pixel, { headers: { 'Content-Type': 'image/gif', 'Cache-Control': 'no-store' } });
+      }
+
+      if (path.startsWith('/api/receipts/') && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const emailId = parseInt(path.split('/')[3]);
+        const { results } = await env.DB.prepare('SELECT * FROM read_receipts WHERE email_id = ? AND user_id = ? ORDER BY read_at DESC').bind(emailId, user!.sub).all();
+        return json({ receipts: results });
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // SECURITY (Blocked/Trusted Senders, Security Log)
+      // ════════════════════════════════════════════════════════════════
+
+      if (path === '/api/security/blocked' && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { results } = await env.DB.prepare('SELECT * FROM blocked_senders WHERE user_id = ? ORDER BY created_at DESC').bind(user!.sub).all();
+        return json({ blocked: results });
+      }
+
+      if (path === '/api/security/blocked' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { email_address, reason } = await request.json() as any;
+        if (!email_address) return errorResp('Email address is required', 400);
+        await env.DB.prepare('INSERT OR IGNORE INTO blocked_senders (user_id, email_address, reason) VALUES (?, ?, ?)').bind(user!.sub, email_address, reason || null).run();
+        return json({ success: true }, 201);
+      }
+
+      if (path.startsWith('/api/security/blocked/') && method === 'DELETE') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const id = parseInt(path.split('/')[4]);
+        await env.DB.prepare('DELETE FROM blocked_senders WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
+        return json({ success: true });
+      }
+
+      if (path === '/api/security/trusted' && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { results } = await env.DB.prepare('SELECT * FROM trusted_senders WHERE user_id = ? ORDER BY created_at DESC').bind(user!.sub).all();
+        return json({ trusted: results });
+      }
+
+      if (path === '/api/security/trusted' && method === 'POST') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { email_address } = await request.json() as any;
+        if (!email_address) return errorResp('Email address is required', 400);
+        await env.DB.prepare('INSERT OR IGNORE INTO trusted_senders (user_id, email_address) VALUES (?, ?)').bind(user!.sub, email_address).run();
+        return json({ success: true }, 201);
+      }
+
+      if (path.startsWith('/api/security/trusted/') && method === 'DELETE') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const id = parseInt(path.split('/')[4]);
+        await env.DB.prepare('DELETE FROM trusted_senders WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
+        return json({ success: true });
+      }
+
+      if (path === '/api/security/logs' && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const { results } = await env.DB.prepare('SELECT * FROM security_log WHERE user_id = ? ORDER BY created_at DESC LIMIT 100').bind(user!.sub).all();
+        return json({ logs: results });
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // EMAIL THREADING
+      // ════════════════════════════════════════════════════════════════
+
+      if (path.startsWith('/api/threads/') && method === 'GET') {
+        const { user, error: authError } = await authMiddleware(request, env);
+        if (authError) return authError;
+        const threadId = path.split('/')[3];
+        const { results } = await env.DB.prepare('SELECT * FROM emails WHERE user_id = ? AND thread_id = ? ORDER BY received_at ASC').bind(user!.sub, threadId).all();
+        return json({ thread: results });
+      }
+
+      // ════════════════════════════════════════════════════════════════
       // HEALTH CHECK
       // ════════════════════════════════════════════════════════════════
 
@@ -1191,21 +1434,66 @@ export default {
       const rawEmail = await new Response(message.raw).arrayBuffer();
       const parsed = await parseRawEmail(rawEmail);
 
+      // Check blocked senders
+      const blocked = await env.DB.prepare('SELECT id FROM blocked_senders WHERE user_id = ? AND email_address = ?')
+        .bind(user.id, parsed.fromAddress).first();
+      if (blocked) {
+        console.log(`Email from blocked sender ${parsed.fromAddress} rejected`);
+        return;
+      }
+
       const inboxFolder = await env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?')
         .bind(user.id, 'inbox').first() as any;
+
+      // Apply email rules/filters
+      const rules = await env.DB.prepare('SELECT * FROM email_rules WHERE user_id = ? AND is_active = 1 ORDER BY priority ASC')
+        .bind(user.id).all() as any;
+      let targetFolderId = inboxFolder?.id;
+      let isRead = 0;
+      let isStarred = 0;
+      let isDeleted = 0;
+
+      if (rules.results) {
+        for (const rule of rules.results) {
+          let matched = false;
+          const fieldValue = rule.condition_field === 'from' ? parsed.fromAddress :
+            rule.condition_field === 'subject' ? parsed.subject :
+            rule.condition_field === 'to' ? parsed.toAddress :
+            rule.condition_field === 'body' ? parsed.text : '';
+          if (rule.condition_op === 'contains') matched = fieldValue.includes(rule.condition_value);
+          else if (rule.condition_op === 'equals') matched = fieldValue === rule.condition_value;
+          else if (rule.condition_op === 'starts_with') matched = fieldValue.startsWith(rule.condition_value);
+          else if (rule.condition_op === 'ends_with') matched = fieldValue.endsWith(rule.condition_value);
+
+          if (matched) {
+            if (rule.action === 'move_to_folder' && rule.action_value) {
+              const folder = await env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND name = ?').bind(user.id, rule.action_value).first() as any;
+              if (folder) targetFolderId = folder.id;
+            } else if (rule.action === 'mark_read') isRead = 1;
+            else if (rule.action === 'mark_star') isStarred = 1;
+            else if (rule.action === 'delete') isDeleted = 1;
+            break;
+          }
+        }
+      }
+
+      if (isDeleted) {
+        const trashFolder = await env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user.id, 'trash').first() as any;
+        targetFolderId = trashFolder?.id;
+      }
 
       const threadId = generateThreadId(parsed);
       const snippet = generateSnippet(parsed.text);
       const size = new TextEncoder().encode(parsed.text + (parsed.html || '')).length;
 
       const emailResult = await env.DB.prepare(
-        `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, direction, status, size, has_attachments)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?)`
+        `INSERT INTO emails (user_id, message_id, thread_id, in_reply_to, ref_header, from_address, from_name, to_address, cc_address, subject, text, html, snippet, folder_id, is_read, is_starred, direction, status, size, has_attachments)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inbound', 'received', ?, ?)`
       ).bind(
         user.id, parsed.messageId, threadId, parsed.inReplyTo, parsed.references,
         parsed.fromAddress, parsed.fromName, parsed.toAddress, parsed.ccAddress,
-        parsed.subject, parsed.text, parsed.html, snippet, inboxFolder?.id,
-        size, parsed.attachments.length > 0 ? 1 : 0
+        parsed.subject, parsed.text, parsed.html, snippet, targetFolderId,
+        isRead, isStarred, size, parsed.attachments.length > 0 ? 1 : 0
       ).run();
 
       const emailId = emailResult.meta?.last_row_id;
@@ -1223,6 +1511,34 @@ export default {
 
       if (inboxFolder) await updateFolderCounts(env, user.id, inboxFolder.id);
       await upsertContact(env, user.id, parsed.fromAddress, parsed.fromName);
+
+      // Vacation auto-reply
+      const vacationSettings = await env.DB.prepare('SELECT vacation_enabled, vacation_subject, vacation_body, vacation_start, vacation_end FROM user_settings WHERE user_id = ?')
+        .bind(user.id).first() as any;
+      if (vacationSettings?.vacation_enabled) {
+        const now = new Date();
+        const start = vacationSettings.vacation_start ? new Date(vacationSettings.vacation_start) : null;
+        const end = vacationSettings.vacation_end ? new Date(vacationSettings.vacation_end) : null;
+        const inRange = (!start || now >= start) && (!end || now <= end);
+        if (inRange && parsed.fromAddress) {
+          try {
+            const dbUser = await env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user.id).first() as any;
+            await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from: `${dbUser.display_name || 'Kreatix Mail'} <${dbUser.email}>`,
+                to: [parsed.fromAddress],
+                subject: vacationSettings.vacation_subject || 'Out of Office',
+                text: vacationSettings.vacation_body || 'I am currently out of the office and will respond when I return.',
+                html: (vacationSettings.vacation_body || 'I am currently out of the office and will respond when I return.').replace(/\n/g, '<br>'),
+              }),
+            });
+          } catch (e) {
+            console.error('Vacation auto-reply failed:', e);
+          }
+        }
+      }
 
       console.log(`Email stored: ${parsed.subject} for ${recipientEmail}`);
     } catch (e) {

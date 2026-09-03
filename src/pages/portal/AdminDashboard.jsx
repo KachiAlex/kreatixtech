@@ -6,7 +6,7 @@ import {
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
   Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
   Copy, Check, Link2, BarChart3, MapPin, MousePointerClick, Eye,
-  Newspaper, Calendar, Eye as EyeIcon, Mail as MailIcon
+  Newspaper, Calendar, Eye as EyeIcon, Mail as MailIcon, Lock, EyeOff, KeyRound
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
@@ -69,6 +69,7 @@ const NAV_ITEMS = [
   { key: 'blog',      label: 'Blog Posts',         icon: Newspaper },
   { key: 'analytics', label: 'Analytics',          icon: BarChart3 },
   { key: 'email',     label: 'Email Management',   icon: MailIcon },
+  { key: 'settings',  label: 'Settings',           icon: Settings },
 ];
 
 export default function AdminDashboard() {
@@ -482,6 +483,11 @@ export default function AdminDashboard() {
           />
         )}
 
+        {/* â”€â”€ Settings section ââ■─ */}
+        {activeSection === 'settings' && (
+          <AdminSettingsPanel user={user} apiCall={apiCall} />
+        )}
+
           </div>{/* end content area */}
         </div>{/* end sidebar + content flex */}
       </main>
@@ -489,7 +495,146 @@ export default function AdminDashboard() {
   );
 }
 
-// â”€â”€ Request row with inline assign + status controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”─â■─ Admin Settings Panel â■â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─
+function AdminSettingsPanel({ user, apiCall }) {
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState(null);
+
+  const savePassword = async (e) => {
+    e.preventDefault();
+    setPwMsg(null);
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwMsg({ ok: false, text: 'Passwords do not match' });
+      return;
+    }
+    if (pwForm.newPassword.length < 6) {
+      setPwMsg({ ok: false, text: 'Password must be at least 6 characters' });
+      return;
+    }
+    setPwSaving(true);
+    try {
+      const r = await apiCall('/api/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        if (data.token) localStorage.setItem('portalToken', data.token);
+        setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setPwMsg({ ok: true, text: 'Password changed successfully.' });
+      } else {
+        setPwMsg({ ok: false, text: data.error || 'Update failed' });
+      }
+    } catch {
+      setPwMsg({ ok: false, text: 'Network error' });
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-black text-[#0E0E0F] mb-1">Settings</h2>
+        <p className="text-[#6B6F76] text-sm">Manage your admin account password</p>
+      </div>
+
+      {/* ── Account info ── */}
+      <div className="bg-white rounded-2xl border border-[#E8E5E0] p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <User className="h-5 w-5 text-[#F2782E]" />
+          <h3 className="text-base font-bold text-[#0E0E0F]">Account</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-semibold text-[#6B6F76] mb-1">Name</p>
+            <p className="text-sm font-medium text-[#0E0E0F]">{user?.name}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#6B6F76] mb-1">Email</p>
+            <p className="text-sm font-medium text-[#0E0E0F]">{user?.email}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-[#6B6F76] mb-1">Role</p>
+            <span className="inline-block px-2.5 py-0.5 bg-[#F2782E]/10 text-[#F2782E] text-xs font-bold rounded-full">{user?.role}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Change Password ── */}
+      <div className="bg-white rounded-2xl border border-[#E8E5E0] p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Lock className="h-5 w-5 text-[#F2782E]" />
+          <h3 className="text-base font-bold text-[#0E0E0F]">Change Password</h3>
+        </div>
+        {pwMsg && (
+          <div className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${pwMsg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            {pwMsg.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
+            {pwMsg.text}
+          </div>
+        )}
+        <form onSubmit={savePassword} className="space-y-4 max-w-md">
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1.5">Current Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+              <input
+                type={showCurrent ? 'text' : 'password'}
+                value={pwForm.currentPassword}
+                onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
+                required
+                className="w-full pl-9 pr-10 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+              />
+              <button type="button" onClick={() => setShowCurrent(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6F76]">
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1.5">New Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+              <input
+                type={showNew ? 'text' : 'password'}
+                value={pwForm.newPassword}
+                onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
+                required minLength={6}
+                className="w-full pl-9 pr-10 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+              />
+              <button type="button" onClick={() => setShowNew(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6F76]">
+                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#0E0E0F] mb-1.5">Confirm New Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6F76]" />
+              <input
+                type={showNew ? 'text' : 'password'}
+                value={pwForm.confirmPassword}
+                onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                required minLength={6}
+                className="w-full pl-9 pr-3 py-2.5 border border-[#E8E5E0] rounded-xl text-sm focus:ring-2 focus:ring-[#F2782E] focus:border-transparent"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button type="submit" disabled={pwSaving}
+              className="px-5 py-2.5 bg-[#0E0E0F] text-white text-sm font-bold rounded-xl hover:bg-[#F2782E] disabled:opacity-50 transition-colors">
+              {pwSaving ? 'Updating…' : 'Update Password'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// â”€â■─ Request row with inline assign + status controls â■â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─â■─
 function RequestRow({ request: a, analysts, onAssign, onStatusChange }) {
   const [showActions, setShowActions] = useState(false);
 

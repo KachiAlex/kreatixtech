@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon, ShieldAlert } from 'lucide-react';
+import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon, ShieldAlert, FileText, Filter, Plane, Key } from 'lucide-react';
 import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi, signatureImageApi } from '../api';
 import SecurityPanel from './SecurityPanel';
+import TwoFactorPanel from './TwoFactorPanel';
+import RulesPanel from './RulesPanel';
+import TemplatesPanel from './TemplatesPanel';
+import VacationResponder from './VacationResponder';
 import { useAuth } from '../auth-context';
 import { useToast } from './Toast';
 import type { UserSettings, Signature, Alias, Session, Label } from '../types';
@@ -18,7 +22,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const [aliases, setAliases] = useState<Alias[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
-  const [tab, setTab] = useState<'general' | 'signature' | 'labels' | 'aliases' | 'sessions' | 'security'>('general');
+  const [tab, setTab] = useState<'general' | 'signature' | 'labels' | 'aliases' | 'sessions' | 'security' | 'templates' | 'rules' | 'vacation' | 'twofa'>('general');
   const [saving, setSaving] = useState(false);
   const [newLabel, setNewLabel] = useState({ name: '', color: '#6B7280' });
   const [newAlias, setNewAlias] = useState({ alias_email: '', forward_to: '' });
@@ -111,6 +115,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
     { id: 'aliases' as const, label: 'Aliases', icon: Shield },
     { id: 'sessions' as const, label: 'Sessions', icon: Monitor },
     { id: 'security' as const, label: 'Security', icon: ShieldAlert },
+    { id: 'templates' as const, label: 'Templates', icon: FileText },
+    { id: 'rules' as const, label: 'Rules', icon: Filter },
+    { id: 'vacation' as const, label: 'Vacation', icon: Plane },
+    { id: 'twofa' as const, label: '2FA', icon: Key },
   ];
 
   return (
@@ -297,6 +305,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
 
             {tab === 'security' && (
               <SecurityPanel />
+            )}
+
+            {tab === 'templates' && (
+              <TemplatesPanel />
+            )}
+
+            {tab === 'rules' && (
+              <RulesPanel />
+            )}
+
+            {tab === 'vacation' && (
+              <VacationResponder settings={settings} />
+            )}
+
+            {tab === 'twofa' && (
+              <TwoFactorPanel />
             )}
           </div>
         </div>

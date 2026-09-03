@@ -28,24 +28,44 @@ db.exec(schema);
 
 export function prepare(sql: string) {
   const stmt = db.prepare(sql);
+
+  function bind(...params: any[]) {
+    return {
+      first(): any {
+        return stmt.get(...params) || null;
+      },
+      all(): { results: any[] } {
+        const results = stmt.all(...params);
+        return { results };
+      },
+      run(): { meta: { last_row_id?: number; changes: number } } {
+        const info = stmt.run(...params);
+        return {
+          meta: {
+            last_row_id: info.lastInsertRowid ? Number(info.lastInsertRowid) : undefined,
+            changes: info.changes,
+          },
+        };
+      },
+    };
+  }
+
+  // Return an object that allows both .bind(...params).all() and .all() / .first() / .run() directly
   return {
-    bind(...params: any[]) {
+    bind,
+    first(): any {
+      return stmt.get() || null;
+    },
+    all(): { results: any[] } {
+      const results = stmt.all();
+      return { results };
+    },
+    run(): { meta: { last_row_id?: number; changes: number } } {
+      const info = stmt.run();
       return {
-        first(): any {
-          return stmt.get(...params) || null;
-        },
-        all(): { results: any[] } {
-          const results = stmt.all(...params);
-          return { results };
-        },
-        run(): { meta: { last_row_id?: number; changes: number } } {
-          const info = stmt.run(...params);
-          return {
-            meta: {
-              last_row_id: info.lastInsertRowid ? Number(info.lastInsertRowid) : undefined,
-              changes: info.changes,
-            },
-          };
+        meta: {
+          last_row_id: info.lastInsertRowid ? Number(info.lastInsertRowid) : undefined,
+          changes: info.changes,
         },
       };
     },

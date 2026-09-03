@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Star, Archive, Trash2, Mail, RefreshCw, MoreHorizontal, Clock3, ShieldAlert, Ban, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, Archive, Trash2, Mail, RefreshCw, MoreHorizontal, Clock3, ShieldAlert, Ban, CheckCircle, AlertTriangle, X, Menu } from 'lucide-react';
 import { emailApi, snoozeApi } from '../api';
 import { useToast } from './Toast';
 import type { Email } from '../types';
@@ -11,6 +11,7 @@ interface EmailListProps {
   selectedEmailId?: number | null;
   folderName?: string;
   mobileHidden?: boolean;
+  onOpenMobileSidebar?: () => void;
 }
 
 function formatTime(receivedAt: string): string {
@@ -24,12 +25,15 @@ function formatTime(receivedAt: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh, selectedEmailId, folderName, mobileHidden }) => {
+const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh, selectedEmailId, folderName, mobileHidden, onOpenMobileSidebar }) => {
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [starred, setStarred] = useState<Set<number>>(new Set(
-    emails.filter(e => e.is_starred === 1).map(e => e.id)
-  ));
+  const [starred, setStarred] = useState<Set<number>>(new Set());
   const { success: toastSuccess, error: toastError } = useToast();
+
+  // Sync starred state when emails change
+  useEffect(() => {
+    setStarred(new Set(emails.filter(e => e.is_starred === 1).map(e => e.id)));
+  }, [emails]);
 
   const toggleStar = async (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
@@ -77,9 +81,12 @@ const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh,
   return (
     <section className={`mail-list${mobileHidden ? ' hide-mobile' : ''}`}>
       <div className="list-head">
-        <div>
-          <h1>{folderName || 'Inbox'}</h1>
-          <small>{emails.length} conversations</small>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button className="icon-btn mobile-menu-btn" onClick={onOpenMobileSidebar} aria-label="Folders menu"><Menu /></button>
+          <div>
+            <h1>{folderName || 'Inbox'}</h1>
+            <small>{emails.length} conversations</small>
+          </div>
         </div>
         <div>
           <button className="icon-btn" onClick={onRefresh}><RefreshCw /></button>
@@ -89,16 +96,22 @@ const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, onRefresh,
 
       <div className="list-tools">
         <input className="select-box" type="checkbox" checked={selected.size === emails.length && emails.length > 0} onChange={selectAll} aria-label="Select all" />
-        <span>{selected.size > 0 ? `${selected.size} selected` : 'Select conversations'}</span>
-        <div className={`bulk ${selected.size > 0 ? 'show' : ''}`} style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <button title="Archive" onClick={() => bulkAction('archive')}><Archive /></button>
-          <button title="Delete" onClick={() => bulkAction('delete')}><Trash2 /></button>
-          <button title="Mark as read" onClick={() => bulkAction('mark_read')}><CheckCircle /></button>
-          <button title="Mark as unread" onClick={() => bulkAction('mark_unread')}><Mail /></button>
-          <button title="Star" onClick={() => bulkAction('star')}><Star /></button>
-          <button title="Report spam" onClick={() => bulkAction('spam')}><ShieldAlert /></button>
-          <button title="Block sender(s)" onClick={() => bulkAction('block_sender')}><Ban /></button>
-        </div>
+        {selected.size > 0 ? (
+          <>
+            <span className="selection-count">{selected.size} selected</span>
+            <div className="bulk show">
+              <button title="Archive" onClick={() => bulkAction('archive')}><Archive size={16} /></button>
+              <button title="Delete" onClick={() => bulkAction('delete')}><Trash2 size={16} /></button>
+              <button title="Mark as read" onClick={() => bulkAction('mark_read')}><CheckCircle size={16} /></button>
+              <button title="Mark as unread" onClick={() => bulkAction('mark_unread')}><Mail size={16} /></button>
+              <button title="Star" onClick={() => bulkAction('star')}><Star size={16} /></button>
+              <button title="Report spam" onClick={() => bulkAction('spam')}><ShieldAlert size={16} /></button>
+              <button title="Block sender(s)" onClick={() => bulkAction('block_sender')}><Ban size={16} /></button>
+            </div>
+          </>
+        ) : (
+          <span className="selection-hint">Select a conversation to enable actions</span>
+        )}
         <span className="page-count">1–{emails.length}</span>
       </div>
 

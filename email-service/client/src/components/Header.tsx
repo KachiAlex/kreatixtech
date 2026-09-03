@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, SlidersHorizontal, CircleHelp, Settings, Bell, LogOut, Shield, Plus, Check, ChevronDown, Trash2 } from 'lucide-react';
+import { Search, SlidersHorizontal, CircleHelp, Settings, Bell, LogOut, Shield, Plus, Check, ChevronDown, Trash2, ArrowRight, Mail } from 'lucide-react';
 import { useAuth } from '../auth-context';
 import { useAccount } from '../account-context';
 import { useToast } from './Toast';
+import { authApi } from '../api';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
@@ -11,14 +12,51 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, login } = useAuth();
   const { currentEmail, currentName, accounts, primaryEmail, switchAccount, addAccount, removeAccount } = useAccount();
   const { success: toastSuccess, error: toastError, info: toastInfo, prompt: promptDialog, confirm: confirmDialog } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [acctMenuOpen, setAcctMenuOpen] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [showSwitchLogin, setShowSwitchLogin] = useState(false);
+  const [switchTargetEmail, setSwitchTargetEmail] = useState('');
+  const [switchPassword, setSwitchPassword] = useState('');
+  const [switchLoading, setSwitchLoading] = useState(false);
+  const [switchError, setSwitchError] = useState('');
+  const [rememberAccount, setRememberAccount] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const acctRef = useRef<HTMLDivElement>(null);
+
+  // ── Saved credentials helpers ────────────────────────────────────────────
+  const SAVED_CRED_KEY = 'kreatix_saved_accounts';
+
+  const getSavedAccounts = (): Record<string, string> => {
+    try {
+      const raw = localStorage.getItem(SAVED_CRED_KEY);
+      if (!raw) return {};
+      const decoded = atob(raw);
+      return JSON.parse(decoded);
+    } catch { return {}; }
+  };
+
+  const saveAccountCred = (email: string, password: string) => {
+    const saved = getSavedAccounts();
+    saved[email.toLowerCase()] = btoa(password);
+    localStorage.setItem(SAVED_CRED_KEY, btoa(JSON.stringify(saved)));
+  };
+
+  const removeSavedAccount = (email: string) => {
+    const saved = getSavedAccounts();
+    delete saved[email.toLowerCase()];
+    localStorage.setItem(SAVED_CRED_KEY, btoa(JSON.stringify(saved)));
+  };
+
+  const getSavedPassword = (email: string): string | null => {
+    const saved = getSavedAccounts();
+    const encoded = saved[email.toLowerCase()];
+    if (!encoded) return null;
+    try { return atob(encoded); } catch { return null; }
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -29,21 +67,89 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleAddAccount = async () => {
-    const email = await promptDialog('Enter the email address to link:');
-    if (!email) return;
-    const name = await promptDialog('Enter a display name (optional):');
+  const [addAcctEmail, setAddAcctEmail] = useState('');
+  const [addAcctPassword, setAddAcctPassword] = useState('');
+  const [addAcctLoading, setAddAcctLoading] = useState(false);
+  const [addAcctError, setAddAcctError] = useState('');
+
+  const handleAddAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddAcctLoading(true);
+    setAddAcctError('');
     try {
-      await addAccount(email, name || undefined);
-      toastSuccess('Account linked successfully');
-    } catch (e: any) { toastError(e.message || 'Failed to link account'); }
-    setShowAddAccount(false);
+      // Verify credentials by attempting login
+      const res = await authApi.login(addAcctEmail, addAcctPassword);
+      if ((res as any).requires2FA) {
+        setAddAcctError('This account requires 2FA. Please sign in from the login page.');
+        return;
+      }
+      // Login succeeded — account exists and credentials are valid
+      const displayName = res.user?.display_name || addAcctEmail;
+      await addAccount(addAcctEmail, displayName);
+      // Save credentials for quick switching
+      saveAccountCred(addAcctEmail, addAcctPassword);
+      toastSuccess(`Account ${addAcctEmail} added`);
+      setAddAcctEmail('');
+      setAddAcctPassword('');
+      setShowAddAccount(false);
+    } catch (err: any) {
+      setAddAcctError(err.message === '2FA_REQUIRED' ? 'This account requires 2FA. Please sign in from the login page.' : (err.message || 'Invalid email or password'));
+    } finally {
+      setAddAcctLoading(false);
+    }
   };
 
   const handleRemoveAccount = async (id: number, email: string) => {
     const ok = await confirmDialog(`Remove ${email} from your linked accounts?`);
     if (!ok) return;
     try { await removeAccount(id); toastSuccess('Account removed'); } catch (e: any) { toastError('Failed to remove account'); }
+  };
+
+  const handleSwitchLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSwitchLoading(true);
+    setSwitchError('');
+    try {
+      await logout();
+      await login(switchTargetEmail, switchPassword);
+      if (rememberAccount) saveAccountCred(switchTargetEmail, switchPassword);
+      toastSuccess(`Switched to ${switchTargetEmail}`);
+      setShowSwitchLogin(false);
+      setSwitchPassword('');
+      setSwitchError('');
+    } catch (err: any) {
+      setSwitchError(err.message || 'Failed to sign in');
+    } finally {
+      setSwitchLoading(false);
+    }
+  };
+
+  const openSwitchLogin = async (email: string) => {
+    setAcctMenuOpen(false);
+    const savedPassword = getSavedPassword(email);
+    if (savedPassword) {
+      setSwitchLoading(true);
+      try {
+        await logout();
+        await login(email, savedPassword);
+        toastSuccess(`Switched to ${email}`);
+      } catch (err: any) {
+        removeSavedAccount(email);
+        setSwitchTargetEmail(email);
+        setSwitchPassword('');
+        setSwitchError(err.message === '2FA_REQUIRED' ? 'This account requires 2FA. Please sign in from the login page.' : 'Saved credentials expired. Please re-enter.');
+        setRememberAccount(true);
+        setShowSwitchLogin(true);
+      } finally {
+        setSwitchLoading(false);
+      }
+    } else {
+      setSwitchTargetEmail(email);
+      setSwitchPassword('');
+      setSwitchError('');
+      setRememberAccount(true);
+      setShowSwitchLogin(true);
+    }
   };
 
   const allAccounts = [
@@ -114,7 +220,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
                 {allAccounts.map(acct => (
                   <div
                     key={acct.id}
-                    onClick={() => { switchAccount(acct.email); setAcctMenuOpen(false); toastSuccess(`Switched to ${acct.email}`); }}
+                    onClick={() => { if (acct.email !== currentEmail) openSwitchLogin(acct.email); setAcctMenuOpen(false); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
                       cursor: 'pointer', borderBottom: '1px solid #f5f4f2',
@@ -149,7 +255,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
               {/* Add account button */}
               {showAddAccount ? null : (
                 <button
-                  onClick={handleAddAccount}
+                  onClick={() => { setShowAddAccount(true); setAddAcctError(''); setAddAcctEmail(''); setAddAcctPassword(''); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                     border: 0, borderTop: '1px solid var(--line)', background: 'transparent',
@@ -158,6 +264,32 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
                 >
                   <Plus style={{ width: 18, height: 18 }} /> Add another account
                 </button>
+              )}
+              {showAddAccount && (
+                <form onSubmit={handleAddAccount} style={{ padding: '12px 16px', borderTop: '1px solid var(--line)' }}>
+                  {addAcctError && <div style={{ padding: '8px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>{addAcctError}</div>}
+                  <input
+                    type="email"
+                    placeholder="Email address"
+                    value={addAcctEmail}
+                    onChange={(e) => setAddAcctEmail(e.target.value)}
+                    required
+                    autoFocus
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e4e2', borderRadius: 8, fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={addAcctPassword}
+                    onChange={(e) => setAddAcctPassword(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e4e2', borderRadius: 8, fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => { setShowAddAccount(false); setAddAcctEmail(''); setAddAcctPassword(''); setAddAcctError(''); }} style={{ flex: 1, padding: '8px 12px', border: '1px solid #e5e4e2', background: 'transparent', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                    <button type="submit" disabled={addAcctLoading} style={{ flex: 1, padding: '8px 12px', border: 'none', background: '#F2782E', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: addAcctLoading ? 0.6 : 1 }}>{addAcctLoading ? 'Verifying...' : 'Sign in'}</button>
+                  </div>
+                </form>
               )}
             </div>
           )}
@@ -193,6 +325,82 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
           )}
         </div>
       </div>
+
+      {/* Switch Account Login Modal */}
+      {showSwitchLogin && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSwitchLogin(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,.2)', padding: 32, maxWidth: 400, width: '90%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#F2782E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Mail style={{ width: 24, height: 24, color: '#fff' }} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Switch Account</h2>
+                <p style={{ fontSize: 13, color: '#858990', margin: '2px 0 0' }}>Sign in to {switchTargetEmail}</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSwitchLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {switchError && (
+                <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, color: '#dc2626', fontSize: 12, fontWeight: 600 }}>
+                  {switchError}
+                </div>
+              )}
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#858990', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Email</label>
+                <input
+                  type="email"
+                  value={switchTargetEmail}
+                  onChange={(e) => setSwitchTargetEmail(e.target.value)}
+                  style={{ width: '100%', padding: '12px 16px', background: '#f5f4f2', border: '1px solid #e5e4e2', borderRadius: 12, outline: 'none', fontSize: 14, fontWeight: 500, boxSizing: 'border-box' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#858990', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Password</label>
+                <input
+                  type="password"
+                  value={switchPassword}
+                  onChange={(e) => setSwitchPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{ width: '100%', padding: '12px 16px', background: '#f5f4f2', border: '1px solid #e5e4e2', borderRadius: 12, outline: 'none', fontSize: 14, fontWeight: 500, boxSizing: 'border-box' }}
+                  required
+                  autoFocus
+                />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#45474b', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberAccount}
+                  onChange={(e) => setRememberAccount(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#F2782E', cursor: 'pointer' }}
+                />
+                Remember this account (skip password next time)
+              </label>
+              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowSwitchLogin(false); setSwitchPassword(''); setSwitchError(''); }}
+                  style={{ flex: 1, padding: '12px 20px', background: '#f5f4f2', border: '1px solid #e5e4e2', borderRadius: 12, fontSize: 14, fontWeight: 700, color: '#45474b', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={switchLoading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 20px', background: '#F2782E', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: switchLoading ? 0.6 : 1 }}
+                >
+                  {switchLoading ? (
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  ) : (
+                    <>Sign In <ArrowRight style={{ width: 16, height: 16 }} /></>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

@@ -24,6 +24,11 @@ export interface UserSettings {
   reply_to_address?: string;
   forward_to_address?: string;
   notify_on_new_email: number;
+  vacation_enabled?: number;
+  vacation_subject?: string;
+  vacation_body?: string;
+  vacation_start?: string;
+  vacation_end?: string;
 }
 
 export interface Folder {

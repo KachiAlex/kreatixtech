@@ -9,11 +9,14 @@ import ComposeModal from './components/ComposeModal';
 import SettingsPanel from './components/SettingsPanel';
 import AdminPanel from './components/AdminPanel';
 import Login from './components/Login';
+import SplashScreen from './components/SplashScreen';
+import { initNotifications, setNotificationUserId, clearNotificationUser } from './notifications';
 import CalendarView from './components/CalendarView';
 import ContactsView from './components/ContactsView';
 import ChatView from './components/ChatView';
 import FilesView from './components/FilesView';
 import OutboxView from './components/OutboxView';
+import KeyboardShortcuts from './components/KeyboardShortcuts';
 import { ToastProvider, useToast } from './components/Toast';
 import { AccountProvider, useAccount } from './account-context';
 import { emailApi, snoozeApi, unreadApi } from './api';
@@ -30,11 +33,32 @@ function MailApp() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [composeReplyTo, setComposeReplyTo] = useState<Email | null>(null);
+  const [composeReplyAll, setComposeReplyAll] = useState(false);
   const [composeForwardFrom, setComposeForwardFrom] = useState<Email | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [listLoading, setListLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Initialize OneSignal after splash
+  useEffect(() => {
+    if (!showSplash) initNotifications();
+  }, [showSplash]);
+
+  // Sync notification user on auth change
+  useEffect(() => {
+    if (user) setNotificationUserId(String(user.id), user.email);
+    else clearNotificationUser();
+  }, [user]);
 
   const fetchEmails = useCallback(async () => {
     if (!user) return;
@@ -43,12 +67,12 @@ function MailApp() {
       const params: any = {};
       if (showStarred) params.starred = true;
       else if (currentFolder) params.folder_id = currentFolder.id;
-      if (searchQuery) params.search = searchQuery;
+      if (debouncedSearch) params.search = debouncedSearch;
       const data = await emailApi.list(params);
       setEmails(data.emails);
     } catch (e) { console.error('Failed to fetch emails', e); }
     setListLoading(false);
-  }, [user, currentFolder, showStarred, searchQuery]);
+  }, [user, currentFolder, showStarred, debouncedSearch]);
 
   useEffect(() => {
     if (user && view === 'mail') fetchEmails();
@@ -72,17 +96,7 @@ function MailApp() {
     return () => clearInterval(interval);
   }, [user, view, lastUnreadCount, fetchEmails, toastSuccess]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || (e.target as HTMLElement)?.isContentEditable) return;
-      if (e.key === 'c' && !isComposeOpen) { e.preventDefault(); setIsComposeOpen(true); }
-      if (e.key === '/' ) { e.preventDefault(); (document.querySelector('.search input') as HTMLInputElement)?.focus(); }
-      if (e.key === 'Escape') { setSelectedEmail(null); }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [isComposeOpen]);
+  // Keyboard shortcuts handler (moved after handler definitions below)
 
   const handleSelectEmail = async (email: Email) => {
     try {
@@ -93,6 +107,14 @@ function MailApp() {
 
   const handleReply = (email: Email) => {
     setComposeReplyTo(email);
+    setComposeReplyAll(false);
+    setComposeForwardFrom(null);
+    setIsComposeOpen(true);
+  };
+
+  const handleReplyAll = (email: Email) => {
+    setComposeReplyTo(email);
+    setComposeReplyAll(true);
     setComposeForwardFrom(null);
     setIsComposeOpen(true);
   };
@@ -106,6 +128,7 @@ function MailApp() {
   const handleComposeClose = () => {
     setIsComposeOpen(false);
     setComposeReplyTo(null);
+    setComposeReplyAll(false);
     setComposeForwardFrom(null);
   };
 
@@ -123,11 +146,63 @@ function MailApp() {
     try { await snoozeApi.snooze(id, until); toastSuccess('Email snoozed successfully'); fetchEmails(); } catch (e: any) { toastError(e.message || 'Failed to snooze email'); }
   };
 
+  // Keyboard shortcuts handler
+  const handleShortcut = useCallback((action: string) => {
+    switch (action) {
+      case 'compose':
+        if (!isComposeOpen) { setComposeReplyTo(null); setComposeReplyAll(false); setComposeForwardFrom(null); setIsComposeOpen(true); }
+        break;
+      case 'search':
+        (document.querySelector('.search input') as HTMLInputElement)?.focus();
+        break;
+      case 'escape':
+        setSelectedEmail(null);
+        break;
+      case 'next':
+        if (emails.length > 0) {
+          const idx = selectedEmail ? emails.findIndex(e => e.id === selectedEmail.id) : -1;
+          if (idx < emails.length - 1) handleSelectEmail(emails[idx + 1]);
+        }
+        break;
+      case 'prev':
+        if (emails.length > 0 && selectedEmail) {
+          const idx = emails.findIndex(e => e.id === selectedEmail.id);
+          if (idx > 0) handleSelectEmail(emails[idx - 1]);
+        }
+        break;
+      case 'archive':
+        if (selectedEmail) handleArchive(selectedEmail.id);
+        break;
+      case 'delete':
+        if (selectedEmail) handleDelete(selectedEmail.id);
+        break;
+      case 'star':
+        if (selectedEmail) {
+          emailApi.star(selectedEmail.id, selectedEmail.is_starred !== 1);
+          setSelectedEmail({ ...selectedEmail, is_starred: selectedEmail.is_starred === 1 ? 0 : 1 });
+          fetchEmails();
+        }
+        break;
+      case 'reply':
+        if (selectedEmail) handleReply(selectedEmail);
+        break;
+      case 'replyAll':
+        if (selectedEmail) handleReplyAll(selectedEmail);
+        break;
+      case 'forward':
+        if (selectedEmail) handleForward(selectedEmail);
+        break;
+    }
+  }, [isComposeOpen, emails, selectedEmail, handleArchive, handleDelete, handleReply, handleReplyAll, handleForward, fetchEmails]);
+
+  if (showSplash) {
+    return <SplashScreen onDone={() => setShowSplash(false)} />;
+  }
+
   if (loading) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fc' }}>
         <div style={{ width: 32, height: 32, border: '3px solid #E8E5E0', borderTopColor: '#F2782E', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
@@ -148,15 +223,16 @@ function MailApp() {
           <>
             <Sidebar
               currentFolderId={currentFolder?.id || null}
-              setCurrentFolder={(f) => { setCurrentFolder(f); setShowStarred(false); setSelectedEmail(null); }}
-              onCompose={() => { setComposeReplyTo(null); setComposeForwardFrom(null); setIsComposeOpen(true); }}
-              onShowStarred={() => { setShowStarred(true); setSelectedEmail(null); setCurrentFolder(null); }}
+              setCurrentFolder={(f) => { setCurrentFolder(f); setShowStarred(false); setSelectedEmail(null); setShowMobileSidebar(false); }}
+              onCompose={() => { setComposeReplyTo(null); setComposeForwardFrom(null); setIsComposeOpen(true); setShowMobileSidebar(false); }}
+              onShowStarred={() => { setShowStarred(true); setSelectedEmail(null); setCurrentFolder(null); setShowMobileSidebar(false); }}
               showStarred={showStarred}
+              mobileOpen={showMobileSidebar}
+              onCloseMobile={() => setShowMobileSidebar(false)}
             />
             {listLoading ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: 28, height: 28, border: '3px solid #E8E5E0', borderTopColor: '#F2782E', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
               </div>
             ) : (
               <>
@@ -167,15 +243,18 @@ function MailApp() {
                   selectedEmailId={selectedEmail?.id}
                   folderName={showStarred ? 'Starred' : currentFolder?.name || 'Inbox'}
                   mobileHidden={!!selectedEmail}
+                  onOpenMobileSidebar={() => setShowMobileSidebar(true)}
                 />
                 <EmailView
                   email={selectedEmail}
                   onReply={handleReply}
+                  onReplyAll={handleReplyAll}
                   onForward={handleForward}
                   onDelete={handleDelete}
                   onArchive={handleArchive}
                   onSnooze={handleSnooze}
                   onBack={() => setSelectedEmail(null)}
+                  onSelectEmail={(em) => setSelectedEmail(em)}
                   mobileVisible={!!selectedEmail}
                 />
               </>
@@ -201,6 +280,7 @@ function MailApp() {
         onOpenSettings={() => setShowSettings(true)}
         onOpenAdmin={() => setShowAdmin(true)}
       />
+      <KeyboardShortcuts onShortcut={handleShortcut} />
       <div className="workspace">
         <Rail current={view} onChange={setView} />
         {renderView()}
@@ -222,6 +302,7 @@ function MailApp() {
         <ComposeModal
           onClose={handleComposeClose}
           replyTo={composeReplyTo}
+          replyAll={composeReplyAll}
           forwardFrom={composeForwardFrom}
         />
       )}
