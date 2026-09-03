@@ -7,7 +7,7 @@ import type {
 } from './types';
 
 const isElectron = typeof window !== 'undefined' && ((window as any).electronAPI?.isElectron || (navigator as any).userAgent?.toLowerCase().includes('electron'));
-const SERVER_URL = 'https://mail.kreatixtech.com';
+const SERVER_URL = (typeof window !== 'undefined' && (window as any).electronAPI?.serverUrl) || 'https://mail.kreatixtech.com';
 const API_URL = (Capacitor.isNativePlatform() || isElectron) ? `${SERVER_URL}/api` : '/api';
 
 // ── Network readiness (for Electron/Capacitor cold starts) ──────────────────

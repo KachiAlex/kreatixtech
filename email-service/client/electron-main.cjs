@@ -1,7 +1,31 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
+const https = require('https');
 
 let mainWindow;
+
+const SERVER_URL = 'https://mail.kreatixtech.com';
+const HEALTH_ENDPOINT = '/api/health';
+
+function checkServerReachable() {
+  return new Promise((resolve) => {
+    const req = https.get(`${SERVER_URL}${HEALTH_ENDPOINT}`, { timeout: 5000 }, (res) => {
+      resolve(res.statusCode === 200);
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+async function waitForServer(maxAttempts = 20) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const reachable = await checkServerReachable();
+    if (reachable) return true;
+    console.log(`[Kreatix Mail] Waiting for server... attempt ${i + 1}/${maxAttempts}`);
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  return false;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -15,11 +39,10 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'electron-preload.cjs'),
+      webSecurity: false,
     },
   });
 
-  // In production, load the built web assets
-  // In development, load the dev server
   const isDev = !app.isPackaged;
 
   if (isDev) {
@@ -28,7 +51,6 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
 
-  // Open links in external browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http')) {
       require('electron').shell.openExternal(url);
@@ -37,11 +59,19 @@ function createWindow() {
     return { action: 'allow' };
   });
 
-  // Remove menu bar
   Menu.setApplicationMenu(null);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const isDev = !app.isPackaged;
+
+  if (!isDev) {
+    const reachable = await waitForServer();
+    if (!reachable) {
+      console.error('[Kreatix Mail] Could not reach server after multiple attempts. Loading anyway...');
+    }
+  }
+
   createWindow();
 
   app.on('activate', () => {
