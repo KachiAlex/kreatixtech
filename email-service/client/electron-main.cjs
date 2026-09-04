@@ -1,8 +1,11 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, session } = require('electron');
 const path = require('path');
 const https = require('https');
+const http = require('http');
+const fs = require('fs');
 
 let mainWindow;
+let server;
 
 const SERVER_URL = 'https://mail.kreatixtech.com';
 const HEALTH_ENDPOINT = '/api/health';
@@ -27,7 +30,47 @@ async function waitForServer(maxAttempts = 20) {
   return false;
 }
 
-function createWindow() {
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+};
+
+function startLocalServer(distDir) {
+  return new Promise((resolve) => {
+    const s = http.createServer((req, res) => {
+      let urlPath = req.url.split('?')[0];
+      if (urlPath === '/') urlPath = '/index.html';
+      const filePath = path.join(distDir, urlPath);
+      const ext = path.extname(filePath);
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          res.end('Not found');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+        });
+        res.end(data);
+      });
+    });
+    s.listen(0, '127.0.0.1', () => {
+      const port = s.address().port;
+      resolve(port);
+    });
+    server = s;
+  });
+}
+
+function createWindow(localUrl) {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -39,7 +82,6 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'electron-preload.cjs'),
-      webSecurity: false,
     },
   });
 
@@ -48,7 +90,7 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    mainWindow.loadURL(localUrl);
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -72,13 +114,24 @@ app.whenReady().then(async () => {
     }
   }
 
-  createWindow();
+  let url;
+  if (isDev) {
+    url = 'http://localhost:5173';
+  } else {
+    const distDir = path.join(__dirname, 'dist');
+    const port = await startLocalServer(distDir);
+    url = `http://127.0.0.1:${port}`;
+    console.log(`[Kreatix Mail] Local server running on ${url}`);
+  }
+
+  createWindow(url);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(url);
   });
 });
 
 app.on('window-all-closed', () => {
+  if (server) { server.close(); server = null; }
   if (process.platform !== 'darwin') app.quit();
 });
