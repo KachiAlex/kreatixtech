@@ -164,6 +164,7 @@ enum NotificationType {
   FILE_UPLOAD
   ASSESSMENT_ASSIGNED
   ASSESSMENT_CREATED
+  SECURITY_ALERT
 }
 
 // ─── Service Requests (all services) ────────────────────────────────────────
@@ -533,4 +534,89 @@ model AnalyticsEvent {
   @@index([page, createdAt])
   @@index([country, createdAt])
   @@map("analytics_events")
+}
+
+// ─── VPS Security Monitoring ───────────────────────────────────────────────
+
+model SecurityReport {
+  id              String   @id @default(uuid())
+  hostname        String
+  uptime          String?
+  loadAverage     String?
+  diskUsage       Json?
+  memoryUsage     Json?
+  fail2banStats   Json?
+  ufwStatus       String?
+  ufwRules        Json?
+  dockerPorts     Json?
+  openPorts       Json?
+  sshConfig       Json?
+  activeConnections Json?
+  summary         Json?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("security_reports")
+}
+
+enum SecurityEventType {
+  SSH_FAILED
+  SSH_SUCCESS
+  FAIL2BAN_BAN
+  FAIL2BAN_UNBAN
+  PORT_SCAN
+  SUSPICIOUS_LOGIN
+  DOCKER_EXPOSURE
+  FIREWALL_CHANGE
+  MANUAL_BAN
+  MANUAL_UNBAN
+  SECURITY_SCAN
+}
+
+enum SecuritySeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+model SecurityEvent {
+  id          String           @id @default(uuid())
+  type        SecurityEventType
+  severity    SecuritySeverity @default(INFO)
+  ipAddress   String?
+  country     String?
+  port        Int?
+  description String
+  details     Json?
+  source      String           @default("agent")
+  resolved    Boolean          @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime         @default(now())
+
+  @@index([type, createdAt])
+  @@index([severity, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+model BannedIP {
+  id          String   @id @default(uuid())
+  ipAddress   String
+  reason      String?
+  jail        String   @default("sshd")
+  bannedAt    DateTime @default(now())
+  banDuration Int      @default(3600)
+  expiresAt   DateTime?
+  unbannedAt  DateTime?
+  unbannedBy  String?
+  active      Boolean  @default(true)
+  source      String   @default("fail2ban")
+
+  @@index([ipAddress])
+  @@index([active, bannedAt])
+  @@map("banned_ips")
 }

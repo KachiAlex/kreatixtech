@@ -67,7 +67,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-offwhite flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #FFF7F1 0%, #FAF8F5 50%, #FDF1E8 100%)' }}>
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-border">
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-orange rounded-2xl flex items-center justify-center mb-4 shadow-lg ring-4 ring-white">

@@ -16,6 +16,7 @@ export default function EmailAccountsPanel() {
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newPasswordShow, setNewPasswordShow] = useState(false);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [resetUser, setResetUser] = useState(null);
@@ -124,12 +125,17 @@ export default function EmailAccountsPanel() {
     }
   };
 
-  const generatePassword = () => {
+  const generatePassword = (target = 'reset') => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
     let pwd = '';
     for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-    setResetPassword(pwd);
-    setResetShow(true);
+    if (target === 'create') {
+      setNewPassword(pwd);
+      setNewPasswordShow(true);
+    } else {
+      setResetPassword(pwd);
+      setResetShow(true);
+    }
   };
 
   const filteredUsers = users.filter(u => 
@@ -182,8 +188,24 @@ export default function EmailAccountsPanel() {
             </div>
             <div>
               <label className="label">Initial Password *</label>
-              <input required type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                className="input-field" placeholder="••••••••" />
+              <div className="relative">
+                <input required type={newPasswordShow ? 'text' : 'password'} value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                  className="input-field pr-10" placeholder="••••••••" />
+                <button
+                  type="button"
+                  onClick={() => setNewPasswordShow(!newPasswordShow)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500"
+                >
+                  {newPasswordShow ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => generatePassword('create')}
+                className="text-xs text-blue-500 hover:text-blue-600 font-medium flex items-center gap-1 mt-1.5"
+              >
+                <RefreshCw size={12} /> Generate strong password
+              </button>
             </div>
             <div className="md:col-span-3 flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setShowForm(false)} className="btn-outline text-sm px-5">Cancel</button>

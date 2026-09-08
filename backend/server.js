@@ -56,6 +56,7 @@ await Promise.all([
   tryImport('requests',      './routes/requests.js'),
   tryImport('analytics',      './routes/analytics.js'),
   tryImport('emails',         './routes/emails.js'),
+  tryImport('security',       './routes/security.js'),
   tryImport('authMiddleware','./middleware/auth.js'),
 ]);
 
@@ -82,6 +83,7 @@ const serviceMessageRoutes  = get('serviceMessages')?.default;
 const serviceFindingRoutes  = get('serviceFindings')?.default;
 const analyticsRoutes       = get('analytics')?.default;
 const emailRoutes           = get('emails')?.default;
+const securityRoutes        = get('security')?.default;
 const authMiddleware     = get('authMiddleware');
 const authenticateToken  = authMiddleware?.authenticateToken;
 const requireAdmin       = authMiddleware?.requireAdmin;
@@ -182,6 +184,7 @@ if (auditRoutes)          app.use('/api/audit',             authenticateToken, a
 if (invitationRoutes)     app.use('/api/invitations',       invitationRoutes);
 if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
 if (emailRoutes)          app.use('/api/emails',             emailRoutes);
+if (securityRoutes)      app.use('/api/security',           securityRoutes);
 
 // Log mounted routes
 logger.info('Mounted API routes:');
@@ -204,6 +207,7 @@ logger.info('Mounted API routes:');
   ['invitations', invitationRoutes, '/api/invitations'],
   ['analytics', analyticsRoutes, '/api/analytics'],
   ['emails', emailRoutes, '/api/emails'],
+  ['security', securityRoutes, '/api/security'],
 ].forEach(([name, route, path]) => {
   logger.info(`  ${route ? '✅' : '❌'} ${path} (${name})`);
 });

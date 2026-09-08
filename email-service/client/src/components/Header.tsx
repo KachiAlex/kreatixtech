@@ -193,10 +193,9 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
             className="avatar"
             aria-label="Account switcher"
             onClick={() => setAcctMenuOpen(!acctMenuOpen)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             {(currentName || currentEmail || 'K')[0].toUpperCase()}
-            <ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
+            <ChevronDown style={{ width: 14, height: 14, opacity: 0.7 }} />
           </button>
           {acctMenuOpen && (
             <div style={{

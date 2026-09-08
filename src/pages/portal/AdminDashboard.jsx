@@ -6,11 +6,13 @@ import {
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
   Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
   Copy, Check, Link2, BarChart3, MapPin, MousePointerClick, Eye,
-  Newspaper, Calendar, Eye as EyeIcon, Mail as MailIcon, Lock, EyeOff, KeyRound
+  Newspaper, Calendar, Eye as EyeIcon, Mail as MailIcon, Lock, EyeOff, KeyRound,
+  User
 } from 'lucide-react';
 import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
 import EmailAccountsPanel from '../../components/Admin/EmailAccountsPanel';
+import SecurityPanel from '../../components/Admin/SecurityPanel';
 
 const STATUS_COLORS = {
   SUBMITTED:    'bg-yellow-100 text-yellow-800',
@@ -69,6 +71,7 @@ const NAV_ITEMS = [
   { key: 'blog',      label: 'Blog Posts',         icon: Newspaper },
   { key: 'analytics', label: 'Analytics',          icon: BarChart3 },
   { key: 'email',     label: 'Email Management',   icon: MailIcon },
+  { key: 'security',  label: 'Security',           icon: Shield },
   { key: 'settings',  label: 'Settings',           icon: Settings },
 ];
 
@@ -471,6 +474,11 @@ export default function AdminDashboard() {
         {/* â”€â”€ Email Flow section â”€â”€ */}
         {activeSection === 'email' && (
           <EmailAccountsPanel />
+        )}
+
+        {/* â”€â”€ Security section â”€â”€ */}
+        {activeSection === 'security' && (
+          <SecurityPanel apiCall={apiCall} />
         )}
 
         {/* â”€â”€ Blog section â”€â”€ */}

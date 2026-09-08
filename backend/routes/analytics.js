@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -62,7 +62,7 @@ router.post('/track', [
 });
 
 // ── Admin: get analytics summary ─────────────────────────────────────────────
-router.get('/summary', requireAdmin, async (req, res) => {
+router.get('/summary', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const since = new Date(Date.now() - parseInt(days) * 24 * 60 * 60 * 1000);

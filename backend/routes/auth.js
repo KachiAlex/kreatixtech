@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
+import { authenticateToken } from '../middleware/auth.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';
 import logger from '../lib/logger.js';
@@ -241,7 +242,7 @@ router.get('/me', async (req, res) => {
 });
 
 // Update own profile (name, email, password)
-router.patch('/profile', [
+router.patch('/profile', authenticateToken, [
   body('name').optional().trim().isLength({ min: 2 }),
   body('email').optional().isEmail().normalizeEmail(),
   body('currentPassword').optional(),

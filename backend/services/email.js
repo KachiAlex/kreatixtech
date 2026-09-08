@@ -245,5 +245,45 @@ export async function sendFeedbackReceivedEmail({ to, clientName, title, rating,
   });
 }
 
+export async function sendSecurityAlertEmail({ to, events }) {
+  const portalUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.com'}/admin`;
+  const severityColors = { CRITICAL: '#C43C36', HIGH: '#E0641C', MEDIUM: '#F2B441', LOW: '#3B82F6' };
+
+  const eventRows = events.map(e => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee">
+        <span style="background:${severityColors[e.severity] || '#999'};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">${e.severity}</span>
+      </td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${e.type}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:13px">${e.ipAddress || '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${e.description}</td>
+    </tr>`).join('');
+
+  return sendEmail({
+    to,
+    subject: `Security Alert: ${events.length} event${events.length > 1 ? 's' : ''} on VPS`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+        <h2 style="color:#C43C36">VPS Security Alert</h2>
+        <p>The Kreatix security monitor detected <strong>${events.length}</strong> notable event${events.length > 1 ? 's' : ''} on the VPS:</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <thead>
+            <tr style="background:#F7F5F2">
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Severity</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Type</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">IP</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Description</th>
+            </tr>
+          </thead>
+          <tbody>${eventRows}</tbody>
+        </table>
+        <p><a href="${portalUrl}" style="background:#F2782E;color:#fff;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin-top:8px">View Security Center</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+        <p style="color:#999;font-size:12px">Kreatix Technologies — Security Monitoring</p>
+      </div>`,
+    text: `Security Alert: ${events.length} event(s) detected on VPS. View at ${portalUrl}`
+  });
+}
+
 export { resend };
-export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendRequestMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail, sendNewRequestEmail, sendRequestStatusEmail, sendRequestAssignedEmail, sendDeliverableReadyEmail, sendFeedbackReceivedEmail };
+export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendRequestMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail, sendNewRequestEmail, sendRequestStatusEmail, sendRequestAssignedEmail, sendDeliverableReadyEmail, sendFeedbackReceivedEmail, sendSecurityAlertEmail };
