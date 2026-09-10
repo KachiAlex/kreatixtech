@@ -92,17 +92,19 @@ const app = express();
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
-// CORS — allow both root and www subdomains for Kreatix Technologies
+// CORS — origins are configured entirely via the FRONTEND_URL env var
+// (comma-separated list). A small dev fallback set is added for local use only.
 const defaultOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',').map(o => o.trim()).filter(Boolean);
+const devOrigins = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'https://localhost',
+  'capacitor://localhost',
+];
 const allowedOrigins = Array.from(new Set([
-  ...defaultOrigins, 
-  'https://kreatixtech.com',
-  'https://www.kreatixtech.com',
-  'https://academy.kreatixtech.com',
-  'https://mail.kreatixtech.com',
-  'https://localhost', 
-  'capacitor://localhost'
+  ...defaultOrigins,
+  ...(process.env.NODE_ENV !== 'production' ? devOrigins : []),
 ]));
 
 const corsOptions = {
@@ -139,7 +141,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use('/uploads', express.static('uploads'));
 
 // Rate limiting

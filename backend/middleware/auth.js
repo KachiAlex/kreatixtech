@@ -28,8 +28,19 @@ export const authenticateToken = async (req, res, next) => {
   }
 };
 
+// Admin OR Analyst — used for security operations both roles perform
+// (assessments, service requests, findings, messages).
 export const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'ADMIN' && req.user.role !== 'ANALYST') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
+// ADMIN only — used for organization/user management, audit logs,
+// content (blog/testimonials), and analytics. Analysts are excluded.
+export const requireAdminOnly = (req, res, next) => {
+  if (req.user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();

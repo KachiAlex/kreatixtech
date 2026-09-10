@@ -1,6 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { Lock, LayoutDashboard, Code2, Shield, Plus, Edit2, Trash2, LogOut, Menu, MessageSquare, X, Save, CheckCircle2, AlertCircle, FileText, Send, Mail } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useApp } from '../contexts/AppContext';
 import { cn, formatDateTime, statusConfig } from '../lib/utils';
 import { useForm } from 'react-hook-form';
 import EmailAccountsPanel from '../components/Admin/EmailAccountsPanel';

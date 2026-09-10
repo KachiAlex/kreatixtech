@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { sendEmail } from '../services/email.js';
 import { logAudit } from '../middleware/audit.js';
-import { requireAdmin, authenticateToken } from '../middleware/auth.js';
+import { requireAdminOnly, authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -220,7 +220,7 @@ router.get('/org/members', authenticateToken, async (req, res) => {
 });
 
 // Admin: list members of any org by orgId
-router.get('/admin/org/:orgId/members', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/admin/org/:orgId/members', authenticateToken, requireAdminOnly, async (req, res) => {
   try {
     const members = await prisma.user.findMany({
       where: { orgId: req.params.orgId },
@@ -234,7 +234,7 @@ router.get('/admin/org/:orgId/members', authenticateToken, requireAdmin, async (
 });
 
 // Admin: change a user's role
-router.patch('/admin/users/:userId/role', authenticateToken, requireAdmin, [
+router.patch('/admin/users/:userId/role', authenticateToken, requireAdminOnly, [
   body('role').isIn(['CLIENT', 'ANALYST', 'ADMIN']),
 ], async (req, res) => {
   const errors = validationResult(req);
@@ -252,7 +252,7 @@ router.patch('/admin/users/:userId/role', authenticateToken, requireAdmin, [
 });
 
 // Admin: remove a user from their org (deactivate by clearing orgId is not possible without schema change — instead delete)
-router.delete('/admin/users/:userId', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/admin/users/:userId', authenticateToken, requireAdminOnly, async (req, res) => {
   try {
     if (req.params.userId === req.user.userId) return res.status(400).json({ error: 'Cannot remove yourself' });
     await prisma.user.delete({ where: { id: req.params.userId } });
@@ -263,7 +263,7 @@ router.delete('/admin/users/:userId', authenticateToken, requireAdmin, async (re
 });
 
 // Admin: resend invitation
-router.post('/admin/:invitationId/resend', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin/:invitationId/resend', authenticateToken, requireAdminOnly, async (req, res) => {
   try {
     const inv = await prisma.invitation.findUnique({
       where: { id: req.params.invitationId },

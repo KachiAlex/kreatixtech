@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
-import { requireAdmin, authenticateToken } from '../middleware/auth.js';
+import { requireAdminOnly, authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -53,7 +53,7 @@ router.get('/', async (req, res) => {
 });
 
 // Admin: list all posts (including drafts)
-router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/admin/all', authenticateToken, requireAdminOnly, async (req, res) => {
   try {
     const { page = 1, limit = 50, status } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -128,7 +128,7 @@ router.post('/', [
   body('excerpt').trim().isLength({ min: 10, max: 500 }),
   body('content').trim().isLength({ min: 50 }),
   body('author').trim().isLength({ min: 2 }),
-], authenticateToken, requireAdmin, async (req, res) => {
+], authenticateToken, requireAdminOnly, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -172,7 +172,7 @@ router.post('/', [
 // Admin: update post
 router.put('/:id', [
   param('id').isUUID()
-], authenticateToken, requireAdmin, async (req, res) => {
+], authenticateToken, requireAdminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = {};
@@ -208,7 +208,7 @@ router.put('/:id', [
 });
 
 // Admin: delete post
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.blogPost.delete({ where: { id } });

@@ -1,10 +1,10 @@
 import express from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', requireAdmin, async (req, res) => {
+router.get('/', requireAdminOnly, async (req, res) => {
   try {
     const { userId, action, page = 1, limit = 50 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);

@@ -19,7 +19,7 @@ console.log('start.mjs: loading server.js...');
 // Run db push in the background; it must not block HTTP startup because
 // Fly's proxy health checks will fail before the server listens.
 import { exec } from 'child_process';
-exec('npx prisma db push --skip-generate --accept-data-loss', (err, stdout, stderr) => {
+exec('npx prisma db push --skip-generate', (err, stdout, stderr) => {
   if (err) {
     process.stderr.write(`start.mjs: prisma db push failed: ${err.message}\n`);
     return;

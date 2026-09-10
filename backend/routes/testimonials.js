@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
 router.post('/', [
   body('clientName').trim().isLength({ min: 2 }),
   body('quote').trim().isLength({ min: 10 }),
-], requireAdmin, async (req, res) => {
+], requireAdminOnly, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -46,7 +46,7 @@ router.post('/', [
 });
 
 // Admin: update testimonial
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const updated = await prisma.testimonial.update({
@@ -61,7 +61,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 });
 
 // Admin: delete testimonial
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.testimonial.delete({ where: { id } });

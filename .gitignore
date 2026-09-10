@@ -47,3 +47,6 @@ email-service/server/ecosystem.config.cjs
 
 # Remove test file with embedded API key
 email-service/server/src/test-send.ts
+
+# Cloudflare Wrangler local state (D1/R2/cache)
+email-service/worker/.wrangler/

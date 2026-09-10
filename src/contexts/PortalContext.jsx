@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { initPushNotifications, unregisterPushToken } from '../services/mobile';
 
@@ -240,7 +240,9 @@ export function PortalProvider({ children }) {
     notifications, unreadCount,
     toasts, pushToast, dismissToast,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'ADMIN' || user?.role === 'ANALYST',
+    isAdmin: user?.role === 'ADMIN',
+    isAnalyst: user?.role === 'ANALYST',
+    isStaff: user?.role === 'ADMIN' || user?.role === 'ANALYST',
     isClient: user?.role === 'CLIENT',
     login, register, logout, apiCall,
     markNotificationRead, markAllNotificationsRead,
@@ -262,10 +264,10 @@ export function usePortal() {
 }
 
 const TOAST_STYLES = {
-  info:    { bar: 'bg-blue-500',    icon: 'ðŸ””' },
-  message: { bar: 'bg-[#F2782E]',   icon: 'ðŸ’¬' },
-  success: { bar: 'bg-green-500',   icon: 'âœ…' },
-  error:   { bar: 'bg-red-500',     icon: 'âŒ' },
+  info:    { bar: 'bg-blue-500',    icon: '🔔' },
+  message: { bar: 'bg-[#F2782E]',   icon: '💬' },
+  success: { bar: 'bg-green-500',   icon: '✅' },
+  error:   { bar: 'bg-red-500',     icon: '❌' },
 };
 
 function ToastContainer({ toasts, onDismiss }) {
@@ -286,7 +288,7 @@ function ToastContainer({ toasts, onDismiss }) {
               </p>
               {t.message && <p className="text-xs text-[#6B6F76] mt-0.5 truncate">{t.message}</p>}
             </div>
-            <button onClick={() => onDismiss(t.id)} className="px-3 text-[#6B6F76] hover:text-[#0E0E0F] text-lg leading-none flex-shrink-0">Ã—</button>
+            <button onClick={() => onDismiss(t.id)} className="px-3 text-[#6B6F76] hover:text-[#0E0E0F] text-lg leading-none flex-shrink-0">×</button>
           </div>
         );
       })}

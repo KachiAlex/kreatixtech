@@ -1,7 +1,7 @@
-﻿import { Capacitor } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { AppProvider } from './context/AppContext';
+import { AppProvider } from './contexts/AppContext';
 import { PortalProvider, usePortal } from './contexts/PortalContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -38,8 +38,8 @@ const Settings = lazy(() => import('./pages/portal/Settings'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 
-function ProtectedPortalRoute({ children, requireAdmin = false }) {
-  const { isAuthenticated, isAdmin, isLoading } = usePortal();
+function ProtectedPortalRoute({ children, requireAdmin = false, requireStaff = false }) {
+  const { isAuthenticated, isAdmin, isStaff, isLoading } = usePortal();
   
   if (isLoading) {
     return (
@@ -54,6 +54,10 @@ function ProtectedPortalRoute({ children, requireAdmin = false }) {
   }
   
   if (requireAdmin && !isAdmin) {
+    return <Navigate to="/portal/dashboard" replace />;
+  }
+
+  if (requireStaff && !isStaff) {
     return <Navigate to="/portal/dashboard" replace />;
   }
   
@@ -78,7 +82,7 @@ function PortalRoutes() {
       <Route 
         path="admin" 
         element={
-          <ProtectedPortalRoute requireAdmin>
+          <ProtectedPortalRoute requireStaff>
             <AdminDashboard />
           </ProtectedPortalRoute>
         } 
