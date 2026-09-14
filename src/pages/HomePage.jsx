@@ -483,10 +483,20 @@ export default function HomePage() {
             <p className="text-[15px] leading-[1.7] mb-7" style={{ color: 'rgba(255,255,255,0.5)' }}>
               Tell us what you need assessed and upload supporting documents — network diagrams, IP ranges, NDAs. Our team reviews, scopes and responds, with every update and deliverable shared back through the same thread.
             </p>
-            <Link to="/portal/login"
-              className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-8 py-4 rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]">
-              Start a VAPT request →
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link to="/assessment"
+                className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-8 py-4 rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]"
+                onClick={() => trackClick('Request Assessment')}>
+                Start a VAPT request →
+              </Link>
+              <a href="https://security.kreatixtech.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackClick('VaultScan Security Tool')}
+                className="inline-flex items-center gap-2.5 border border-[#F2782E]/40 text-[#F2782E] px-8 py-4 rounded-full font-bold text-[15px] transition-all hover:bg-[#F2782E]/10 hover:-translate-y-0.5">
+                Try our free security scanner →
+              </a>
+            </div>
           </div>
           <div className="flex flex-col">
             {[

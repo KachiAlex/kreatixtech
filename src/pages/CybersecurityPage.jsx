@@ -9,6 +9,7 @@ const services = [
     title: 'VAPT Assessments',
     body: 'Comprehensive Vulnerability Assessment and Penetration Testing. We simulate real-world attacks to identify and patch security gaps before malicious actors exploit them.',
     items: ['Web & Mobile App Testing', 'Network Infrastructure Review', 'Actionable Remediation Reports'],
+    link: { label: 'Try our free scanner →', href: 'https://security.kreatixtech.com', external: true },
   },
   {
     title: 'Threat Detection & Response',
@@ -45,11 +46,11 @@ export default function CybersecurityPage() {
       <section className="py-16 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid md:grid-cols-2 gap-px bg-surface-300">
-            {services.map(({ title, body, items }) => (
+            {services.map(({ title, body, items, link }) => (
               <div key={title} className="bg-surface-50 p-6 sm:p-10 hover:bg-surface-100 transition-colors">
                 <h3 className="text-xl font-bold text-ink-900 mb-4">{title}</h3>
                 <p className="text-ink-500 text-sm leading-relaxed mb-6">{body}</p>
-                <ul className="space-y-2.5">
+                <ul className="space-y-2.5 mb-6">
                   {items.map(item => (
                     <li key={item} className="flex items-center gap-3 text-sm text-ink-600">
                       <span className="w-1.5 h-1.5 rounded-full bg-coral-500 flex-shrink-0" />
@@ -57,6 +58,12 @@ export default function CybersecurityPage() {
                     </li>
                   ))}
                 </ul>
+                {link && (
+                  <a href={link.href} target={link.external ? '_blank' : undefined} rel={link.external ? 'noopener noreferrer' : undefined}
+                     className="inline-flex items-center gap-1.5 text-sm font-bold text-coral-500 hover:gap-2.5 transition-all">
+                    {link.label}
+                  </a>
+                )}
               </div>
             ))}
           </div>
