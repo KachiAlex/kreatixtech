@@ -65,16 +65,50 @@ router.post('/upload-image', authenticateToken, requireAdmin, uploadPortfolioIma
 });
 
 // ── Admin: fetch OG image from a URL ─────────────────────────────────────────
+// SSRF hardening: only allow http(s) and reject private/loopback/internal
+// network targets so this endpoint cannot be used to scan the private network.
+const BLOCKED_HOSTS = new Set(['localhost', '0.0.0.0', '127.0.0.1', '::1', '[::1]', 'metadata.google.internal']);
+
+function isPrivateIP(hostname) {
+  // IPv4 private/loopback/link-local ranges.
+  if (/^(10\.|192\.168\.|127\.|0\.0\.0\.0$)/.test(hostname)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
+  if (/^169\.254\./.test(hostname)) return true;
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname)) return true; // CGNAT
+  if (/^fc00:|^fd|^fe80:/i.test(hostname)) return true; // IPv6 unique-local/link-local
+  return false;
+}
+
 router.post('/fetch-og', authenticateToken, requireAdmin, [
-  body('url').isURL(),
+  body('url').isURL({ protocols: ['http', 'https'], require_protocol: true }),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ error: 'Invalid URL' });
   try {
-    const response = await fetch(req.body.url, {
+    const raw = req.body.url;
+    const parsed = new URL(raw);
+    const host = parsed.hostname.toLowerCase();
+    if (BLOCKED_HOSTS.has(host) || isPrivateIP(host)) {
+      return res.status(400).json({ error: 'URL points to a disallowed host' });
+    }
+
+    // Resolve the hostname and re-check in case of DNS rebinding.
+    const { lookup } = await import('node:dns/promises');
+    const addresses = await lookup(parsed.hostname, { all: true });
+    for (const a of addresses) {
+      if (isPrivateIP(a.address.toLowerCase())) {
+        return res.status(400).json({ error: 'URL resolves to a disallowed address' });
+      }
+    }
+
+    const response = await fetch(parsed.toString(), {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KreatixBot/1.0)' },
       signal: AbortSignal.timeout(8000),
+      redirect: 'manual',
     });
+    if (response.status >= 300 && response.status < 400) {
+      return res.status(422).json({ error: 'Could not fetch the page' });
+    }
     if (!response.ok) return res.status(422).json({ error: 'Could not fetch the page' });
     const html = await response.text();
     const match =

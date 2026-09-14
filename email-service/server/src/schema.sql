@@ -35,6 +35,19 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
+-- ── Password Reset Tokens ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  token_hash  TEXT NOT NULL,
+  expires_at  TEXT NOT NULL,
+  used_at     TEXT,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_hash ON password_reset_tokens(token_hash);
+
 -- ── Folders ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS folders (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,6 +100,7 @@ CREATE TABLE IF NOT EXISTS emails (
   spam_score    INTEGER NOT NULL DEFAULT 0,             -- 0-100 spam confidence score
   is_spam       INTEGER NOT NULL DEFAULT 0,             -- 1 if flagged as spam
   security_flags TEXT,                                  -- JSON: { phishing: bool, suspicious_links: bool, spoofed: bool, etc }
+  d1_id         INTEGER,                                -- original D1 row id (used for sync cursor)
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
 );
@@ -94,6 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_emails_user_folder ON emails(user_id, folder_id);
 CREATE INDEX IF NOT EXISTS idx_emails_user_starred ON emails(user_id, is_starred);
 CREATE INDEX IF NOT EXISTS idx_emails_thread ON emails(thread_id);
 CREATE INDEX IF NOT EXISTS idx_emails_received ON emails(user_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_emails_d1_id ON emails(d1_id);
 CREATE INDEX IF NOT EXISTS idx_emails_search ON emails(user_id, subject, from_address, to_address, text);
 
 -- ── Email Labels (many-to-many) ─────────────────────────────

@@ -83,15 +83,15 @@ router.get('/summary', authenticateToken, requireAdminOnly, async (req, res) => 
       prisma.analyticsEvent.groupBy({
         by: ['page'],
         where: { type: 'PAGE_VIEW', createdAt: { gte: since } },
-        _count: { _all: true },
-        orderBy: { _count: { _all: 'desc' } },
+        _count: { page: true },
+        orderBy: { _count: { page: 'desc' } },
         take: 10,
       }),
       prisma.analyticsEvent.groupBy({
         by: ['country'],
         where: { type: 'PAGE_VIEW', createdAt: { gte: since }, country: { not: null } },
-        _count: { _all: true },
-        orderBy: { _count: { _all: 'desc' } },
+        _count: { country: true },
+        orderBy: { _count: { country: 'desc' } },
         take: 10,
       }),
       prisma.analyticsEvent.count({
@@ -119,8 +119,8 @@ router.get('/summary', authenticateToken, requireAdminOnly, async (req, res) => 
       totalClicks,
       uniqueVisitors: uniqueVisitors.length,
       assessmentClicks,
-      topPages: topPages.map(p => ({ page: p.page, count: p._count._all })),
-      topCountries: topCountries.map(c => ({ country: c.country, count: c._count._all })),
+      topPages: topPages.map(p => ({ page: p.page, count: p._count.page })),
+      topCountries: topCountries.map(c => ({ country: c.country, count: c._count.country })),
       daily,
       recentEvents: recentEvents.map(e => ({
         id: e.id,

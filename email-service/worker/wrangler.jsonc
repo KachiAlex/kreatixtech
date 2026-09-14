@@ -13,8 +13,7 @@
 			"pattern": "mail.kreatixtech.com",
 			"custom_domain": true
 		}
-	],
-	"d1_databases": [
+	],	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "email-db",

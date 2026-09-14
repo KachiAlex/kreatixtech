@@ -25,6 +25,8 @@ export default function Footer() {
             <Link to="/contact" className="block text-grey-dark text-sm mb-3 font-medium hover:text-ink transition-colors">Software development</Link>
             <Link to="/services/cybersecurity" className="block text-grey-dark text-sm mb-3 font-medium hover:text-ink transition-colors">Cybersecurity</Link>
             <Link to="/contact" className="block text-grey-dark text-sm mb-3 font-medium hover:text-ink transition-colors">Cloud services</Link>
+            <Link to="/mail" className="block text-grey-dark text-sm mb-3 font-medium hover:text-ink transition-colors">Kreatix Mail</Link>
+            <Link to="/security" className="block text-grey-dark text-sm mb-3 font-medium hover:text-ink transition-colors">Kreatix Security</Link>
           </div>
           <div className="footer-col">
             <h5 className="text-xs text-grey tracking-widest uppercase mb-4 font-extrabold">Company</h5>

@@ -6,7 +6,7 @@ Software Development, Cybersecurity & Cloud Services platform.
 
 - **Frontend:** React 18, Vite, Tailwind CSS, React Router, Framer Motion
 - **Backend:** Express.js, Prisma ORM, PostgreSQL, Socket.io
-- **Email:** Resend
+- **Email:** Brevo
 - **Storage:** Cloudflare R2
 - **Mobile:** Capacitor (Android)
 - **Deployment:** Fly.io (backend), Vercel (frontend)
@@ -16,7 +16,7 @@ Software Development, Cybersecurity & Cloud Services platform.
 - Node.js 20+
 - PostgreSQL database
 - Cloudflare R2 bucket (for file uploads)
-- Resend account (for email)
+- Brevo account (for email)
 
 ## Setup
 
@@ -38,10 +38,10 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/kreatixtech
 JWT_SECRET=your-secret-key
 FRONTEND_URL=http://localhost:5173
 
-# Resend
-RESEND_API_KEY=your-api-key
-RESEND_SENDER_EMAIL=noreply@kreatixtech.com
-RESEND_SENDER_NAME=Kreatix Technologies
+# Brevo
+BREVO_API_KEY=your-api-key
+BREVO_SENDER_EMAIL=noreply@kreatixtech.com
+BREVO_SENDER_NAME=Kreatix Technologies
 
 # Cloudflare R2
 R2_ACCOUNT_ID=your-account-id
@@ -137,7 +137,7 @@ kreatixtech/
 - Service request tracking with real-time messaging
 - Admin dashboard with analytics
 - File uploads to Cloudflare R2
-- Email notifications via Resend
+- Email notifications via Brevo
 - PWA support (installable, offline-capable)
 - GDPR cookie consent
 - Accessibility (WCAG 2.1 AA: skip links, ARIA, focus management)

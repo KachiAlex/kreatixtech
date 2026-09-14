@@ -6,9 +6,24 @@ import {
 import { cn } from '../../lib/utils';
 
 const WORKER_API_URL = 'https://mail.kreatixtech.com/api/admin';
-const ADMIN_SECRET = 'KreatixAdmin2026!Secret_Xy9Lm';
+// The mail admin secret is configured by the operator (VITE_MAIL_ADMIN_SECRET).
+// There is deliberately NO hard-coded fallback: without it the panel cannot
+// perform admin actions on the mail service.
+const ADMIN_SECRET = import.meta.env.VITE_MAIL_ADMIN_SECRET || '';
+
+function authHeaders(extra = {}) {
+  return { 'X-Admin-Secret': ADMIN_SECRET, ...extra };
+}
 
 export default function EmailAccountsPanel() {
+  if (!ADMIN_SECRET) {
+    return (
+      <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+        <Shield className="inline h-4 w-4 mr-1 -mt-0.5" />
+        Mail admin is not configured: set the <code className="font-mono">VITE_MAIL_ADMIN_SECRET</code> environment variable.
+      </div>
+    );
+  }
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,7 +44,7 @@ export default function EmailAccountsPanel() {
     setError(null);
     try {
       const response = await fetch(`${WORKER_API_URL}/users`, {
-        headers: { 'X-Admin-Secret': ADMIN_SECRET }
+        headers: authHeaders()
       });
       if (!response.ok) throw new Error('Failed to fetch email accounts');
       const data = await response.json();
@@ -52,7 +67,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': ADMIN_SECRET },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: newEmail, display_name: newName, password: newPassword }),
       });
       if (response.ok) {
@@ -76,7 +91,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users/${user.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': ADMIN_SECRET },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ is_active: !user.is_active }),
       });
       if (!response.ok) throw new Error('Failed to update status');
@@ -91,7 +106,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users/${id}`, {
         method: 'DELETE',
-        headers: { 'X-Admin-Secret': ADMIN_SECRET }
+        headers: authHeaders()
       });
       if (!response.ok) throw new Error('Failed to delete email account');
       fetchUsers();
@@ -108,7 +123,7 @@ export default function EmailAccountsPanel() {
     try {
       const response = await fetch(`${WORKER_API_URL}/users/${resetUser.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': ADMIN_SECRET },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ password: resetPassword }),
       });
       if (!response.ok) {

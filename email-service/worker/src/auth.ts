@@ -1,7 +1,18 @@
-// ── Auth utilities: password hashing, JWT, session management ─────────────
+// The JWT secret MUST be configured in the environment (JWT_SECRET).
+// There is deliberately NO hard-coded fallback. setJwtSecret() is called at the
+// start of each request from env.JWT_SECRET; if it is empty, signJwt/verifyJwt
+// throw so misconfiguration fails loudly rather than signing with a default.
+let JWT_SECRET = '';
 
-const JWT_SECRET = 'kreatix-mail-jwt-secret-2026-secure-key-f8a3b2c1';
-const JWT_EXPIRES_IN = 15 * 60;          // 15 min access token
+export function setJwtSecret(secret: string) {
+  JWT_SECRET = secret || '';
+}
+
+function assertSecret() {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+}
 export const REFRESH_EXPIRES_IN = 30 * 24 * 60 * 60;  // 30 days refresh token
 
 // ── Password hashing using Web Crypto API ────────────────────────────────
@@ -65,6 +76,7 @@ export interface JwtPayload {
 }
 
 export async function signJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresIn: number = JWT_EXPIRES_IN): Promise<string> {
+  assertSecret();
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const fullPayload: JwtPayload = { ...payload, iat: now, exp: now + expiresIn };
@@ -92,6 +104,7 @@ export async function verifyJwt(token: string): Promise<JwtPayload | null> {
     const [headerB64, payloadB64, sigB64] = token.split('.');
     if (!headerB64 || !payloadB64 || !sigB64) return null;
 
+    assertSecret();
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       'raw',

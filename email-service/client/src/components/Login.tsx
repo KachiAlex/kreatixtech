@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, ArrowRight, Shield } from 'lucide-react';
 import { useAuth } from '../auth-context';
+import { ForgotPassword } from './PasswordReset';
 
 const Login: React.FC = () => {
   const { login, register } = useAuth();
@@ -13,6 +14,7 @@ const Login: React.FC = () => {
   const [needs2FA, setNeeds2FA] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+  const [showForgot, setShowForgot] = useState(false);
 
   // Auto-login with saved credentials
   useEffect(() => {
@@ -67,6 +69,9 @@ const Login: React.FC = () => {
   };
 
   return (
+    <>
+    {showForgot && <ForgotPassword onBack={() => { setShowForgot(false); setError(''); }} />}
+    {!showForgot && (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #FFF7F1 0%, #FAF8F5 50%, #FDF1E8 100%)' }}>
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-border">
         <div className="flex flex-col items-center mb-8">
@@ -133,6 +138,18 @@ const Login: React.FC = () => {
               />
               <span className="text-sm text-gray-600 font-medium">Remember me on this device</span>
             </label>
+          )}
+
+          {mode === 'login' && (
+            <div className="text-right -mt-2">
+              <button
+                type="button"
+                onClick={() => { setShowForgot(true); setError(''); }}
+                className="text-sm text-orange hover:text-orange-deep font-bold transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
           )}
 
           <button
@@ -202,6 +219,8 @@ const Login: React.FC = () => {
         </div>
       </div>
     </div>
+    )}
+    </>
   );
 };
 

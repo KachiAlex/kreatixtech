@@ -8,8 +8,9 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './lib/swagger.js';
 import { prisma } from './lib/prisma.js';
-import { setIo, connectedUsers } from './lib/socket.js';
+import { setIo, connectedUsers, addUserConnection, removeUserConnection } from './lib/socket.js';
 import logger from './lib/logger.js';
+import { startScheduler } from './services/scheduler.js';
 
 logger.info('SERVER.JS STARTING');
 
@@ -57,6 +58,7 @@ await Promise.all([
   tryImport('analytics',      './routes/analytics.js'),
   tryImport('emails',         './routes/emails.js'),
   tryImport('security',       './routes/security.js'),
+  tryImport('publicServiceRequests', './routes/public-service-requests.js'),
   tryImport('authMiddleware','./middleware/auth.js'),
 ]);
 
@@ -84,6 +86,7 @@ const serviceFindingRoutes  = get('serviceFindings')?.default;
 const analyticsRoutes       = get('analytics')?.default;
 const emailRoutes           = get('emails')?.default;
 const securityRoutes        = get('security')?.default;
+const publicServiceRequestRoutes = get('publicServiceRequests')?.default;
 const authMiddleware     = get('authMiddleware');
 const authenticateToken  = authMiddleware?.authenticateToken;
 const requireAdmin       = authMiddleware?.requireAdmin;
@@ -166,6 +169,7 @@ app.use('/api/auth/login',           authLimiter);
 app.use('/api/auth/register',        authLimiter);
 app.use('/api/auth/forgot-password', strictLimiter);
 app.use('/api/auth/reset-password',  strictLimiter);
+app.use('/api/public/service-requests', strictLimiter);
 
 if (authRoutes)          app.use('/api/auth',              authRoutes);
 if (contactRoutes)       app.use('/api/contact',           contactRoutes);
@@ -187,6 +191,7 @@ if (invitationRoutes)     app.use('/api/invitations',       invitationRoutes);
 if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
 if (emailRoutes)          app.use('/api/emails',             emailRoutes);
 if (securityRoutes)      app.use('/api/security',           securityRoutes);
+if (publicServiceRequestRoutes) app.use('/api/public/service-requests', publicServiceRequestRoutes);
 
 // Log mounted routes
 logger.info('Mounted API routes:');
@@ -258,20 +263,44 @@ io.use((socket, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.userId;
     socket.orgId  = decoded.orgId;
+    socket.role   = decoded.role;
     next();
   } catch (err) {
     next(new Error('Invalid token'));
   }
 });
 
+// Gate room joins by organization so clients can never receive other tenants'
+// internal notes, messages or presence events.
+async function canJoinAssessment(socket, assessmentId) {
+  if (socket.role === 'ADMIN' || socket.role === 'ANALYST') return true;
+  const assessment = await prisma.vaptAssessment.findUnique({
+    where: { id: assessmentId },
+    select: { orgId: true },
+  });
+  return !!assessment && assessment.orgId === socket.orgId;
+}
+
+async function canJoinRequest(socket, requestId) {
+  if (socket.role === 'ADMIN' || socket.role === 'ANALYST') return true;
+  const request = await prisma.serviceRequest.findUnique({
+    where: { id: requestId },
+    select: { orgId: true },
+  });
+  return !!request && request.orgId === socket.orgId;
+}
+
 io.on('connection', (socket) => {
   logger.info({ userId: socket.userId }, 'User connected');
-  connectedUsers.set(socket.userId, { socketId: socket.id, userId: socket.userId, orgId: socket.orgId, lastSeen: new Date() });
+  addUserConnection(socket.userId, socket.id);
   socket.join(`user:${socket.userId}`);
   socket.join(`org:${socket.orgId}`);
   socket.to(`org:${socket.orgId}`).emit('user-online', { userId: socket.userId, status: 'online' });
 
-  socket.on('join-assessment', (assessmentId) => {
+  socket.on('join-assessment', async (assessmentId) => {
+    if (!assessmentId) return;
+    const allowed = await canJoinAssessment(socket, assessmentId);
+    if (!allowed) return socket.emit('error', { message: 'Access denied' });
     socket.join(`assessment:${assessmentId}`);
     socket.to(`assessment:${assessmentId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });
   });
@@ -282,7 +311,10 @@ io.on('connection', (socket) => {
   });
 
   // Service request rooms
-  socket.on('join-request', (requestId) => {
+  socket.on('join-request', async (requestId) => {
+    if (!requestId) return;
+    const allowed = await canJoinRequest(socket, requestId);
+    if (!allowed) return socket.emit('error', { message: 'Access denied' });
     socket.join(`request:${requestId}`);
     socket.to(`request:${requestId}`).emit('user-joined', { userId: socket.userId, timestamp: new Date() });
   });
@@ -311,14 +343,17 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    socket.to(`org:${socket.orgId}`).emit('user-offline', { userId: socket.userId, status: 'offline', lastSeen: new Date() });
-    connectedUsers.delete(socket.userId);
+    const fullyOffline = removeUserConnection(socket.userId, socket.id);
+    if (fullyOffline) {
+      socket.to(`org:${socket.orgId}`).emit('user-offline', { userId: socket.userId, status: 'offline', lastSeen: new Date() });
+    }
   });
 });
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   logger.info({ port: PORT }, 'Server running');
+  startScheduler();
 });
 
 export default app;

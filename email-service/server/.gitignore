@@ -1,0 +1,14 @@
+# Environment variables
+.env
+
+# Database / runtime data
+data/
+
+# Build output
+dist/
+
+# Logs
+*.log
+
+# Node modules
+node_modules/

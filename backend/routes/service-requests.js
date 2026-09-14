@@ -160,7 +160,10 @@ router.post('/', [
       }
     });
 
-    getIo().emit('new-service-request', request);
+    // NOTE: we intentionally do NOT globally broadcast newly created service
+    // requests — that would leak every tenant's requests to all connected
+    // clients. Admins are notified below via email (and individual socket
+    // notifications in the /api/requests flow).
 
     // Send email notification to all admins
     try {

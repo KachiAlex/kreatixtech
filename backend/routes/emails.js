@@ -95,8 +95,8 @@ router.post('/send', async (req, res) => {
     }
 
     const sender = {
-      email: process.env.RESEND_SENDER_EMAIL || 'noreply@kreatixtech.com',
-      name: process.env.RESEND_SENDER_NAME || 'Kreatix Technologies',
+      email: process.env.BREVO_SENDER_EMAIL || 'noreply@kreatixtech.com',
+      name: process.env.BREVO_SENDER_NAME || 'Kreatix Technologies',
     };
 
     const htmlBody = `
@@ -133,7 +133,7 @@ router.post('/send', async (req, res) => {
         html: htmlBody,
         folder: 'sent',
         isRead: true,
-        sentBy: req.user.userId,
+        sentBy: req.user.id,
       },
     });
 

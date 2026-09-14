@@ -14,6 +14,13 @@ Thumbs.db
 deploy-vps.ps1
 setup-ssh.ps1
 fix-vps.sh
+create-admin.sh
+
+# Committed by accident: contains real user data / secrets — rotate & remove from history
+email-service/server/.env
+email-service/worker/d1-data-export.sql
+email-service/worker/d1-export.sql
+email-service/server/d1-export.sql
 
 # Build artifacts
 email-service/client/release/
@@ -50,3 +57,35 @@ email-service/server/src/test-send.ts
 
 # Cloudflare Wrangler local state (D1/R2/cache)
 email-service/worker/.wrangler/
+
+# Temp scripts and test files at repo root
+check-*.mjs
+check-*.cjs
+check-*.sh
+test-*.mjs
+test-*.cjs
+verify-*.mjs
+verify-*.cjs
+fix-*.cjs
+fix-*.sh
+cleanup-*.cjs
+cleanup-*.sh
+backfill-*.py
+backfill-*.sh
+ssh-collector.py
+fix-server*.py
+fix-sql.py
+
+# Vite timestamp files
+vite.config.js.timestamp-*
+
+# Temp app artifacts
+installed-app.tiff
+b.id
+cleanup-secrets.ps1
+
+# Electron extraction temp
+email-service/client/asar-extract/
+email-service/client/old-asar/
+email-service/client/test-electron.cjs
+packages/

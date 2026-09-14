@@ -9,6 +9,7 @@ import ComposeModal from './components/ComposeModal';
 import SettingsPanel from './components/SettingsPanel';
 import AdminPanel from './components/AdminPanel';
 import Login from './components/Login';
+import { ResetPassword } from './components/PasswordReset';
 import SplashScreen from './components/SplashScreen';
 import { initNotifications, setNotificationUserId, clearNotificationUser } from './notifications';
 import CalendarView from './components/CalendarView';
@@ -208,6 +209,14 @@ function MailApp() {
   }
 
   if (!user) {
+    // Handle /reset-password route (from email link)
+    const url = new URL(window.location.href);
+    if (url.pathname === '/reset-password') {
+      const token = url.searchParams.get('token');
+      if (token) {
+        return <ResetPassword token={token} onDone={() => { window.history.replaceState({}, '', '/'); }} />;
+      }
+    }
     return <Login />;
   }
 

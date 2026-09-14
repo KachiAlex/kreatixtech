@@ -1,17 +1,13 @@
-import { createRequire } from 'node:module';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'node:url';
+import db from './db.js';
 
-const require = createRequire(import.meta.url);
-const Database = require('better-sqlite3');
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const dbPath = path.join(process.cwd(), 'data', 'mail.db');
-const db = new Database(dbPath);
 db.pragma('foreign_keys = OFF');
 
-// Initialize schema first
+// Ensure schema is up to date
 const schemaPath = path.join(__dirname, 'schema.sql');
 const schema = fs.readFileSync(schemaPath, 'utf-8');
 db.exec(schema);
@@ -51,7 +47,7 @@ for (const stmt of statements) {
   try {
     db.exec(stmt);
     count++;
-  } catch (e) {
+  } catch (e: any) {
     console.error(`Error on statement ${count + 1}:`, e.message);
     console.error('Statement:', stmt.substring(0, 200) + '...');
   }

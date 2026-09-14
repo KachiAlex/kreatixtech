@@ -4,7 +4,7 @@ import { execSync, spawn } from 'child_process';
 
 console.log('[migrate] Running prisma db push...');
 try {
-  execSync('npx prisma db push --accept-data-loss --skip-generate', {
+  execSync('npx prisma db push --skip-generate', {
     stdio: 'inherit',
     timeout: 60000,
   });

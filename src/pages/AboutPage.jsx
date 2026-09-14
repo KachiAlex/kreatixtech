@@ -77,7 +77,7 @@ export default function AboutPage() {
           </h2>
           <div className="flex flex-wrap gap-3">
             <Link to="/contact" className="btn-primary text-sm">Start a Conversation <ArrowUpRight size={14} /></Link>
-            <Link to="/portal/vapt-request" className="btn-outline text-sm" onClick={() => trackClick('Request Assessment')}>Request Assessment</Link>
+            <Link to="/assessment" className="btn-outline text-sm" onClick={() => trackClick('Request Assessment')}>Request Assessment</Link>
           </div>
         </div>
       </section>

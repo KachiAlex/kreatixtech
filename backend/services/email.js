@@ -1,35 +1,48 @@
-import { Resend } from 'resend';
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
+const apiKey = process.env.BREVO_API_KEY || '';
 
 const sender = {
-  email: process.env.RESEND_SENDER_EMAIL || (process.env.VERCEL ? 'onboarding@resend.dev' : 'noreply@kreatixtech.com'),
-  name: process.env.RESEND_SENDER_NAME || 'Kreatix Technologies'
+  email: process.env.BREVO_SENDER_EMAIL || 'noreply@kreatixtech.com',
+  name: process.env.BREVO_SENDER_NAME || 'Kreatix Technologies'
 };
 
-export async function sendEmail({ to, subject, html, text }) {
-  if (!resend) {
-    console.warn('RESEND_API_KEY not set, skipping email');
+export async function sendEmail({ to, cc, bcc, subject, html, text }) {
+  if (!apiKey) {
+    console.warn('BREVO_API_KEY not set, skipping email');
     return;
   }
 
   const toList = Array.isArray(to) ? to : [to];
+  const ccList = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
+  const bccList = bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : [];
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: `${sender.name} <${sender.email}>`,
-      to: toList,
-      subject,
-      html,
-      text
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: sender.name, email: sender.email },
+        to: toList.map((email) => ({ email })),
+        ...(ccList.length > 0 && { cc: ccList.map((email) => ({ email })) }),
+        ...(bccList.length > 0 && { bcc: bccList.map((email) => ({ email })) }),
+        subject,
+        htmlContent: html,
+        textContent: text
+      })
     });
 
-    if (error) {
-      console.error('Resend error:', error);
-      throw new Error(error.message);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Brevo error:', errorText);
+      throw new Error(errorText);
     }
 
-    console.log('Email sent:', data.id);
+    const data = await response.json();
+    console.log('Email sent:', data.messageId);
     return data;
   } catch (error) {
     console.error('Email send failed:', error.message);
@@ -37,11 +50,13 @@ export async function sendEmail({ to, subject, html, text }) {
   }
 }
 
-export async function sendNewAssessmentEmail({ to, assessmentTitle, organizationName, assessmentId }) {
+export async function sendNewAssessmentEmail({ to, cc, bcc, assessmentTitle, organizationName, assessmentId }) {
   const portalUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.vercel.app'}/portal/assessment/${assessmentId}`;
 
   return sendEmail({
     to,
+    cc,
+    bcc,
     subject: `New VAPT Assessment: ${assessmentTitle}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -285,5 +300,90 @@ export async function sendSecurityAlertEmail({ to, events }) {
   });
 }
 
-export { resend };
-export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendRequestMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail, sendNewRequestEmail, sendRequestStatusEmail, sendRequestAssignedEmail, sendDeliverableReadyEmail, sendFeedbackReceivedEmail, sendSecurityAlertEmail };
+export async function sendMonthlySecurityDigestEmail({ to, month, stats, topEvents, activeBans }) {
+  const portalUrl = `${process.env.FRONTEND_URL || 'https://kreatixtech.com'}/admin`;
+  const severityColors = { CRITICAL: '#C43C36', HIGH: '#E0641C', MEDIUM: '#F2B441', LOW: '#3B82F6' };
+
+  const eventRows = (topEvents || []).map(e => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee">
+        <span style="background:${severityColors[e.severity] || '#999'};color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold">${e.severity}</span>
+      </td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${e.type}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-family:monospace;font-size:13px">${e.ipAddress || '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${e.description}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${e.createdAt ? new Date(e.createdAt).toLocaleString() : '—'}</td>
+    </tr>`).join('');
+
+  return sendEmail({
+    to,
+    subject: `Monthly Security Digest — ${month}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+        <h2 style="color:#0E0E0F">Kreatix VPS Security — Monthly Digest</h2>
+        <p>Summary for <strong>${month}</strong>:</p>
+        <ul style="line-height:1.8">
+          <li>Total events: <strong>${stats.totalEvents}</strong></li>
+          <li>Critical / High: <strong style="color:#C43C36">${stats.criticalHigh}</strong></li>
+          <li>Failed SSH attempts: <strong>${stats.failedSSH}</strong></li>
+          <li>IPs banned by fail2ban: <strong>${stats.banned}</strong></li>
+          <li>Active bans at month end: <strong>${activeBans}</strong></li>
+        </ul>
+        ${eventRows ? `<h3 style="margin-top:24px">Top events</h3>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <thead>
+            <tr style="background:#F7F5F2">
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Severity</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Type</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">IP</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Description</th>
+              <th style="padding:8px 12px;text-align:left;font-size:12px">Time</th>
+            </tr>
+          </thead>
+          <tbody>${eventRows}</tbody>
+        </table>` : '<p>No notable events this month.</p>'}
+        <p><a href="${portalUrl}" style="background:#F2782E;color:#fff;padding:12px 24px;text-decoration:none;border-radius:8px;display:inline-block;margin-top:8px">View Security Center</a></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+        <p style="color:#999;font-size:12px">Kreatix Technologies — Security Monitoring. You can change these emails in your notification settings.</p>
+      </div>`,
+    text: `Monthly Security Digest — ${month}. Total: ${stats.totalEvents}, Critical/High: ${stats.criticalHigh}, Failed SSH: ${stats.failedSSH}, Banned: ${stats.banned}. View at ${portalUrl}`
+  });
+}
+
+export async function sendAssessmentConfirmationEmail({ to, name, assessmentTitle, requestId }) {
+  const siteUrl = process.env.FRONTEND_URL || 'https://kreatixtech.com';
+
+  return sendEmail({
+    to,
+    subject: `We received your request: ${assessmentTitle}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #F2782E; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">Kreatix Technologies</h1>
+        </div>
+        <div style="padding: 32px; background: #F7F5F2; border-radius: 0 0 12px 12px;">
+          <h2 style="color: #1a1a1a; margin-top: 0;">Hi ${name},</h2>
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            Thank you for requesting an assessment with Kreatix Technologies. We've received your request
+            and our team will review it within 24 hours.
+          </p>
+          <div style="background: white; border-radius: 8px; padding: 20px; margin: 24px 0; border-left: 4px solid #F2782E;">
+            <p style="margin: 0; color: #888; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Your Request</p>
+            <p style="margin: 8px 0 0; color: #1a1a1a; font-size: 18px; font-weight: bold;">${assessmentTitle}</p>
+            <p style="margin: 8px 0 0; color: #888; font-size: 13px;">Reference: ${requestId.substring(0, 8).toUpperCase()}</p>
+          </div>
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            A member of our security team will reach out to you shortly to discuss scope, timeline and next steps.
+            If you have any questions in the meantime, feel free to reply to this email or contact us at
+            <a href="mailto:info@kreatixtech.com" style="color: #F2782E;">info@kreatixtech.com</a>.
+          </p>
+          <a href="${siteUrl}" style="background: #F2782E; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 16px; font-weight: bold;">Visit Kreatix</a>
+          <hr style="border: none; border-top: 1px solid #E8E5E0; margin: 32px 0;">
+          <p style="color: #999; font-size: 12px;">Kreatix Technologies — Cybersecurity & Software Development</p>
+        </div>
+      </div>`,
+    text: `Hi ${name},\n\nThank you for requesting an assessment with Kreatix Technologies. We've received your request "${assessmentTitle}" and our team will review it within 24 hours.\n\nA member of our security team will reach out to you shortly. If you have questions, contact us at info@kreatixtech.com.\n\nVisit ${siteUrl}`
+  });
+}
+
+export default { sendEmail, sendNewAssessmentEmail, sendNewMessageEmail, sendRequestMessageEmail, sendStatusChangeEmail, sendAssignedEmail, sendPasswordResetEmail, sendNewRequestEmail, sendRequestStatusEmail, sendRequestAssignedEmail, sendDeliverableReadyEmail, sendFeedbackReceivedEmail, sendSecurityAlertEmail, sendMonthlySecurityDigestEmail, sendAssessmentConfirmationEmail };

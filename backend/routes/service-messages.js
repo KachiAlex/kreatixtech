@@ -2,6 +2,7 @@ import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
 import { getIo } from '../lib/socket.js';
+import { emitToRoomAdmins } from '../lib/socket.js';
 import { sendRequestMessageEmail } from '../services/email.js';
 import { sendPushToUsers } from '../services/push.js';
 
@@ -161,11 +162,17 @@ router.post('/', [
       })
     );
 
-    getIo().to(`request:${requestId}`).emit('new-message', newMessage);
-    getIo().to(`org:${request.orgId}`).emit('new-message', {
-      requestId,
-      message: newMessage
-    });
+    // Internal notes are admin-only: never broadcast them to the room or the
+    // org (clients share both). Emit them only to admin sockets in the room.
+    if (messageType === 'INTERNAL_NOTE') {
+      await emitToRoomAdmins(`request:${requestId}`, 'new-message', newMessage);
+    } else {
+      getIo().to(`request:${requestId}`).emit('new-message', newMessage);
+      getIo().to(`org:${request.orgId}`).emit('new-message', {
+        requestId,
+        message: newMessage
+      });
+    }
 
     // Send email notification (skip for internal notes)
     if (messageType !== 'INTERNAL_NOTE') {

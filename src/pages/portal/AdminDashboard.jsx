@@ -64,26 +64,24 @@ const SERVICE_COLORS = {
 };
 
 const NAV_ITEMS = [
-  { key: 'requests',  label: 'Service Requests',  icon: FileText },
-  { key: 'companies', label: 'Companies',          icon: Building2 },
+  { key: 'overview',  label: 'Overview',           icon: BarChart3 },
+  { key: 'requests',  label: 'Service Requests',   icon: FileText },
   { key: 'team',      label: 'Team',               icon: Users },
   { key: 'projects',  label: 'Portfolio Projects', icon: Image },
   { key: 'blog',      label: 'Blog Posts',         icon: Newspaper },
-  { key: 'analytics', label: 'Analytics',          icon: BarChart3 },
   { key: 'email',     label: 'Email Management',   icon: MailIcon },
   { key: 'security',  label: 'Security',           icon: Shield },
   { key: 'settings',  label: 'Settings',           icon: Settings },
 ];
 
 export default function AdminDashboard() {
-  const [activeSection, setActiveSection]   = useState('requests'); // 'requests' | 'projects' | 'companies'
+  const [activeSection, setActiveSection]   = useState('overview');
   const [sidebarOpen, setSidebarOpen]       = useState(false);
   const [requests, setRequests]   = useState([]);
   const [stats, setStats]               = useState(null);
   const [analysts, setAnalysts]         = useState([]);
   const [projects, setProjects]         = useState([]);
-  const [companies, setCompanies]       = useState([]);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
+
   const [team, setTeam]                 = useState([]);
   const [teamLoading, setTeamLoading]   = useState(false);
   const [pendingInvites, setPendingInvites] = useState([]);
@@ -114,15 +112,15 @@ export default function AdminDashboard() {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (isAdmin && activeSection === 'companies') fetchCompanies();
-    if (isAdmin && activeSection === 'team') fetchTeam();
-    if (isAdmin && activeSection === 'analytics') fetchAnalytics();
-    if (isAdmin && activeSection === 'blog') fetchBlogPosts();
+    if (!isAdmin) return;
+    if (activeSection === 'overview') { fetchStats(); fetchAnalytics(); }
+    if (activeSection === 'team') fetchTeam();
+    if (activeSection === 'blog') fetchBlogPosts();
   }, [isAdmin, activeSection, analyticsDays]);
 
   useEffect(() => {
-    if (isAdmin) fetchRequests();
-  }, [filter, typeFilter, page, isAdmin]);
+    if (isAdmin && activeSection === 'requests') fetchRequests();
+  }, [filter, typeFilter, page, isAdmin, activeSection]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -176,14 +174,7 @@ export default function AdminDashboard() {
     finally { setTeamLoading(false); }
   }, [apiCall]);
 
-  const fetchCompanies = useCallback(async () => {
-    setCompaniesLoading(true);
-    try {
-      const r = await apiCall('/api/requests/companies');
-      if (r.ok) setCompanies(await r.json());
-    } catch (e) { console.error(e); }
-    finally { setCompaniesLoading(false); }
-  }, [apiCall]);
+
 
   const fetchBlogPosts = useCallback(async () => {
     setBlogLoading(true);
@@ -288,27 +279,6 @@ export default function AdminDashboard() {
           <p className="mt-1 text-[#6B6F76]">Manage service requests across all disciplines</p>
         </div>
 
-        {/* â”€â”€ Stats â”€â”€ */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
-            {[
-              { label: 'Total',       value: stats.total,                                       icon: FileText,    bg: 'bg-blue-50',   ic: 'text-blue-600' },
-              { label: 'New',         value: stats.statuses?.SUBMITTED || 0,                    icon: Clock,       bg: 'bg-yellow-50', ic: 'text-yellow-600' },
-              { label: 'In Progress', value: (stats.statuses?.IN_PROGRESS||0)+(stats.statuses?.SCOPED||0)+(stats.statuses?.REVIEWED||0), icon: TrendingUp, bg: 'bg-purple-50', ic: 'text-purple-600' },
-              { label: 'Delivered',   value: (stats.statuses?.DELIVERED||0)+(stats.statuses?.CLOSED||0), icon: CheckCircle, bg: 'bg-green-50', ic: 'text-green-600' },
-              { label: 'Clients',     value: stats.clients,                                     icon: Users,       bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
-            ].map(s => (
-              <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-4 sm:p-5">
-                <div className={`w-9 h-9 sm:w-10 sm:h-10 ${s.bg} rounded-xl flex items-center justify-center mb-2 sm:mb-3`}>
-                  <s.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${s.ic}`} />
-                </div>
-                <p className="text-xl sm:text-2xl font-bold text-[#0E0E0F]">{s.value ?? 0}</p>
-                <p className="text-xs sm:text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* â”€â”€ Mobile sidebar toggle â”€â”€ */}
         <button
           onClick={() => setSidebarOpen(v => !v)}
@@ -347,9 +317,6 @@ export default function AdminDashboard() {
                   <span className="flex-1 text-left">{item.label}</span>
                   {item.key === 'projects' && (
                     <span className="text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{projects.length}</span>
-                  )}
-                  {item.key === 'companies' && (
-                    <span className="text-xs bg-[#F7F5F2] text-[#6B6F76] rounded-full px-2 py-0.5">{companies.length}</span>
                   )}
                 </button>
               ))}
@@ -437,11 +404,6 @@ export default function AdminDashboard() {
         </div>
         </div>{/* end requests section */}
 
-        {/* â”€â”€ Companies section â”€â”€ */}
-        {activeSection === 'companies' && (
-          <CompaniesPanel companies={companies} loading={companiesLoading} onRefresh={fetchCompanies} />
-        )}
-
         {/* â”€â”€ Team section â”€â”€ */}
         {activeSection === 'team' && (
           <TeamPanel
@@ -461,14 +423,35 @@ export default function AdminDashboard() {
           />
         )}
 
-        {/* â”€â”€ Analytics section â”€â”€ */}
-        {activeSection === 'analytics' && (
-          <AnalyticsPanel
-            analytics={analytics}
-            loading={analyticsLoading}
-            days={analyticsDays}
-            setDays={setAnalyticsDays}
-          />
+        {/* â”€â”€ Overview section â”€â”€ */}
+        {activeSection === 'overview' && (
+          <div className="space-y-6">
+            {stats && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+                {[
+                  { label: 'Total',       value: stats.total,                                       icon: FileText,    bg: 'bg-blue-50',   ic: 'text-blue-600' },
+                  { label: 'New',         value: stats.statuses?.SUBMITTED || 0,                    icon: Clock,       bg: 'bg-yellow-50', ic: 'text-yellow-600' },
+                  { label: 'In Progress', value: (stats.statuses?.IN_PROGRESS||0)+(stats.statuses?.SCOPED||0)+(stats.statuses?.REVIEWED||0), icon: TrendingUp, bg: 'bg-purple-50', ic: 'text-purple-600' },
+                  { label: 'Delivered',   value: (stats.statuses?.DELIVERED||0)+(stats.statuses?.CLOSED||0), icon: CheckCircle, bg: 'bg-green-50', ic: 'text-green-600' },
+                  { label: 'Clients',     value: stats.clients,                                     icon: Users,       bg: 'bg-orange-50', ic: 'text-[#F2782E]' },
+                ].map(s => (
+                  <div key={s.label} className="bg-white rounded-xl border border-[#E8E5E0] p-4 sm:p-5">
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 ${s.bg} rounded-xl flex items-center justify-center mb-2 sm:mb-3`}>
+                      <s.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${s.ic}`} />
+                    </div>
+                    <p className="text-xl sm:text-2xl font-bold text-[#0E0E0F]">{s.value ?? 0}</p>
+                    <p className="text-xs sm:text-sm text-[#6B6F76] mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <AnalyticsPanel
+              analytics={analytics}
+              loading={analyticsLoading}
+              days={analyticsDays}
+              setDays={setAnalyticsDays}
+            />
+          </div>
         )}
 
         {/* â”€â”€ Email Flow section â”€â”€ */}
@@ -511,6 +494,52 @@ function AdminSettingsPanel({ user, apiCall }) {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState(null);
 
+  const [notifPrefs, setNotifPrefs] = useState({ monthlyDigest: true, immediate: { critical: true, high: false, medium: false, low: false, info: false, unauthorizedAccess: true, bans: false, firewallChanges: false } });
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifMsg, setNotifMsg] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    apiCall('/api/notifications/preferences')
+      .then(r => r.json())
+      .then(data => {
+        if (mounted && data.preferences) setNotifPrefs(data.preferences);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, [apiCall]);
+
+  const updateNotifPref = (key, value) => {
+    setNotifPrefs(prev => ({ ...prev, [key]: value }));
+  };
+
+  const updateImmediatePref = (key, value) => {
+    setNotifPrefs(prev => ({ ...prev, immediate: { ...prev.immediate, [key]: value } }));
+  };
+
+  const saveNotifications = async (e) => {
+    e.preventDefault();
+    setNotifMsg(null);
+    setNotifSaving(true);
+    try {
+      const r = await apiCall('/api/notifications/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ security: notifPrefs }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        setNotifPrefs(data.preferences);
+        setNotifMsg({ ok: true, text: 'Notification preferences saved.' });
+      } else {
+        setNotifMsg({ ok: false, text: data.error || 'Save failed' });
+      }
+    } catch {
+      setNotifMsg({ ok: false, text: 'Network error' });
+    } finally {
+      setNotifSaving(false);
+    }
+  };
+
   const savePassword = async (e) => {
     e.preventDefault();
     setPwMsg(null);
@@ -518,8 +547,12 @@ function AdminSettingsPanel({ user, apiCall }) {
       setPwMsg({ ok: false, text: 'Passwords do not match' });
       return;
     }
-    if (pwForm.newPassword.length < 6) {
-      setPwMsg({ ok: false, text: 'Password must be at least 6 characters' });
+    if (pwForm.newPassword.length < 8) {
+      setPwMsg({ ok: false, text: 'Password must be at least 8 characters' });
+      return;
+    }
+    if (!/[a-zA-Z]/.test(pwForm.newPassword) || !/[0-9]/.test(pwForm.newPassword)) {
+      setPwMsg({ ok: false, text: 'Password must include a letter and a number' });
       return;
     }
     setPwSaving(true);
@@ -570,6 +603,67 @@ function AdminSettingsPanel({ user, apiCall }) {
             <span className="inline-block px-2.5 py-0.5 bg-[#F2782E]/10 text-[#F2782E] text-xs font-bold rounded-full">{user?.role}</span>
           </div>
         </div>
+      </div>
+
+      {/* ── Security Notification Preferences ── */}
+      <div className="bg-white rounded-2xl border border-[#E8E5E0] p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell className="h-5 w-5 text-[#F2782E]" />
+          <h3 className="text-base font-bold text-[#0E0E0F]">Security Notifications</h3>
+        </div>
+        {notifMsg && (
+          <div className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${notifMsg.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            {notifMsg.ok ? <CheckCircle className="h-4 w-4 flex-shrink-0" /> : <AlertCircle className="h-4 w-4 flex-shrink-0" />}
+            {notifMsg.text}
+          </div>
+        )}
+        <form onSubmit={saveNotifications} className="space-y-5">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={notifPrefs.monthlyDigest}
+              onChange={e => updateNotifPref('monthlyDigest', e.target.checked)}
+              className="mt-1 h-4 w-4 text-[#F2782E] border-[#E8E5E0] rounded focus:ring-[#F2782E]"
+            />
+            <div>
+              <p className="text-sm font-semibold text-[#0E0E0F]">Monthly security digest</p>
+              <p className="text-xs text-[#6B6F76]">One consolidated email on the 1st of each month with the previous month's VPS security activity.</p>
+            </div>
+          </label>
+
+          <div>
+            <p className="text-sm font-semibold text-[#0E0E0F] mb-3">Immediate email alerts</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { key: 'critical', label: 'Critical events' },
+                { key: 'high', label: 'High severity events' },
+                { key: 'medium', label: 'Medium severity events' },
+                { key: 'low', label: 'Low severity events' },
+                { key: 'info', label: 'Info events' },
+                { key: 'unauthorizedAccess', label: 'Unauthorized successful access', important: true },
+                { key: 'bans', label: 'New fail2ban bans' },
+                { key: 'firewallChanges', label: 'Firewall changes' },
+              ].map(({ key, label, important }) => (
+                <label key={key} className={`flex items-center gap-2 text-sm cursor-pointer ${important ? 'text-[#C43C36] font-semibold' : 'text-[#0E0E0F]'}`}>
+                  <input
+                    type="checkbox"
+                    checked={!!notifPrefs.immediate[key]}
+                    onChange={e => updateImmediatePref(key, e.target.checked)}
+                    className="h-4 w-4 text-[#F2782E] border-[#E8E5E0] rounded focus:ring-[#F2782E]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button type="submit" disabled={notifSaving}
+              className="px-5 py-2.5 bg-[#0E0E0F] text-white text-sm font-bold rounded-xl hover:bg-[#F2782E] disabled:opacity-50 transition-colors">
+              {notifSaving ? 'Saving…' : 'Save Preferences'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* ── Change Password ── */}

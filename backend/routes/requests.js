@@ -1,7 +1,7 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
-import { getIo } from '../lib/socket.js';
+import { getIo, emitToRoomAdmins } from '../lib/socket.js';
 import { requireAdmin, authenticateToken } from '../middleware/auth.js';
 import {
   sendNewRequestEmail, sendRequestStatusEmail,
@@ -155,7 +155,10 @@ router.post('/', [
       include: { organization: { select: { id: true, name: true } } },
     });
 
-    getIo().emit('new-request', request);
+    // NOTE: we intentionally do NOT globally broadcast newly created requests.
+    // Admins are notified individually below via `notify()` (DB + socket to their
+    // `user:<id>` room); a global emit would leak every tenant's requests to all
+    // connected clients.
 
     // Notify all admins
     const admins = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'ANALYST'] } }, select: { id: true, email: true } });
@@ -396,7 +399,12 @@ router.post('/:id/messages', [param('id').isUUID(), body('message').trim().isLen
       })
     ));
 
-    getIo().to(`request:${req.params.id}`).emit('new-message', msg);
+    // Internal notes are admin-only: emit only to admin sockets room members.
+    if (messageType === 'INTERNAL_NOTE') {
+      await emitToRoomAdmins(`request:${req.params.id}`, 'new-message', msg);
+    } else {
+      getIo().to(`request:${req.params.id}`).emit('new-message', msg);
+    }
 
     // Send email notification (skip for internal notes)
     if (messageType !== 'INTERNAL_NOTE') {
@@ -439,6 +447,14 @@ router.post('/:id/messages', [param('id').isUUID(), body('message').trim().isLen
 // ── Milestones ────────────────────────────────────────────────────────────────
 router.get('/:id/milestones', [param('id').isUUID()], async (req, res) => {
   try {
+    const request = await prisma.serviceRequest.findUnique({
+      where: { id: req.params.id },
+      select: { orgId: true },
+    });
+    if (!request) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role === 'CLIENT' && request.orgId !== req.user.orgId)
+      return res.status(403).json({ error: 'Access denied' });
+
     const milestones = await prisma.milestone.findMany({
       where: { requestId: req.params.id },
       orderBy: { sortOrder: 'asc' },
@@ -488,6 +504,14 @@ router.delete('/:requestId/milestones/:milestoneId', requireAdmin, async (req, r
 // ── Findings (CYBERSECURITY only) ────────────────────────────────────────────
 router.get('/:id/findings', [param('id').isUUID()], async (req, res) => {
   try {
+    const request = await prisma.serviceRequest.findUnique({
+      where: { id: req.params.id },
+      select: { orgId: true },
+    });
+    if (!request) return res.status(404).json({ error: 'Not found' });
+    if (req.user.role === 'CLIENT' && request.orgId !== req.user.orgId)
+      return res.status(403).json({ error: 'Access denied' });
+
     const findings = await prisma.serviceFinding.findMany({
       where: { requestId: req.params.id },
       orderBy: [{ severity: 'asc' }, { createdAt: 'desc' }],
@@ -525,6 +549,10 @@ router.put('/:requestId/findings/:findingId', async (req, res) => {
     const finding = await prisma.serviceFinding.findUnique({ where: { id: req.params.findingId }, include: { request: true } });
     if (!finding) return res.status(404).json({ error: 'Not found' });
     const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'ANALYST';
+    // Clients may only update the status of findings that belong to their own org.
+    if (!isAdmin && finding.request.orgId !== req.user.orgId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     const data = {};
     if (isAdmin) {
       ['title','description','severity','cvssScore','category','affectedUrl','remediation','evidence','status'].forEach(k => {

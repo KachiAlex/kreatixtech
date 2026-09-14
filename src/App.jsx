@@ -37,6 +37,11 @@ const Settings = lazy(() => import('./pages/portal/Settings'));
 
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const DownloadPage = lazy(() => import('./pages/DownloadPage'));
+const MailPage = lazy(() => import('./pages/MailPage'));
+const SecurityPage = lazy(() => import('./pages/SecurityPage'));
+const AssessmentChoicePage = lazy(() => import('./pages/AssessmentChoicePage'));
+const RequestAssessmentPage = lazy(() => import('./pages/RequestAssessmentPage'));
 
 function ProtectedPortalRoute({ children, requireAdmin = false, requireStaff = false }) {
   const { isAuthenticated, isAdmin, isStaff, isLoading } = usePortal();
@@ -161,7 +166,9 @@ function AppRoutes() {
         <Routes>
           <Route path="/"                      element={isNativeApp() ? <Navigate to="/portal/login" replace /> : <HomePage />} />
           <Route path="/services/cybersecurity" element={<CybersecurityPage />} />
-          <Route path="/portal/vapt-request"   element={<Navigate to="/portal/login" replace />} />
+          <Route path="/portal/vapt-request"   element={<Navigate to="/request-assessment" replace />} />
+          <Route path="/request-assessment"    element={<RequestAssessmentPage />} />
+          <Route path="/assessment"            element={<AssessmentChoicePage />} />
           <Route path="/portfolio"             element={<PortfolioPage />} />
           <Route path="/about"                 element={<AboutPage />} />
           <Route path="/team"                  element={<TeamPage />} />
@@ -170,10 +177,13 @@ function AppRoutes() {
           <Route path="/blog/:slug"            element={<BlogPost />} />
           <Route path="/admin"                 element={<AdminPage />} />
           <Route path="/cybersecurity"         element={<CybersecurityPage />} />
-          <Route path="/vapt"                  element={<Navigate to="/portal/login" replace />} />
+          <Route path="/vapt"                  element={<Navigate to="/assessment" replace />} />
           <Route path="/portal/*"              element={<PortalRoutes />} />
           <Route path="/privacy"               element={<PrivacyPolicy />} />
           <Route path="/terms"                 element={<TermsOfService />} />
+          <Route path="/download"              element={<DownloadPage />} />
+          <Route path="/mail"                  element={<MailPage />} />
+          <Route path="/security"              element={<SecurityPage />} />
           <Route path="*"                      element={<NotFoundPage />} />
         </Routes>
       </Suspense>

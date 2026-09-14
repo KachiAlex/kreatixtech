@@ -253,7 +253,7 @@ router.patch('/profile', authenticateToken, [
 
   try {
     const { name, email, currentPassword, newPassword } = req.body;
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const updateData = {};
@@ -277,7 +277,7 @@ router.patch('/profile', authenticateToken, [
       return res.status(400).json({ error: 'Nothing to update' });
 
     const updated = await prisma.user.update({
-      where: { id: req.user.userId },
+      where: { id: req.user.id },
       data: updateData,
       include: { organization: true },
     });

@@ -184,6 +184,10 @@ export const authApi = {
     apiPost<AuthResponse>('/auth/login', { email, password, totp_code }),
   logout: () => apiPost('/auth/logout', { refreshToken }),
   me: () => apiGet<{ user: User; settings: UserSettings }>('/auth/me'),
+  forgotPassword: (email: string) =>
+    apiPost<{ success: boolean }>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    apiPost<{ success: boolean }>('/auth/reset-password', { token, password }),
 };
 
 // ── Email API ─────────────────────────────────────────────────────────────

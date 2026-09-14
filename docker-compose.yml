@@ -19,8 +19,8 @@ services:
       PORT: 5100
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
-      FRONTEND_URL: ${FRONTEND_URL}
-      RESEND_API_KEY: ${RESEND_API_KEY}
+      FRONTEND_URL: https://kreatixtech.com,https://www.kreatixtech.com,http://kreatixtech.com,http://www.kreatixtech.com,http://67.211.210.8
+      BREVO_API_KEY: ${BREVO_API_KEY}
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import {
   hashPassword, generateSalt, verifyPassword,
-  signJwt, verifyJwt, authMiddleware, requireAdmin,
+  signJwt, verifyJwt, authMiddleware, requireAdmin, setJwtSecret,
   generateSessionId, hashToken, getExpiry,
   REFRESH_EXPIRES_IN, auditLog,
   type JwtPayload,
@@ -59,10 +59,16 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 const env: any = {
   DB: { prepare },
   R2_BUCKET: storage,
-  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  BREVO_API_KEY: process.env.BREVO_API_KEY || '',
 };
 
-const ADMIN_SECRET = 'KreatixAdmin2026!Secret_Xy9Lm';
+// Configure the JWT secret for this process from the environment.
+setJwtSecret(process.env.JWT_SECRET || '');
+
+// The admin secret MUST be configured in the environment (ADMIN_SECRET).
+// There is deliberately NO hard-coded fallback: without it the admin API
+// (user create / delete / password reset) is disabled.
+const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 
 // ── Database migrations ──────────────────────────────────────────────────
 try {
@@ -80,6 +86,34 @@ try {
 try {
   env.DB.prepare(`ALTER TABLE emails ADD COLUMN delivery_status TEXT DEFAULT 'sent'`).run();
 } catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`ALTER TABLE emails ADD COLUMN spam_score INTEGER NOT NULL DEFAULT 0`).run();
+} catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`ALTER TABLE emails ADD COLUMN is_spam INTEGER NOT NULL DEFAULT 0`).run();
+} catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`ALTER TABLE emails ADD COLUMN security_flags TEXT`).run();
+} catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`ALTER TABLE users ADD COLUMN totp_secret TEXT`).run();
+} catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0`).run();
+} catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`ALTER TABLE emails ADD COLUMN d1_id INTEGER`).run();
+} catch (e) { /* column already exists */ }
+
+try {
+  env.DB.prepare(`UPDATE emails SET d1_id = id WHERE d1_id IS NULL`).run();
+} catch (e) { /* d1_id not yet added */ }
 
 function adminAuthCheck(req: any): boolean {
   return req.headers['x-admin-secret'] === ADMIN_SECRET;
@@ -257,6 +291,105 @@ app.get('/api/auth/me', async (req, res) => {
 
     const settings = env.DB.prepare('SELECT * FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
     sendResult(res, json({ user: dbUser, settings }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ── POST /api/auth/forgot-password ──────────────────────────────
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    if (!rateLimit(`forgot:${ip}`, 5, 60000)) return sendResult(res, errorResp('Too many password reset requests. Please try again later.', 429));
+
+    const { email } = req.body;
+    if (!email) return sendResult(res, errorResp('Email is required', 400));
+
+    const user = env.DB.prepare('SELECT id, email, display_name FROM users WHERE email = ? AND is_active = 1').bind(email.toLowerCase()).first();
+    // Always return success to avoid user enumeration
+    if (!user) return sendResult(res, json({ success: true }));
+
+    // Generate a random reset token (32 bytes hex)
+    const { randomBytes } = await import('node:crypto');
+    const resetToken = randomBytes(32).toString('hex');
+    const tokenHash = await hashToken(resetToken);
+    const expiresAt = getExpiry(30 * 60); // 30 minutes
+
+    // Invalidate any previous tokens for this user
+    env.DB.prepare('UPDATE password_reset_tokens SET used_at = datetime(\'now\') WHERE user_id = ? AND used_at IS NULL').bind(user.id).run();
+
+    env.DB.prepare('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)').bind(user.id, tokenHash, expiresAt).run();
+
+    // Build reset link — the SPA handles the /reset-password route
+    const resetUrl = `https://mail.kreatixtech.com/reset-password?token=${resetToken}`;
+
+    const htmlContent = `<!DOCTYPE html>
+<html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF7F1; padding: 40px 0; margin: 0;">
+  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+    <div style="text-align: center; margin-bottom: 32px;">
+      <div style="width: 56px; height: 56px; background: #F2782E; border-radius: 14px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+        <span style="font-size: 28px;">✉</span>
+      </div>
+      <h1 style="font-size: 22px; font-weight: 900; color: #1a1a1a; margin: 0; letter-spacing: -0.5px;">KREATIX <span style="color: #F2782E;">MAIL</span></h1>
+    </div>
+    <h2 style="font-size: 18px; color: #1a1a1a; margin: 0 0 16px;">Reset your password</h2>
+    <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+      Hi ${user.display_name || user.email},<br/><br/>
+      We received a request to reset your Kreatix Mail password. Click the button below to choose a new password. This link will expire in 30 minutes.
+    </p>
+    <a href="${resetUrl}" style="display: inline-block; background: #F2782E; color: #fff; text-decoration: none; font-weight: 700; padding: 14px 32px; border-radius: 12px; font-size: 15px;">Reset Password</a>
+    <p style="color: #999; font-size: 13px; line-height: 1.5; margin: 24px 0 0;">
+      If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.<br/><br/>
+      Or copy this link: <span style="color: #F2782E; word-break: break-all;">${resetUrl}</span>
+    </p>
+  </div>
+</body></html>`;
+
+    const textContent = `Hi ${user.display_name || user.email},\n\nWe received a request to reset your Kreatix Mail password. Click the link below to choose a new password. This link will expire in 30 minutes.\n\n${resetUrl}\n\nIf you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.`;
+
+    try {
+      await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
+        body: JSON.stringify({
+          sender: { name: 'Kreatix Mail', email: 'hello@kreatixtech.com' },
+          to: [{ email: user.email }],
+          subject: 'Reset your Kreatix Mail password',
+          textContent,
+          htmlContent,
+        }),
+      });
+    } catch (e) {
+      console.error('Password reset email send failed:', e);
+    }
+
+    await auditLog(env, user.id, 'password_reset_request', 'user', String(user.id), req);
+    sendResult(res, json({ success: true }));
+  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+});
+
+// ── POST /api/auth/reset-password ───────────────────────────────
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return sendResult(res, errorResp('Token and new password are required', 400));
+    if (password.length < 6) return sendResult(res, errorResp('Password must be at least 6 characters', 400));
+
+    const tokenHash = await hashToken(token);
+    const resetRecord = env.DB.prepare('SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime(\'now\')').bind(tokenHash).first();
+    if (!resetRecord) return sendResult(res, errorResp('Invalid or expired reset token', 400));
+
+    const user = env.DB.prepare('SELECT id FROM users WHERE id = ? AND is_active = 1').bind(resetRecord.user_id).first();
+    if (!user) return sendResult(res, errorResp('User account not found', 400));
+
+    const salt = generateSalt();
+    const passwordHash = await hashPassword(password, salt);
+
+    env.DB.prepare('UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?').bind(passwordHash, salt, user.id).run();
+    env.DB.prepare('UPDATE password_reset_tokens SET used_at = datetime(\'now\') WHERE id = ?').bind(resetRecord.id).run();
+    // Invalidate all existing sessions (force re-login on all devices)
+    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+
+    await auditLog(env, user.id, 'password_reset', 'user', String(user.id), req);
+    sendResult(res, json({ success: true }));
   } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
 });
 
@@ -529,42 +662,43 @@ app.post('/api/send', async (req, res) => {
     const htmlContent = html || buildEmailHtml(body || '', signatureHtml);
 
     try {
-      const resendResponse = await fetch('https://api.resend.com/emails', {
+      const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          'api-key': env.BREVO_API_KEY,
           'Content-Type': 'application/json',
+          'accept': 'application/json',
         },
         body: JSON.stringify({
-          from: `${senderName} <${senderEmail}>`,
-          to: toList,
-          ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
-          ...(bccList && bccList.length > 0 ? { bcc: bccList } : {}),
+          sender: { name: senderName, email: senderEmail },
+          to: toList!.map((e: string) => ({ email: e })),
+          ...(ccList && ccList.length > 0 ? { cc: ccList.map((e: string) => ({ email: e })) } : {}),
+          ...(bccList && bccList.length > 0 ? { bcc: bccList.map((e: string) => ({ email: e })) } : {}),
           subject,
-          text: body || '',
-          html: htmlContent,
+          textContent: body || '',
+          htmlContent: htmlContent,
           ...(clientAttachments && clientAttachments.length > 0 ? {
-            attachments: clientAttachments.map((att: any) => ({ filename: att.filename, content: att.content })),
+            attachment: clientAttachments.map((att: any) => ({ name: att.filename, content: att.content })),
           } : {}),
         }),
       });
 
-      if (!resendResponse.ok) {
-        const errorText = await resendResponse.text();
+      if (!brevoResponse.ok) {
+        const errorText = await brevoResponse.text();
         // Save to outbox on failure
         env.DB.prepare(
           `INSERT INTO outbox (user_id, to_address, cc_address, bcc_address, subject, body, html, from_address, from_name, reply_to_id, attachments, error_message, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'failed')`
-        ).bind(user!.sub, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, senderEmail, senderName, replyToId || null, clientAttachments ? JSON.stringify(clientAttachments) : null, `Resend API error: ${errorText}`).run();
-        return sendResult(res, json({ error: `Resend API error: ${errorText}`, saved_to_outbox: true }, 500));
+        ).bind(user!.sub, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, senderEmail, senderName, replyToId || null, clientAttachments ? JSON.stringify(clientAttachments) : null, `Brevo API error: ${errorText}`).run();
+        return sendResult(res, json({ error: `Brevo API error: ${errorText}`, saved_to_outbox: true }, 500));
       }
 
-      const resendResult = await resendResponse.json() as any;
+      const brevoResult = await brevoResponse.json() as any;
 
       const sentFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'sent').first();
 
       const threadId = generateThreadId({
-        messageId: resendResult.id, fromAddress: senderEmail, fromName: senderName,
+        messageId: brevoResult.messageId, fromAddress: senderEmail, fromName: senderName,
         toAddress: toList!.join(','), ccAddress: ccList?.join(',') || null,
         subject, text: body || '', html: htmlContent, inReplyTo: replyToId ? String(replyToId) : null,
         references: null, attachments: [],
@@ -577,7 +711,7 @@ app.post('/api/send', async (req, res) => {
       const emailResult = env.DB.prepare(
         `INSERT INTO emails (user_id, message_id, thread_id, from_address, from_name, to_address, cc_address, bcc_address, subject, text, html, snippet, folder_id, is_read, direction, status, sent_at, size, has_attachments)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'outbound', 'sent', datetime('now'), ?, ?)`
-      ).bind(user!.sub, resendResult.id || null, threadId, senderEmail, senderName, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, snippet, sentFolder?.id, totalSize, clientAttachments && clientAttachments.length > 0 ? 1 : 0).run();
+      ).bind(user!.sub, brevoResult.messageId || null, threadId, senderEmail, senderName, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, snippet, sentFolder?.id, totalSize, clientAttachments && clientAttachments.length > 0 ? 1 : 0).run();
 
       if (sentFolder) await updateFolderCounts(env, user!.sub, sentFolder.id);
 
@@ -606,7 +740,7 @@ app.post('/api/send', async (req, res) => {
 
       await auditLog(env, user!.sub, 'send', 'email', String(emailResult.meta?.last_row_id), req, { to, subject });
 
-      sendResult(res, json({ success: true, id: emailResult.meta?.last_row_id, messageId: resendResult.id }));
+      sendResult(res, json({ success: true, id: emailResult.meta?.last_row_id, messageId: brevoResult.messageId }));
     } catch (e: any) {
       // Save to outbox on network/exception failure
       env.DB.prepare(
@@ -647,35 +781,35 @@ app.post('/api/outbox/:id/retry', async (req, res) => {
     env.DB.prepare("UPDATE outbox SET status = 'retrying', retry_count = retry_count + 1, updated_at = datetime('now') WHERE id = ?").bind(id).run();
 
     try {
-      const resendResponse = await fetch('https://api.resend.com/emails', {
+      const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
         body: JSON.stringify({
-          from: `${item.from_name} <${item.from_address}>`,
-          to: toList,
-          ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
-          ...(bccList && bccList.length > 0 ? { bcc: bccList } : {}),
+          sender: { name: item.from_name, email: item.from_address },
+          to: toList.map((e: string) => ({ email: e })),
+          ...(ccList && ccList.length > 0 ? { cc: ccList.map((e: string) => ({ email: e })) } : {}),
+          ...(bccList && bccList.length > 0 ? { bcc: bccList.map((e: string) => ({ email: e })) } : {}),
           subject: item.subject,
-          text: item.body || '',
-          html: item.html || '',
+          textContent: item.body || '',
+          htmlContent: item.html || '',
           ...(clientAttachments && clientAttachments.length > 0 ? {
-            attachments: clientAttachments.map((att: any) => ({ filename: att.filename, content: att.content })),
+            attachment: clientAttachments.map((att: any) => ({ name: att.filename, content: att.content })),
           } : {}),
         }),
       });
 
-      if (!resendResponse.ok) {
-        const errorText = await resendResponse.text();
-        env.DB.prepare("UPDATE outbox SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?").bind(`Resend API error: ${errorText}`, id).run();
+      if (!brevoResponse.ok) {
+        const errorText = await brevoResponse.text();
+        env.DB.prepare("UPDATE outbox SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?").bind(`Brevo API error: ${errorText}`, id).run();
         return sendResult(res, json({ error: `Retry failed: ${errorText}` }, 500));
       }
 
-      const resendResult = await resendResponse.json() as any;
+      const brevoResult = await brevoResponse.json() as any;
 
       // Move to sent emails
       const sentFolder = env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'sent').first();
       const threadId = generateThreadId({
-        messageId: resendResult.id, fromAddress: item.from_address, fromName: item.from_name,
+        messageId: brevoResult.messageId, fromAddress: item.from_address, fromName: item.from_name,
         toAddress: item.to_address, ccAddress: item.cc_address, subject: item.subject,
         text: item.body || '', html: item.html || '', inReplyTo: item.reply_to_id ? String(item.reply_to_id) : null,
         references: null, attachments: [],
@@ -684,7 +818,7 @@ app.post('/api/outbox/:id/retry', async (req, res) => {
       const emailResult = env.DB.prepare(
         `INSERT INTO emails (user_id, message_id, thread_id, from_address, from_name, to_address, cc_address, bcc_address, subject, text, html, snippet, folder_id, is_read, direction, status, sent_at, size, has_attachments)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'outbound', 'sent', datetime('now'), ?, ?)`
-      ).bind(user!.sub, resendResult.id || null, threadId, item.from_address, item.from_name, item.to_address, item.cc_address, item.bcc_address, item.subject, item.body || '', item.html || '', snippet, sentFolder?.id, item.body?.length || 0, clientAttachments && clientAttachments.length > 0 ? 1 : 0).run();
+      ).bind(user!.sub, brevoResult.messageId || null, threadId, item.from_address, item.from_name, item.to_address, item.cc_address, item.bcc_address, item.subject, item.body || '', item.html || '', snippet, sentFolder?.id, item.body?.length || 0, clientAttachments && clientAttachments.length > 0 ? 1 : 0).run();
 
       if (sentFolder) await updateFolderCounts(env, user!.sub, sentFolder.id);
 
@@ -706,7 +840,7 @@ app.post('/api/outbox/:id/retry', async (req, res) => {
       // Mark outbox item as sent
       env.DB.prepare("UPDATE outbox SET status = 'sent', updated_at = datetime('now') WHERE id = ?").bind(id).run();
 
-      sendResult(res, json({ success: true, id: sentEmailId, messageId: resendResult.id }));
+      sendResult(res, json({ success: true, id: sentEmailId, messageId: brevoResult.messageId }));
     } catch (e: any) {
       env.DB.prepare("UPDATE outbox SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?").bind(e.message, id).run();
       sendResult(res, json({ error: e.message }, 500));
@@ -1414,12 +1548,23 @@ app.get('/api/emails/unread-count', async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 
 app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) => {
+  // Verify shared secret from Worker
+  const inboundSecret = process.env.INBOUND_EMAIL_SECRET;
+  if (inboundSecret) {
+    const provided = req.headers['x-inbound-secret'] as string;
+    if (provided !== inboundSecret) {
+      console.error('Inbound email secret mismatch');
+      return res.status(401).json({ error: 'Invalid secret' });
+    }
+  }
   try {
     const rawEmail = req.body as Buffer;
     const parsed = await parseRawEmail(rawEmail.buffer.slice(rawEmail.byteOffset, rawEmail.byteOffset + rawEmail.byteLength) as ArrayBuffer);
 
-    // Find the user by the recipient email
-    const recipientEmail = parsed.toAddress.split(',')[0].trim().toLowerCase();
+    // Use envelope recipient (X-Envelope-To) if provided by Worker, otherwise fall back to To header
+    // This ensures each recipient gets their own copy when email is sent To: one person, CC: another
+    const envelopeTo = req.headers['x-envelope-to'] as string;
+    const recipientEmail = (envelopeTo || parsed.toAddress.split(',')[0]).trim().toLowerCase();
     const user = env.DB.prepare('SELECT id FROM users WHERE email = ? AND is_active = 1').bind(recipientEmail).first() as any;
 
     if (!user) {
@@ -1571,14 +1716,14 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
         if (inRange && vacation.vacation_body) {
           try {
             const senderName = env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(user.id).first() as any;
-            await fetch('https://api.resend.com/emails', {
+            await fetch('https://api.brevo.com/v3/smtp/email', {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+              headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
               body: JSON.stringify({
-                from: `${senderName?.display_name || 'Auto-Reply'} <${senderName?.email}>`,
-                to: parsed.fromAddress,
+                sender: { name: senderName?.display_name || 'Auto-Reply', email: senderName?.email },
+                to: [{ email: parsed.fromAddress }],
                 subject: vacation.vacation_subject || 'Out of Office',
-                text: vacation.vacation_body,
+                textContent: vacation.vacation_body,
               }),
             });
           } catch (e) { console.error('Vacation auto-reply failed:', e); }
@@ -1885,96 +2030,84 @@ app.get('/api/emails/:id/delivery', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════
-// RESEND WEBHOOK — delivery tracking
+// BREVO WEBHOOK — delivery tracking
+// Brevo does not sign webhook requests; security relies on an unguessable URL
+// and an optional BREVO_WEBHOOK_SECRET checked via ?secret= or X-Webhook-Secret.
 // ══════════════════════════════════════════════════════════════════════════
 
-app.post('/api/webhooks/resend', express.raw({ type: 'application/json' }), async (req, res) => {
+async function handleBrevoWebhook(req: any, res: any) {
   try {
     const rawBody = req.body.toString('utf8');
 
-    // Verify Svix signature
-    const svixId = req.headers['svix-id'] as string;
-    const svixTimestamp = req.headers['svix-timestamp'] as string;
-    const svixSignature = req.headers['svix-signature'] as string;
-    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET || '';
-
-    if (webhookSecret && svixId && svixTimestamp && svixSignature) {
-      // Check timestamp tolerance (5 minutes)
-      const now = Math.floor(Date.now() / 1000);
-      const ts = parseInt(svixTimestamp, 10);
-      if (Math.abs(now - ts) > 300) {
-        console.error('Webhook timestamp outside tolerance');
-        return res.status(401).json({ error: 'Stale webhook' });
+    // Optional shared-secret verification (Brevo has no native signing)
+    const webhookSecret = process.env.BREVO_WEBHOOK_SECRET || '';
+    if (webhookSecret) {
+      const provided = (req.query.secret as string) || (req.headers['x-webhook-secret'] as string) || '';
+      if (provided !== webhookSecret) {
+        console.error('Brevo webhook secret mismatch');
+        return res.status(401).json({ error: 'Invalid webhook secret' });
       }
-
-      // Decode secret (strip whsec_ prefix, base64 decode)
-      const secretKey = webhookSecret.startsWith('whsec_') ? webhookSecret.slice(6) : webhookSecret;
-      const secretBytes = Buffer.from(secretKey, 'base64');
-
-      // Compute expected signature: HMAC-SHA256 over "{id}.{timestamp}.{body}"
-      const signedContent = `${svixId}.${svixTimestamp}.${rawBody}`;
-      const expectedSig = crypto.createHmac('sha256', secretBytes).update(signedContent).digest('base64');
-
-      // Check against provided signatures (space-separated, each "v1,<sig>")
-      const signatures = svixSignature.split(' ');
-      const valid = signatures.some(sig => {
-        const parts = sig.split(',');
-        if (parts.length === 2 && parts[0] === 'v1') {
-          return crypto.timingSafeEqual(Buffer.from(parts[1]), Buffer.from(expectedSig));
-        }
-        return false;
-      });
-
-      if (!valid) {
-        console.error('Webhook signature verification failed');
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
-    } else if (webhookSecret) {
-      console.error('Webhook missing Svix headers');
-      return res.status(401).json({ error: 'Missing signature headers' });
     }
 
-    const { type, data } = JSON.parse(rawBody);
-    if (!type || !data) return res.status(200).json({ ok: true });
+    const parsed = JSON.parse(rawBody);
+    // Brevo may send a single event object or a batched array
+    const events: any[] = Array.isArray(parsed) ? parsed : [parsed];
 
-    const messageId = data.email_id || data.message_id || null;
-    const recipient = data.to || data.recipient || null;
-
-    // Find the email by message_id
-    let emailRow = null;
-    if (messageId) {
-      emailRow = env.DB.prepare('SELECT id, user_id FROM emails WHERE message_id = ?').bind(messageId).first() as any;
-    }
-
-    // Map Resend event types to delivery status
+    // Map Brevo event types to delivery status
     const statusMap: Record<string, string> = {
-      'email.sent': 'sent',
-      'email.delivered': 'delivered',
-      'email.bounced': 'bounced',
-      'email.complained': 'complained',
-      'email.opened': 'opened',
-      'email.clicked': 'clicked',
+      'request': 'sent',
+      'sent': 'sent',
+      'delivered': 'delivered',
+      'soft_bounce': 'bounced',
+      'softBounce': 'bounced',
+      'hard_bounce': 'bounced',
+      'hardBounce': 'bounced',
+      'spam': 'complained',
+      'opened': 'opened',
+      'unique_opened': 'opened',
+      'uniqueOpened': 'opened',
+      'click': 'clicked',
+      'clicked': 'clicked',
+      'blocked': 'blocked',
+      'invalid': 'bounced',
+      'error': 'error',
+      'deferred': 'deferred',
+      'unsubscribed': 'unsubscribed',
     };
-    const deliveryStatus = statusMap[type] || type;
 
-    // Store the event
-    env.DB.prepare(
-      'INSERT INTO delivery_events (email_id, message_id, recipient, event_type, event_data) VALUES (?, ?, ?, ?, ?)'
-    ).bind(
-      emailRow?.id || null,
-      messageId,
-      recipient,
-      type,
-      JSON.stringify(data)
-    ).run();
+    for (const evt of events) {
+      const type = evt.event;
+      if (!type) continue;
 
-    // Update email delivery_status (only for the most significant event)
-    if (emailRow?.id) {
-      const priority = ['bounced', 'complained', 'delivered', 'opened', 'clicked', 'sent'];
-      const current = env.DB.prepare('SELECT delivery_status FROM emails WHERE id = ?').bind(emailRow.id).first() as any;
-      const currentStatus = current?.delivery_status || 'sent';
-      if (priority.indexOf(deliveryStatus) < priority.indexOf(currentStatus)) {
-        env.DB.prepare('UPDATE emails SET delivery_status = ? WHERE id = ?').bind(deliveryStatus, emailRow.id).run();
+      const messageId = evt['message-id'] || evt.messageId || null;
+      const recipient = evt.email || null;
+      const deliveryStatus = statusMap[type] || type;
+
+      // Find the email by message_id
+      let emailRow = null;
+      if (messageId) {
+        emailRow = env.DB.prepare('SELECT id, user_id FROM emails WHERE message_id = ?').bind(messageId).first() as any;
+      }
+
+      // Store the event
+      env.DB.prepare(
+        'INSERT INTO delivery_events (email_id, message_id, recipient, event_type, event_data) VALUES (?, ?, ?, ?, ?)'
+      ).bind(
+        emailRow?.id || null,
+        messageId,
+        recipient,
+        type,
+        JSON.stringify(evt)
+      ).run();
+
+      // Update email delivery_status (only for the most significant event)
+      if (emailRow?.id) {
+        const priority = ['bounced', 'complained', 'error', 'blocked', 'delivered', 'opened', 'clicked', 'deferred', 'sent'];
+        const current = env.DB.prepare('SELECT delivery_status FROM emails WHERE id = ?').bind(emailRow.id).first() as any;
+        const currentStatus = current?.delivery_status || 'sent';
+        if (priority.indexOf(deliveryStatus) < priority.indexOf(currentStatus)) {
+          env.DB.prepare('UPDATE emails SET delivery_status = ? WHERE id = ?').bind(deliveryStatus, emailRow.id).run();
+        }
       }
     }
 
@@ -1983,7 +2116,11 @@ app.post('/api/webhooks/resend', express.raw({ type: 'application/json' }), asyn
     console.error('Webhook error:', err);
     res.status(200).json({ ok: true });
   }
-});
+}
+
+app.post('/api/webhooks/brevo', express.raw({ type: 'application/json' }), handleBrevoWebhook);
+// Backward-compatible alias in case the old Resend webhook URL is still configured
+app.post('/api/webhooks/resend', express.raw({ type: 'application/json' }), handleBrevoWebhook);
 
 // Read receipt tracking pixel endpoint (no auth — called by email client)
 app.get('/api/track/open/:emailId/:userId', async (req, res) => {

@@ -340,7 +340,7 @@ const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onReplyAll, onFor
               <button onClick={() => setShowDelivery(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X style={{ width: 16, height: 16 }} /></button>
             </div>
             {deliveryData.events.length === 0 ? (
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>No delivery events yet. Events will appear here once Resend processes the email.</div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>No delivery events yet. Events will appear here once Brevo processes the email.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {deliveryData.events.map((ev: any) => {

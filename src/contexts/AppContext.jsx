@@ -181,13 +181,10 @@ export function AppProvider({ children }) {
     );
   };
 
-  const loginAdmin = (password) => {
-    if (password?.trim() === 'kreatix@admin2024') {
-      setAdminAuthenticated(true);
-      return true;
-    }
-    return false;
-  };
+  // NOTE: The legacy client-side admin console has been removed. This guard
+// intentionally always rejects; access to admin functionality must go through
+// the real /portal/admin route (authenticateToken + requireAdmin on the API).
+const loginAdmin = () => false;
 
   const logoutAdmin = () => setAdminAuthenticated(false);
 

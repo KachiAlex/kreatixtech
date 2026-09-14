@@ -254,7 +254,7 @@ router.patch('/admin/users/:userId/role', authenticateToken, requireAdminOnly, [
 // Admin: remove a user from their org (deactivate by clearing orgId is not possible without schema change — instead delete)
 router.delete('/admin/users/:userId', authenticateToken, requireAdminOnly, async (req, res) => {
   try {
-    if (req.params.userId === req.user.userId) return res.status(400).json({ error: 'Cannot remove yourself' });
+    if (req.params.userId === req.user.id) return res.status(400).json({ error: 'Cannot remove yourself' });
     await prisma.user.delete({ where: { id: req.params.userId } });
     res.json({ message: 'User removed' });
   } catch (e) {

@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { Mail, Shield } from 'lucide-react';
 import SEO, { organizationSchema, websiteSchema } from '../components/SEO';
 import Testimonials from '../components/Testimonials';
 import { trackClick } from '../services/analytics';
@@ -239,6 +240,7 @@ export default function HomePage() {
   const [servicesRef, servicesVisible] = useInView(0.1);
   const [cyberRef, cyberVisible] = useInView(0.1);
   const [workRef, workVisible] = useInView(0.1);
+  const [platformRef, platformVisible] = useInView(0.1);
   const [ctaRef, ctaVisible] = useInView(0.1);
 
   return (
@@ -295,7 +297,7 @@ export default function HomePage() {
               Kreatix Technologies architects software and secures infrastructure for organisations that demand both rigorous engineering and inventive design — across software development, cybersecurity and cloud.
             </p>
             <div className="flex flex-col gap-3 md:gap-4 md:items-end">
-              <Link to="/portal/login"
+              <Link to="/assessment"
                 className="inline-flex items-center justify-center gap-2.5 bg-[#F2782E] text-white px-6 md:px-9 py-4 md:py-[18px] rounded-full font-bold text-sm md:text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]"
                 onClick={() => trackClick('Request Assessment')}>
                 Request a VAPT assessment →
@@ -392,6 +394,43 @@ export default function HomePage() {
         {Object.entries(SERVICE_PANELS).map(([key, data]) => (
           <ServicePanel key={key} data={data} active={activeTab === key} />
         ))}
+      </section>
+
+      {/* ── PLATFORM SERVICES ──────────────────────────────────────────────── */}
+      <section ref={platformRef} className="py-16 sm:py-24 px-6 md:px-12 bg-white" id="platform">
+        <div className={`max-w-6xl mx-auto fade-in-up ${platformVisible ? 'visible' : ''}`}>
+          <span className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#F2782E] block mb-4">Platform</span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-[1.1] mb-5">Two services, ready to use</h2>
+          <p className="text-[17px] text-[#6B6F76] leading-[1.75] max-w-2xl mb-12">
+            Beyond consulting, Kreatix runs managed services you can use directly: secure business email and active VPS protection.
+          </p>
+          <div className="grid md:grid-cols-2 gap-5">
+            <Link to="/mail" onClick={() => trackClick('home_mail_card')} className="group block bg-[#F7F5F2] border border-[#E8E5E0] rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl">
+              <div className="w-14 h-14 rounded-2xl bg-[#F2782E]/10 flex items-center justify-center mb-6">
+                <Mail className="h-7 w-7 text-[#F2782E]" />
+              </div>
+              <h3 className="text-2xl font-black text-[#0E0E0F] mb-3 group-hover:text-[#F2782E] transition-colors">Kreatix Mail</h3>
+              <p className="text-[#6B6F76] leading-relaxed mb-6">
+                Secure business email with custom domains, web and desktop apps, plus admin controls for your team.
+              </p>
+              <span className="inline-flex items-center gap-2 font-bold text-sm text-[#F2782E] group-hover:gap-3 transition-all">
+                Open Mail →
+              </span>
+            </Link>
+            <Link to="/security" onClick={() => trackClick('home_security_card')} className="group block bg-[#0E0E0F] border border-white/10 rounded-3xl p-8 sm:p-10 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl">
+              <div className="w-14 h-14 rounded-2xl bg-[#F2782E]/20 flex items-center justify-center mb-6">
+                <Shield className="h-7 w-7 text-[#F2782E]" />
+              </div>
+              <h3 className="text-2xl font-black text-white mb-3 group-hover:text-[#F2782E] transition-colors">Kreatix Security</h3>
+              <p className="leading-relaxed mb-6" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                VPS monitoring, firewall management, IP intelligence and vulnerability scanning for your servers.
+              </p>
+              <span className="inline-flex items-center gap-2 font-bold text-sm text-[#F2782E] group-hover:gap-3 transition-all">
+                Explore Security →
+              </span>
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* ── CYBERSECURITY ──────────────────────────────────────────────────── */}
@@ -507,7 +546,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2.5 bg-[#F2782E] text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-[#D9601A] hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(242,120,46,0.35)]">
               Start a project →
             </Link>
-            <Link to="/portal/login"
+            <Link to="/assessment"
               className="inline-flex items-center gap-2.5 text-white px-9 py-[18px] rounded-full font-bold text-[15px] transition-all hover:bg-white/5"
               style={{ border: '1px solid rgba(255,255,255,0.2)' }}
               onClick={() => trackClick('Request Assessment')}>

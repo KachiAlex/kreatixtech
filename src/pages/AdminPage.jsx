@@ -41,7 +41,6 @@ function AdminLogin({ onLogin }) {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-          <p className="text-center text-ink-300 text-xs mt-5 font-mono">kreatix@admin2024</p>
         </div>
       </div>
     </div>

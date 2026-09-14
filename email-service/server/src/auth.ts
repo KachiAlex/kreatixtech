@@ -1,6 +1,16 @@
 import crypto from 'node:crypto';
 
-const JWT_SECRET = 'kreatix-mail-jwt-secret-2026-secure-key-f8a3b2c1';
+let JWT_SECRET = process.env.JWT_SECRET || '';
+
+export function setJwtSecret(secret: string) {
+  JWT_SECRET = secret || '';
+}
+
+function assertSecret() {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+}
 const JWT_EXPIRES_IN = 15 * 60;
 export const REFRESH_EXPIRES_IN = 30 * 24 * 60 * 60;
 
@@ -47,6 +57,7 @@ export interface JwtPayload {
 }
 
 export async function signJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresIn: number = JWT_EXPIRES_IN): Promise<string> {
+  assertSecret();
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const fullPayload: JwtPayload = { ...payload, iat: now, exp: now + expiresIn };
@@ -65,6 +76,7 @@ export async function verifyJwt(token: string): Promise<JwtPayload | null> {
     const [headerB64, payloadB64, sigB64] = token.split('.');
     if (!headerB64 || !payloadB64 || !sigB64) return null;
 
+    assertSecret();
     const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${headerB64}.${payloadB64}`).digest();
     const sigData = Buffer.from(base64UrlDecode(sigB64), 'binary');
     if (!crypto.timingSafeEqual(expectedSig, sigData)) return null;

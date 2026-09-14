@@ -1,6 +1,7 @@
 import express from 'express';
 import { body } from 'express-validator';
 import { prisma } from '../lib/prisma.js';
+import { getSecurityPreferences, DEFAULT_SECURITY_NOTIFICATION_PREFERENCES } from '../lib/security-notifications.js';
 
 const router = express.Router();
 
@@ -38,28 +39,37 @@ router.delete('/device', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
 
     const where = {
       userId: req.user.id,
       ...(unreadOnly === 'true' && { read: false })
     };
 
-    const [notifications, serviceNotifications, total, serviceTotal, unreadCount, serviceUnreadCount] = await Promise.all([
+    const [notifTotal, serviceNotifTotal] = await Promise.all([
+      prisma.notification.count({ where }),
+      prisma.serviceNotification.count({ where }),
+    ]);
+    const grandTotal = notifTotal + serviceNotifTotal;
+    const totalPages = Math.max(1, Math.ceil(grandTotal / limitNum));
+    const pageToUse = Math.min(pageNum, totalPages);
+    const skip = (pageToUse - 1) * limitNum;
+    const fetchTake = Math.min(skip + limitNum, 500);
+
+    const [notifications, serviceNotifications, unreadCount, serviceUnreadCount] = await Promise.all([
       prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: parseInt(limit)
+        take: fetchTake
       }),
       prisma.serviceNotification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: parseInt(limit)
+        take: fetchTake
       }),
-      prisma.notification.count({ where }),
-      prisma.serviceNotification.count({ where }),
       prisma.notification.count({
         where: { userId: req.user.id, read: false }
       }),
@@ -68,19 +78,19 @@ router.get('/', async (req, res) => {
       })
     ]);
 
-    // Merge and sort by createdAt desc
+    // Merge both feeds, sort newest-first, then slice this page's items.
     const merged = [...notifications, ...serviceNotifications]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, parseInt(limit));
+      .slice(skip, skip + limitNum);
 
     res.json({
       notifications: merged,
       unreadCount: unreadCount + serviceUnreadCount,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: total + serviceTotal,
-        totalPages: Math.ceil((total + serviceTotal) / parseInt(limit))
+        page: pageToUse,
+        limit: limitNum,
+        total: grandTotal,
+        totalPages
       }
     });
   } catch (error) {
@@ -192,6 +202,69 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete notification error:', error);
     res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+// ── Security notification preferences ───────────────────────────────────────
+router.get('/preferences', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { notificationPreferences: true },
+    });
+
+    res.json({
+      preferences: getSecurityPreferences(user),
+      defaults: DEFAULT_SECURITY_NOTIFICATION_PREFERENCES,
+    });
+  } catch (error) {
+    console.error('Get notification preferences error:', error);
+    res.status(500).json({ error: 'Failed to fetch preferences' });
+  }
+});
+
+router.put('/preferences', [
+  body('security.monthlyDigest').optional().isBoolean(),
+  body('security.immediate.critical').optional().isBoolean(),
+  body('security.immediate.high').optional().isBoolean(),
+  body('security.immediate.medium').optional().isBoolean(),
+  body('security.immediate.low').optional().isBoolean(),
+  body('security.immediate.info').optional().isBoolean(),
+  body('security.immediate.unauthorizedAccess').optional().isBoolean(),
+  body('security.immediate.bans').optional().isBoolean(),
+  body('security.immediate.firewallChanges').optional().isBoolean(),
+], async (req, res) => {
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { notificationPreferences: true },
+    });
+
+    const current = existing?.notificationPreferences || {};
+    const incoming = req.body.security || {};
+    const immediate = incoming.immediate || {};
+
+    const merged = {
+      ...current,
+      security: {
+        monthlyDigest: incoming.monthlyDigest ?? current?.security?.monthlyDigest ?? DEFAULT_SECURITY_NOTIFICATION_PREFERENCES.monthlyDigest,
+        immediate: {
+          ...DEFAULT_SECURITY_NOTIFICATION_PREFERENCES.immediate,
+          ...(current?.security?.immediate || {}),
+          ...immediate,
+        },
+      },
+    };
+
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { notificationPreferences: merged },
+    });
+
+    res.json({ preferences: getSecurityPreferences(updated) });
+  } catch (error) {
+    console.error('Update notification preferences error:', error);
+    res.status(500).json({ error: 'Failed to update preferences' });
   }
 });
 

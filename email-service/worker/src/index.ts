@@ -1,7 +1,7 @@
 import PostalMime from 'postal-mime';
 import {
   hashPassword, generateSalt, verifyPassword,
-  signJwt, verifyJwt, authMiddleware, requireAdmin,
+  signJwt, verifyJwt, authMiddleware, requireAdmin, setJwtSecret,
   generateSessionId, hashToken, getExpiry,
   REFRESH_EXPIRES_IN, auditLog,
   type JwtPayload,
@@ -18,8 +18,11 @@ import {
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
-  RESEND_API_KEY: string;
+  BREVO_API_KEY: string;
   R2_BUCKET: R2Bucket;
+  JWT_SECRET: string;
+  ADMIN_SECRET: string;
+  INBOUND_EMAIL_SECRET: string;
 }
 
 const corsHeaders = {
@@ -36,15 +39,16 @@ function errorResp(message: string, status = 400): Response {
   return json({ error: message }, status);
 }
 
-const ADMIN_SECRET = 'KreatixAdmin2026!Secret_Xy9Lm';
-
-function adminAuthCheck(request: Request): boolean {
+// Admin requests are authenticated via the X-Admin-Secret header, validated
+// against env.ADMIN_SECRET (see adminAuthCheck). There is deliberately NO
+// hard-coded fallback.
+function adminAuthCheck(request: Request, env: Env): boolean {
   const secret = request.headers.get('X-Admin-Secret');
-  return secret === ADMIN_SECRET;
+  return secret === (env.ADMIN_SECRET || '');
 }
 
 async function adminAuth(request: Request, env: Env): Promise<{ user: JwtPayload | null; error?: Response }> {
-  if (adminAuthCheck(request)) {
+  if (adminAuthCheck(request, env)) {
     return { user: { sub: 0, email: 'system', role: 'admin', type: 'access' } as any };
   }
   return requireAdmin(request, env);
@@ -67,6 +71,9 @@ function rateLimit(key: string, maxRequests: number, windowMs: number): boolean 
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Configure the per-request JWT secret from the environment.
+    setJwtSecret(env.JWT_SECRET || '');
+
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -241,6 +248,129 @@ export default {
 
         const settings = await env.DB.prepare('SELECT * FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
         return json({ user: dbUser, settings });
+      }
+
+      // ── POST /api/auth/forgot-password ──────────────────────────────
+      if (path === '/api/auth/forgot-password' && method === 'POST') {
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        if (!rateLimit(`forgot:${ip}`, 5, 60000)) {
+          return errorResp('Too many password reset requests. Please try again later.', 429);
+        }
+
+        const { email } = await request.json() as any;
+        if (!email) return errorResp('Email is required', 400);
+
+        const user = await env.DB.prepare(
+          'SELECT id, email, display_name FROM users WHERE email = ? AND is_active = 1'
+        ).bind(email.toLowerCase()).first() as any;
+
+        // Always return success to avoid user enumeration
+        if (!user) return json({ success: true });
+
+        // Generate a random reset token (32 bytes hex)
+        const resetToken = crypto.getRandomValues(new Uint8Array(32)).reduce(
+          (s, b) => s + b.toString(16).padStart(2, '0'), ''
+        );
+        const tokenHash = await hashToken(resetToken);
+        const expiresAt = getExpiry(30 * 60); // 30 minutes
+
+        // Invalidate any previous tokens for this user
+        await env.DB.prepare(
+          'UPDATE password_reset_tokens SET used_at = datetime(\'now\') WHERE user_id = ? AND used_at IS NULL'
+        ).bind(user.id).run();
+
+        await env.DB.prepare(
+          'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)'
+        ).bind(user.id, tokenHash, expiresAt).run();
+
+        // Build reset link — the SPA handles the /reset-password route
+        const resetUrl = `https://mail.kreatixtech.com/reset-password?token=${resetToken}`;
+
+        const htmlContent = `<!DOCTYPE html>
+<html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF7F1; padding: 40px 0; margin: 0;">
+  <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+    <div style="text-align: center; margin-bottom: 32px;">
+      <div style="width: 56px; height: 56px; background: #F2782E; border-radius: 14px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+        <span style="font-size: 28px;">✉</span>
+      </div>
+      <h1 style="font-size: 22px; font-weight: 900; color: #1a1a1a; margin: 0; letter-spacing: -0.5px;">KREATIX <span style="color: #F2782E;">MAIL</span></h1>
+    </div>
+    <h2 style="font-size: 18px; color: #1a1a1a; margin: 0 0 16px;">Reset your password</h2>
+    <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
+      Hi ${user.display_name || user.email},<br/><br/>
+      We received a request to reset your Kreatix Mail password. Click the button below to choose a new password. This link will expire in 30 minutes.
+    </p>
+    <a href="${resetUrl}" style="display: inline-block; background: #F2782E; color: #fff; text-decoration: none; font-weight: 700; padding: 14px 32px; border-radius: 12px; font-size: 15px;">Reset Password</a>
+    <p style="color: #999; font-size: 13px; line-height: 1.5; margin: 24px 0 0;">
+      If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.<br/><br/>
+      Or copy this link: <span style="color: #F2782E; word-break: break-all;">${resetUrl}</span>
+    </p>
+  </div>
+</body></html>`;
+
+        const textContent = `Hi ${user.display_name || user.email},\n\nWe received a request to reset your Kreatix Mail password. Click the link below to choose a new password. This link will expire in 30 minutes.\n\n${resetUrl}\n\nIf you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.`;
+
+        try {
+          await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'api-key': env.BREVO_API_KEY,
+              'Content-Type': 'application/json',
+              'accept': 'application/json',
+            },
+            body: JSON.stringify({
+              sender: { name: 'Kreatix Mail', email: 'hello@kreatixtech.com' },
+              to: [{ email: user.email }],
+              subject: 'Reset your Kreatix Mail password',
+              textContent,
+              htmlContent,
+            }),
+          });
+        } catch (e) {
+          console.error('Password reset email send failed:', e);
+        }
+
+        await auditLog(env, user.id, 'password_reset_request', 'user', String(user.id), request);
+        return json({ success: true });
+      }
+
+      // ── POST /api/auth/reset-password ───────────────────────────────
+      if (path === '/api/auth/reset-password' && method === 'POST') {
+        const { token, password } = await request.json() as any;
+        if (!token || !password) return errorResp('Token and new password are required', 400);
+        if (password.length < 6) return errorResp('Password must be at least 6 characters', 400);
+
+        const tokenHash = await hashToken(token);
+        const resetRecord = await env.DB.prepare(
+          'SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime(\'now\')'
+        ).bind(tokenHash).first() as any;
+
+        if (!resetRecord) return errorResp('Invalid or expired reset token', 400);
+
+        const user = await env.DB.prepare(
+          'SELECT id FROM users WHERE id = ? AND is_active = 1'
+        ).bind(resetRecord.user_id).first() as any;
+
+        if (!user) return errorResp('User account not found', 400);
+
+        // Hash the new password
+        const salt = generateSalt();
+        const passwordHash = await hashPassword(password, salt);
+
+        await env.DB.prepare(
+          'UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?'
+        ).bind(passwordHash, salt, user.id).run();
+
+        // Invalidate the reset token
+        await env.DB.prepare(
+          'UPDATE password_reset_tokens SET used_at = datetime(\'now\') WHERE id = ?'
+        ).bind(resetRecord.id).run();
+
+        // Invalidate all existing sessions (force re-login on all devices)
+        await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+
+        await auditLog(env, user.id, 'password_reset', 'user', String(user.id), request);
+        return json({ success: true });
       }
 
       // ════════════════════════════════════════════════════════════════
@@ -482,40 +612,41 @@ export default {
         const htmlContent = html || buildEmailHtml(body || '', signatureHtml);
 
         try {
-          const resendResponse = await fetch('https://api.resend.com/emails', {
+          const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+              'api-key': env.BREVO_API_KEY,
               'Content-Type': 'application/json',
+              'accept': 'application/json',
             },
             body: JSON.stringify({
-              from: `${senderName} <${senderEmail}>`,
-              to: toList,
-              ...(ccList && ccList.length > 0 ? { cc: ccList } : {}),
-              ...(bccList && bccList.length > 0 ? { bcc: bccList } : {}),
+              sender: { name: senderName, email: senderEmail },
+              to: toList!.map((e: string) => ({ email: e })),
+              ...(ccList && ccList.length > 0 ? { cc: ccList.map((e: string) => ({ email: e })) } : {}),
+              ...(bccList && bccList.length > 0 ? { bcc: bccList.map((e: string) => ({ email: e })) } : {}),
               subject,
-              text: body || '',
-              html: htmlContent,
+              textContent: body || '',
+              htmlContent: htmlContent,
               ...(clientAttachments && clientAttachments.length > 0 ? {
-                attachments: clientAttachments.map((att: any) => ({
-                  filename: att.filename,
+                attachment: clientAttachments.map((att: any) => ({
+                  name: att.filename,
                   content: att.content,
                 })),
               } : {}),
             }),
           });
 
-          if (!resendResponse.ok) {
-            const errorText = await resendResponse.text();
-            return json({ error: `Resend API error: ${errorText}` }, 500);
+          if (!brevoResponse.ok) {
+            const errorText = await brevoResponse.text();
+            return json({ error: `Brevo API error: ${errorText}` }, 500);
           }
 
-          const resendResult = await resendResponse.json() as any;
+          const brevoResult = await brevoResponse.json() as any;
 
           const sentFolder = await env.DB.prepare('SELECT id FROM folders WHERE user_id = ? AND type = ?').bind(user!.sub, 'sent').first() as any;
 
           const threadId = generateThreadId({
-            messageId: resendResult.id,
+            messageId: brevoResult.messageId,
             fromAddress: senderEmail,
             fromName: senderName,
             toAddress: toList!.join(','),
@@ -541,7 +672,7 @@ export default {
             `INSERT INTO emails (user_id, message_id, thread_id, from_address, from_name, to_address, cc_address, bcc_address, subject, text, html, snippet, folder_id, is_read, direction, status, sent_at, size, has_attachments)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'outbound', 'sent', datetime('now'), ?, ?)`
           ).bind(
-            user!.sub, resendResult.id || null, threadId,
+            user!.sub, brevoResult.messageId || null, threadId,
             senderEmail, senderName,
             toList!.join(','),
             ccList?.join(',') || null, bccList?.join(',') || null,
@@ -583,7 +714,7 @@ export default {
 
           await auditLog(env, user!.sub, 'send', 'email', String(emailResult.meta?.last_row_id), request, { to, subject });
 
-          return json({ success: true, id: emailResult.meta?.last_row_id, messageId: resendResult.id });
+          return json({ success: true, id: emailResult.meta?.last_row_id, messageId: brevoResult.messageId });
         } catch (e: any) {
           return json({ error: e.message }, 500);
         }
@@ -1423,6 +1554,30 @@ export default {
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
     try {
       const recipientEmail = message.to;
+
+      // Forward raw email to VPS server immediately (primary storage)
+      // The VPS server stores it in local SQLite which the web app reads from
+      try {
+        const rawEmailBytes = await new Response(message.raw).arrayBuffer();
+        const vpsResponse = await fetch('https://mail.kreatixtech.com/api/inbound-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Inbound-Secret': env.INBOUND_EMAIL_SECRET || '',
+            'X-Envelope-To': recipientEmail,
+          },
+          body: rawEmailBytes,
+        });
+        if (!vpsResponse.ok) {
+          console.error(`VPS inbound forwarding failed: ${vpsResponse.status} ${await vpsResponse.text()}`);
+        } else {
+          console.log(`Email forwarded to VPS for ${recipientEmail}`);
+        }
+      } catch (e) {
+        console.error('VPS forwarding error:', e);
+      }
+
+      // Also store in D1 as backup
       const user = await env.DB.prepare('SELECT id FROM users WHERE email = ? AND is_active = 1')
         .bind(recipientEmail).first() as any;
 
@@ -1513,8 +1668,41 @@ export default {
       await upsertContact(env, user.id, parsed.fromAddress, parsed.fromName);
 
       // Vacation auto-reply
-      const vacationSettings = await env.DB.prepare('SELECT vacation_enabled, vacation_subject, vacation_body, vacation_start, vacation_end FROM user_settings WHERE user_id = ?')
+      const vacationSettings = await env.DB.prepare('SELECT vacation_enabled, vacation_subject, vacation_body, vacation_start, vacation_end, forward_to_address FROM user_settings WHERE user_id = ?')
         .bind(user.id).first() as any;
+
+      // Email forwarding — forward to external address if configured
+      if (vacationSettings?.forward_to_address && parsed.fromAddress) {
+        try {
+          const dbUser = await env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user.id).first() as any;
+          const forwardTo = vacationSettings.forward_to_address;
+          await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
+            body: JSON.stringify({
+              sender: { name: `${dbUser.display_name || 'Kreatix Mail'} (via Kreatix)`, email: dbUser.email },
+              to: [{ email: forwardTo }],
+              subject: `[Fwd] ${parsed.subject}`,
+              textContent: `--- Forwarded email ---\nFrom: ${parsed.fromName ? parsed.fromName + ' <' : ''}${parsed.fromAddress}${parsed.fromName ? '>' : ''}\nTo: ${parsed.toAddress}\n${parsed.ccAddress ? 'CC: ' + parsed.ccAddress + '\n' : ''}Subject: ${parsed.subject}\n\n${parsed.text}`,
+              htmlContent: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+                <div style="background:#f5f5f5;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13px;color:#666">
+                  <p style="margin:4px 0"><strong>From:</strong> ${parsed.fromName ? parsed.fromName + ' <' : ''}${parsed.fromAddress}${parsed.fromName ? '>' : ''}</p>
+                  <p style="margin:4px 0"><strong>To:</strong> ${parsed.toAddress}</p>
+                  ${parsed.ccAddress ? `<p style="margin:4px 0"><strong>CC:</strong> ${parsed.ccAddress}</p>` : ''}
+                  <p style="margin:4px 0"><strong>Subject:</strong> ${parsed.subject}</p>
+                </div>
+                <div style="padding:16px 0">${parsed.html || (parsed.text || '').replace(/\n/g, '<br>')}</div>
+                <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+                <p style="color:#999;font-size:12px">Forwarded by Kreatix Mail — ${dbUser.email}</p>
+              </div>`,
+            }),
+          });
+          console.log(`Email forwarded to ${forwardTo}`);
+        } catch (e) {
+          console.error('Email forwarding failed:', e);
+        }
+      }
+
       if (vacationSettings?.vacation_enabled) {
         const now = new Date();
         const start = vacationSettings.vacation_start ? new Date(vacationSettings.vacation_start) : null;
@@ -1523,15 +1711,15 @@ export default {
         if (inRange && parsed.fromAddress) {
           try {
             const dbUser = await env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user.id).first() as any;
-            await fetch('https://api.resend.com/emails', {
+            await fetch('https://api.brevo.com/v3/smtp/email', {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+              headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
               body: JSON.stringify({
-                from: `${dbUser.display_name || 'Kreatix Mail'} <${dbUser.email}>`,
-                to: [parsed.fromAddress],
+                sender: { name: dbUser.display_name || 'Kreatix Mail', email: dbUser.email },
+                to: [{ email: parsed.fromAddress }],
                 subject: vacationSettings.vacation_subject || 'Out of Office',
-                text: vacationSettings.vacation_body || 'I am currently out of the office and will respond when I return.',
-                html: (vacationSettings.vacation_body || 'I am currently out of the office and will respond when I return.').replace(/\n/g, '<br>'),
+                textContent: vacationSettings.vacation_body || 'I am currently out of the office and will respond when I return.',
+                htmlContent: (vacationSettings.vacation_body || 'I am currently out of the office and will respond when I return.').replace(/\n/g, '<br>'),
               }),
             });
           } catch (e) {
