@@ -9,7 +9,7 @@ const services = [
     title: 'VAPT Assessments',
     body: 'Comprehensive Vulnerability Assessment and Penetration Testing. We simulate real-world attacks to identify and patch security gaps before malicious actors exploit them.',
     items: ['Web & Mobile App Testing', 'Network Infrastructure Review', 'Actionable Remediation Reports'],
-    link: { label: 'Try our free scanner →', href: 'https://security.kreatixtech.com', external: true },
+    link: { label: 'Scan free with VaultScan →', href: 'https://security.kreatixtech.com', external: true },
   },
   {
     title: 'Threat Detection & Response',

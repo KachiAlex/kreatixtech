@@ -189,6 +189,14 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
+          <a
+            href="https://mail.kreatixtech.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-ink opacity-65 hover:opacity-100 transition-opacity"
+          >
+            Mail
+          </a>
         </div>
 
         {/* CTA */}
@@ -235,6 +243,15 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
+          <a
+            href="https://mail.kreatixtech.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMobileOpen(false)}
+            className="text-sm font-semibold text-ink opacity-65 hover:opacity-100 transition-opacity"
+          >
+            Mail
+          </a>
           <Link
             to="/assessment"
             className="btn-dark text-center mt-2"
