@@ -346,12 +346,16 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     const textContent = `Hi ${user.display_name || user.email},\n\nWe received a request to reset your Kreatix Mail password. Click the link below to choose a new password. This link will expire in 30 minutes.\n\n${resetUrl}\n\nIf you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.`;
 
     try {
+      // Send to the user's recovery email if one is configured — otherwise the
+      // reset link lands in the very inbox they can't access.
+      const settings = env.DB.prepare('SELECT recovery_email FROM user_settings WHERE user_id = ?').bind(user.id).first() as any;
+      const recipient = settings?.recovery_email?.trim() || user.email;
       await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
         body: JSON.stringify({
           sender: { name: 'Kreatix Mail', email: 'hello@kreatixtech.com' },
-          to: [{ email: user.email }],
+          to: [{ email: recipient }],
           subject: 'Reset your Kreatix Mail password',
           textContent,
           htmlContent,
@@ -1075,7 +1079,7 @@ app.put('/api/settings', async (req, res) => {
     const { user, error: authError } = await authMiddleware(req);
     if (authError) return sendResult(res, authError);
     const body = req.body;
-    const allowed = ['theme', 'density', 'language', 'signature_html', 'signature_image_url', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email', 'vacation_enabled', 'vacation_subject', 'vacation_body', 'vacation_start', 'vacation_end'];
+    const allowed = ['theme', 'density', 'language', 'signature_html', 'signature_image_url', 'auto_save_drafts', 'show_snippets', 'items_per_page', 'reply_to_address', 'forward_to_address', 'notify_on_new_email', 'vacation_enabled', 'vacation_subject', 'vacation_body', 'vacation_start', 'vacation_end', 'recovery_email'];
     const updates: string[] = [];
     const params: any[] = [];
     for (const [key, value] of Object.entries(body)) {

@@ -169,6 +169,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                   <label className="block text-sm font-bold text-gray-700 mb-2">Reply-to address</label>
                   <input type="email" value={settings.reply_to_address || ''} onChange={(e) => setSettings({ ...settings, reply_to_address: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="reply@kreatixtech.com" />
                 </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Recovery email</label>
+                  <input type="email" value={settings.recovery_email || ''} onChange={(e) => setSettings({ ...settings, recovery_email: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="you@gmail.com" />
+                  <p className="text-xs text-gray-400 mt-1">Password-reset links are sent here instead of this inbox, so you can recover your account even when locked out.</p>
+                </div>
                 <div className="flex items-center gap-3">
                   <input type="checkbox" id="notify" checked={settings.notify_on_new_email === 1} onChange={(e) => setSettings({ ...settings, notify_on_new_email: e.target.checked ? 1 : 0 })} className="w-4 h-4" />
                   <label htmlFor="notify" className="text-sm text-gray-700">Notify on new email</label>

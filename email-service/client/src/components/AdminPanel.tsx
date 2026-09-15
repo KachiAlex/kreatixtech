@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Activity, BarChart3, Plus, Trash2, Shield, UserCheck, UserX, Mail } from 'lucide-react';
+import { X, Users, Activity, BarChart3, Plus, Trash2, Shield, UserCheck, UserX, Mail, KeyRound } from 'lucide-react';
 import { adminApi } from '../api';
 import { useAuth } from '../auth-context';
 import { useToast } from './Toast';
@@ -45,6 +45,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   const handleToggleAdmin = async (u: User) => {
     try { await adminApi.updateUser(u.id, { role: u.role === 'admin' ? 'user' : 'admin' }); loadAll(); toastSuccess(`User role changed to ${u.role === 'admin' ? 'user' : 'admin'}`); } catch (e: any) { toastError('Failed to update role'); }
+  };
+
+  const handleResetPassword = async (u: User) => {
+    const pw = window.prompt(`Set a new password for ${u.email}:`);
+    if (!pw) return;
+    if (pw.length < 6) { toastError('Password must be at least 6 characters'); return; }
+    try { await adminApi.updateUser(u.id, { password: pw }); toastSuccess(`Password reset for ${u.email}`); } catch (e: any) { toastError(e.message || 'Failed to reset password'); }
   };
 
   const handleDeleteUser = async (id: number) => {
@@ -154,6 +161,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                       </button>
                       <button onClick={() => handleToggleAdmin(u)} className="p-2 rounded text-gray-500 hover:bg-gray-100" title="Toggle admin">
                         <Shield className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleResetPassword(u)} className="p-2 rounded text-gray-500 hover:bg-gray-100" title="Reset password">
+                        <KeyRound className="w-4 h-4" />
                       </button>
                       {u.id !== user?.id && (
                         <button onClick={() => handleDeleteUser(u.id)} className="p-2 rounded text-red-500 hover:bg-red-50" title="Delete">

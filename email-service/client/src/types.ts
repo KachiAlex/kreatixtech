@@ -29,6 +29,7 @@ export interface UserSettings {
   vacation_body?: string;
   vacation_start?: string;
   vacation_end?: string;
+  recovery_email?: string;
 }
 
 export interface Folder {

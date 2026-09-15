@@ -202,6 +202,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   vacation_body       TEXT,
   vacation_start      TEXT,
   vacation_end        TEXT,
+  recovery_email      TEXT,
   created_at          TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
