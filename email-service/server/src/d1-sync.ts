@@ -30,10 +30,33 @@ async function d1Query(sql: string, params?: any[]): Promise<any[]> {
 
 function getLastSyncedD1Id(): number {
   try {
-    const row = db.prepare('SELECT COALESCE(MAX(d1_id), 0) as max_id FROM emails').get() as any;
-    return row?.max_id || 0;
+    // Use a dedicated sync_state table to track the last synced D1 ID.
+    // This is more robust than MAX(d1_id) from the emails table, which can
+    // become stale if the D1 database is reset or d1_id values are corrupted.
+    db.prepare(`CREATE TABLE IF NOT EXISTS sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')))`).run();
+
+    const stateRow = db.prepare("SELECT value FROM sync_state WHERE key = 'last_d1_id'").get() as any;
+    if (stateRow) {
+      return parseInt(stateRow.value, 10) || 0;
+    }
+
+    // First run: initialize from MAX(d1_id), but cap at a safe value
+    // to avoid skipping emails if d1_id values are stale
+    const row = db.prepare('SELECT COALESCE(MAX(d1_id), 0) as max_id FROM emails WHERE d1_id IS NOT NULL').get() as any;
+    const maxId = row?.max_id || 0;
+    db.prepare("INSERT INTO sync_state (key, value) VALUES ('last_d1_id', ?)").run(String(maxId));
+    return maxId;
   } catch {
     return 0;
+  }
+}
+
+function updateLastSyncedD1Id(id: number): void {
+  try {
+    db.prepare("INSERT INTO sync_state (key, value, updated_at) VALUES ('last_d1_id', ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')")
+      .run(String(id), String(id));
+  } catch (e) {
+    console.error('[D1 Sync] Failed to update sync state:', (e as Error).message);
   }
 }
 
@@ -100,7 +123,8 @@ export async function syncInboundEmails(env: any): Promise<void> {
       }
 
       // Existing message_ids for a cheap duplicate guard (e.g. if a row is re-imported)
-      const localMsgRows = db.prepare('SELECT message_id FROM emails WHERE message_id IS NOT NULL AND d1_id > 0').all() as any[];
+      // Check ALL emails, including those with d1_id = NULL (came via direct VPS delivery)
+      const localMsgRows = db.prepare('SELECT message_id FROM emails WHERE message_id IS NOT NULL').all() as any[];
       const localMessageIdSet = new Set(localMsgRows.map((r: any) => r.message_id));
 
       let inserted = 0;
@@ -145,6 +169,12 @@ export async function syncInboundEmails(env: any): Promise<void> {
       }
 
       console.log(`[D1 Sync] Batch done: inserted=${inserted}, skipped=${skipped}, noUser=${noUser}`);
+
+      // Update sync state with the highest D1 ID seen in this batch
+      if (d1Emails.length > 0) {
+        const maxIdInBatch = d1Emails[d1Emails.length - 1].id;
+        updateLastSyncedD1Id(maxIdInBatch);
+      }
 
       // Sync attachments for newly inserted emails
       if (newEmailD1Ids.length > 0) {

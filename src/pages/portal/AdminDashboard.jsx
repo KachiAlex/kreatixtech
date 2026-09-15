@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Shield, Users, FileText, Clock, CheckCircle, AlertCircle,
+  Shield, Users, FileText, Clock, CheckCircle, AlertCircle, Server,
   ChevronRight, LogOut, Bell, Search, Filter, Building2,
   RefreshCw, TrendingUp, Plus, Edit2, Trash2, ExternalLink,
   Image, Globe, X, Save, Mail, Star, Menu, Settings, UserPlus, Trash,
@@ -13,6 +13,7 @@ import { usePortal } from '../../contexts/PortalContext';
 import Logo from '../../components/Logo';
 import EmailAccountsPanel from '../../components/Admin/EmailAccountsPanel';
 import SecurityPanel from '../../components/Admin/SecurityPanel';
+import ServerMonitor from '../../components/Admin/ServerMonitor';
 
 const STATUS_COLORS = {
   SUBMITTED:    'bg-yellow-100 text-yellow-800',
@@ -71,6 +72,7 @@ const NAV_ITEMS = [
   { key: 'blog',      label: 'Blog Posts',         icon: Newspaper },
   { key: 'email',     label: 'Email Management',   icon: MailIcon },
   { key: 'security',  label: 'Security',           icon: Shield },
+  { key: 'monitor',   label: 'Server Monitor',     icon: Server },
   { key: 'settings',  label: 'Settings',           icon: Settings },
 ];
 
@@ -462,6 +464,11 @@ export default function AdminDashboard() {
         {/* â”€â”€ Security section â”€â”€ */}
         {activeSection === 'security' && (
           <SecurityPanel apiCall={apiCall} />
+        )}
+
+        {/* â”€â■─ Server Monitor section â─â■─ */}
+        {activeSection === 'monitor' && (
+          <ServerMonitor apiCall={apiCall} />
         )}
 
         {/* â”€â”€ Blog section â”€â”€ */}
