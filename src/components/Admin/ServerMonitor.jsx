@@ -625,6 +625,24 @@ export default function ServerMonitor({ apiCall }) {
     finally { setMaintenanceLoading(false); }
   };
 
+  // Split projects into Docker, PM2/standalone, and Mixed groups.
+  // Must run before any early returns to keep hook order stable.
+  const projectGroups = useMemo(() => {
+    const projects = data?.projects;
+    if (!projects) return { docker: [], pm2: [], mixed: [] };
+    const docker = [];
+    const pm2 = [];
+    const mixed = [];
+    for (const p of projects) {
+      const hasDocker = p.services.some(s => s.type === 'docker');
+      const hasPm2 = p.services.some(s => s.type === 'pm2' || s.type === 'standalone');
+      if (hasDocker && hasPm2) mixed.push({ ...p, _type: 'mixed' });
+      else if (hasDocker) docker.push({ ...p, _type: 'docker' });
+      else pm2.push({ ...p, _type: 'pm2' });
+    }
+    return { docker, pm2, mixed };
+  }, [data?.projects]);
+
   if (loading && !data) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -651,22 +669,6 @@ export default function ServerMonitor({ apiCall }) {
   const diskWarn = system?.disk?.usedPct > 85;
   const swapWarn = system?.swap?.usedPct > 70;
   const activeIncidents = incidents.filter(i => !i.resolved_at);
-
-  // Split projects into Docker, PM2/standalone, and Mixed groups
-  const projectGroups = useMemo(() => {
-    if (!projects) return { docker: [], pm2: [], mixed: [] };
-    const docker = [];
-    const pm2 = [];
-    const mixed = [];
-    for (const p of projects) {
-      const hasDocker = p.services.some(s => s.type === 'docker');
-      const hasPm2 = p.services.some(s => s.type === 'pm2' || s.type === 'standalone');
-      if (hasDocker && hasPm2) mixed.push({ ...p, _type: 'mixed' });
-      else if (hasDocker) docker.push({ ...p, _type: 'docker' });
-      else pm2.push({ ...p, _type: 'pm2' });
-    }
-    return { docker, pm2, mixed };
-  }, [projects]);
 
   const filteredProjects = filter === 'docker'
     ? [...projectGroups.docker, ...projectGroups.mixed]
