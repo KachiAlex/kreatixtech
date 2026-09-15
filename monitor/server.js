@@ -9,6 +9,7 @@ import { WebSocketServer } from 'ws';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { readFileSync, readdirSync } from 'fs';
+import { fileURLToPath } from 'url';
 import {
   insertSnapshot, getSnapshots,
   insertIncident, resolveIncident, getActiveIncident, getIncidents,
@@ -19,6 +20,18 @@ import {
 import { sendDowntimeAlert, sendRecoveryAlert, sendRestartNotification } from './notifier.js';
 
 const execAsync = promisify(exec);
+
+// Load .env manually (no dotenv dependency) so the monitor stays self-contained
+try {
+  const envPath = fileURLToPath(new URL('./.env', import.meta.url));
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (m && process.env[m[1]] === undefined) {
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    }
+  }
+} catch { /* .env optional */ }
+
 const app = express();
 app.use(express.json());
 
