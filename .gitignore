@@ -30,6 +30,8 @@ email-service/client/android/app/build/
 email-service/client/android/.gradle/
 email-service/client/android/captures/
 email-service/client/android/local.properties
+email-service/client/android/key.properties
+email-service/client/android/*.keystore*
 
 # Temp screenshots & test files
 *.png

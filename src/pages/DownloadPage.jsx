@@ -1,5 +1,5 @@
 import React from 'react';
-import { Monitor, Download, HardDrive, FileArchive, Apple, Sparkles } from 'lucide-react';
+import { Monitor, Download, HardDrive, FileArchive, Apple, Sparkles, Smartphone } from 'lucide-react';
 import { trackClick } from '../services/analytics';
 import SEO from '../components/SEO';
 
@@ -22,6 +22,16 @@ const DOWNLOADS = [
     filename: 'KreatixMail_Portable_1.0.0.exe',
     size: '125 MB',
     badge: 'Windows 10/11',
+    primary: false,
+  },
+  {
+    id: 'android-apk',
+    label: 'Android App',
+    description: 'Install the Kreatix Mail APK directly on your Android phone or tablet.',
+    icon: Smartphone,
+    filename: 'KreatixMail_1.0.1.apk',
+    size: '3.2 MB',
+    badge: 'Android 8+',
     primary: false,
   },
 ];
@@ -84,7 +94,7 @@ export default function DownloadPage() {
                     <HardDrive className="h-3.5 w-3.5" />
                     <span>{item.size}</span>
                     <span className="text-border">|</span>
-                    <span>Version 1.0.0</span>
+                    <span>Version {item.id === 'android-apk' ? '1.0.1' : '1.0.0'}</span>
                   </div>
                   <a
                     href={`/downloads/${encodeURIComponent(item.filename)}`}
