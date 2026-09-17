@@ -215,11 +215,18 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return sendResult(res, errorResp('Email and password are required', 400));
 
-    const user = env.DB.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').bind(email.toLowerCase()).first();
-    if (!user) return sendResult(res, errorResp('Invalid email or password', 401));
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = env.DB.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').bind(normalizedEmail).first();
+    if (!user) {
+      await auditLog(env, null, 'login_failed', 'user', normalizedEmail, req);
+      return sendResult(res, errorResp('Invalid email or password', 401));
+    }
 
     const valid = await verifyPassword(password, user.password_salt, user.password_hash);
-    if (!valid) return sendResult(res, errorResp('Invalid email or password', 401));
+    if (!valid) {
+      await auditLog(env, user.id, 'login_failed', 'user', String(user.id), req);
+      return sendResult(res, errorResp('Invalid email or password', 401));
+    }
 
     // 2FA check
     if (user.totp_enabled === 1 && user.totp_secret) {

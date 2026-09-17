@@ -41,18 +41,19 @@ const Login: React.FC = () => {
     setLoading(true);
     setError('');
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       if (mode === 'login') {
-        await login(email, password, totpCode || undefined);
+        await login(normalizedEmail, password, totpCode || undefined);
         if (rememberMe) {
           try {
             const raw = localStorage.getItem('kreatix_saved_accounts');
             const saved = raw ? JSON.parse(atob(raw)) : {};
-            saved[email.toLowerCase()] = btoa(password);
+            saved[normalizedEmail] = btoa(password);
             localStorage.setItem('kreatix_saved_accounts', btoa(JSON.stringify(saved)));
           } catch { /* ignore */ }
         }
       } else {
-        await register(email, password, displayName);
+        await register(normalizedEmail, password, displayName);
       }
     } catch (err: any) {
       if (err.message === '2FA_REQUIRED') {
