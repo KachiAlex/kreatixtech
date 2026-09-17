@@ -235,13 +235,15 @@ app.post('/api/auth/login', async (req, res) => {
       if (!verifyTotp(user.totp_secret, totp_code)) return sendResult(res, errorResp('Invalid 2FA code', 401));
     }
 
+    // "Remember me" gets a longer session (90d vs 30d); refresh slides expiry
+    const sessionTtl = req.body.remember ? 90 * 24 * 60 * 60 : REFRESH_EXPIRES_IN;
     const accessToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'access' });
-    const refreshToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'refresh' }, REFRESH_EXPIRES_IN);
+    const refreshToken = await signJwt({ sub: user.id, email: user.email, role: user.role, type: 'refresh' }, sessionTtl);
 
     const sessionId = generateSessionId();
     const tokenHash = await hashToken(refreshToken);
     env.DB.prepare('INSERT INTO sessions (id, user_id, token_hash, device_info, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(sessionId, user.id, tokenHash, req.headers['user-agent'] || null, ip, getExpiry(REFRESH_EXPIRES_IN)).run();
+      .bind(sessionId, user.id, tokenHash, req.headers['user-agent'] || null, ip, getExpiry(sessionTtl)).run();
 
     env.DB.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").bind(user.id).run();
     await auditLog(env, user.id, 'login', 'user', String(user.id), req);
@@ -267,8 +269,15 @@ app.post('/api/auth/refresh', async (req, res) => {
     const session = env.DB.prepare("SELECT * FROM sessions WHERE token_hash = ? AND expires_at > datetime('now')").bind(tokenHash).first();
     if (!session) return sendResult(res, errorResp('Session expired', 401));
 
+    // Rotate the refresh token + slide expiry so active sessions never hit
+    // the 30-day wall — the refresh JWT itself gets a fresh lifetime too
     const newAccessToken = await signJwt({ sub: payload.sub, email: payload.email, role: payload.role, type: 'access' });
-    sendResult(res, json({ accessToken: newAccessToken }));
+    const newRefreshToken = await signJwt({ sub: payload.sub, email: payload.email, role: payload.role, type: 'refresh' }, REFRESH_EXPIRES_IN);
+    const newTokenHash = await hashToken(newRefreshToken);
+    env.DB.prepare("UPDATE sessions SET token_hash = ?, expires_at = ? WHERE id = ?")
+      .bind(newTokenHash, getExpiry(REFRESH_EXPIRES_IN), session.id).run();
+
+    sendResult(res, json({ accessToken: newAccessToken, refreshToken: newRefreshToken }));
   } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
 });
 

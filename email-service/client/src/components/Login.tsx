@@ -1,7 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, ArrowRight, Shield } from 'lucide-react';
+import { Mail, ArrowRight, Shield, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../auth-context';
 import { ForgotPassword } from './PasswordReset';
+
+const SAVED_KEY = 'kreatix_saved_accounts';
+const SKIP_KEY = 'kreatix_skip_autologin';
+
+const getSavedAccounts = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(SAVED_KEY);
+    if (!raw) return {};
+    return JSON.parse(atob(raw));
+  } catch { return {}; }
+};
+
+const saveCred = (email: string, password: string) => {
+  try {
+    const saved = getSavedAccounts();
+    saved[email.toLowerCase()] = btoa(password);
+    localStorage.setItem(SAVED_KEY, btoa(JSON.stringify(saved)));
+  } catch { /* ignore */ }
+};
+
+const removeCred = (email: string) => {
+  try {
+    const saved = getSavedAccounts();
+    delete saved[email.toLowerCase()];
+    localStorage.setItem(SAVED_KEY, btoa(JSON.stringify(saved)));
+  } catch { /* ignore */ }
+};
 
 const Login: React.FC = () => {
   const { login, register } = useAuth();
@@ -15,25 +42,48 @@ const Login: React.FC = () => {
   const [totpCode, setTotpCode] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [savedEmails, setSavedEmails] = useState<string[]>([]);
+  const [picker, setPicker] = useState(false);
 
-  // Auto-login with saved credentials
-  useEffect(() => {
+  const autoLogin = async (savedEmail: string) => {
+    const saved = getSavedAccounts();
+    const savedPassword = saved[savedEmail];
+    if (!savedPassword) { setPicker(false); return; }
+    setEmail(savedEmail);
+    setLoading(true);
+    setError('');
     try {
-      const raw = localStorage.getItem('kreatix_saved_accounts');
-      if (!raw) return;
-      const saved = JSON.parse(atob(raw));
-      const emails = Object.keys(saved);
-      if (emails.length === 0) return;
-      // Auto-login with the first saved account
-      const savedEmail = emails[0];
-      const savedPassword = atob(saved[savedEmail]);
-      setEmail(savedEmail);
-      setLoading(true);
-      login(savedEmail, savedPassword).catch(() => {
-        setLoading(false);
-        // If auto-login fails (e.g. 2FA required), just show the form
+      await login(savedEmail, atob(savedPassword), undefined, true);
+    } catch {
+      // Saved credential is stale — drop it so it stops failing silently
+      removeCred(savedEmail);
+      setSavedEmails(prev => {
+        const next = prev.filter(e => e !== savedEmail);
+        if (next.length === 0) setPicker(false);
+        return next;
       });
-    } catch { /* ignore */ }
+      setLoading(false);
+    }
+  };
+
+  // On mount: seamless sign-in when possible
+  useEffect(() => {
+    const emails = Object.keys(getSavedAccounts());
+    setSavedEmails(emails);
+    if (emails.length === 0) return;
+
+    // Explicit logout → don't bounce back in; offer the picker instead
+    if (localStorage.getItem(SKIP_KEY) === '1') {
+      setPicker(true);
+      return;
+    }
+    if (emails.length === 1) {
+      autoLogin(emails[0]);
+    } else {
+      setPicker(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,14 +93,11 @@ const Login: React.FC = () => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
       if (mode === 'login') {
-        await login(normalizedEmail, password, totpCode || undefined);
+        await login(normalizedEmail, password, totpCode || undefined, rememberMe);
         if (rememberMe) {
-          try {
-            const raw = localStorage.getItem('kreatix_saved_accounts');
-            const saved = raw ? JSON.parse(atob(raw)) : {};
-            saved[normalizedEmail] = btoa(password);
-            localStorage.setItem('kreatix_saved_accounts', btoa(JSON.stringify(saved)));
-          } catch { /* ignore */ }
+          saveCred(normalizedEmail, password);
+        } else {
+          removeCred(normalizedEmail);
         }
       } else {
         await register(normalizedEmail, password, displayName);
@@ -69,6 +116,16 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleRemoveSaved = (em: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeCred(em);
+    setSavedEmails(prev => {
+      const next = prev.filter(x => x !== em);
+      if (next.length === 0) setPicker(false);
+      return next;
+    });
+  };
+
   return (
     <>
     {showForgot && <ForgotPassword onBack={() => { setShowForgot(false); setError(''); }} />}
@@ -83,6 +140,50 @@ const Login: React.FC = () => {
           <p className="text-gray-500 mt-2 font-medium">Enterprise Communication Portal</p>
         </div>
 
+        {/* ── Saved account picker ─────────────────────────────────────────── */}
+        {picker && savedEmails.length > 0 && mode === 'login' && (
+          <div className="space-y-3">
+            <h2 className="text-lg font-bold text-ink text-center mb-4">Choose an account</h2>
+            {savedEmails.map(em => (
+              <div
+                key={em}
+                onClick={() => !loading && autoLogin(em)}
+                className="group flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-border bg-offwhite hover:border-orange hover:bg-orange/5 cursor-pointer transition-all"
+              >
+                <div className="w-10 h-10 rounded-full bg-orange/10 text-orange flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {em.charAt(0).toUpperCase()}
+                </div>
+                <span className="flex-1 text-sm font-semibold text-ink truncate">{em}</span>
+                {loading && email === em && (
+                  <div className="w-4 h-4 border-2 border-orange/30 border-t-orange rounded-full animate-spin"></div>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => handleRemoveSaved(em, e)}
+                  className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                  title={`Remove ${em}`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                {error}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => { setPicker(false); setError(''); }}
+              className="w-full text-center text-sm text-orange hover:text-orange-deep font-bold transition-colors pt-2"
+            >
+              Use another account
+            </button>
+          </div>
+        )}
+
+        {(!picker || savedEmails.length === 0 || mode === 'register') && (
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
             <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold flex items-center gap-2">
@@ -119,14 +220,24 @@ const Login: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-ink/50 uppercase tracking-widest mb-1.5 ml-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 pr-12 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-ink transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           {mode === 'login' && (
@@ -137,7 +248,7 @@ const Login: React.FC = () => {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="w-4 h-4 accent-orange cursor-pointer"
               />
-              <span className="text-sm text-gray-600 font-medium">Remember me on this device</span>
+              <span className="text-sm text-gray-600 font-medium">Keep me signed in on this device</span>
             </label>
           )}
 
@@ -168,6 +279,7 @@ const Login: React.FC = () => {
             )}
           </button>
         </form>
+        )}
 
         {needs2FA && (
           <form onSubmit={handleSubmit} className="space-y-5 mt-4">

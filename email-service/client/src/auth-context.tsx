@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   settings: UserSettings | null;
   loading: boolean;
-  login: (email: string, password: string, totp_code?: string) => Promise<void>;
+  login: (email: string, password: string, totp_code?: string, remember?: boolean) => Promise<void>;
   register: (email: string, password: string, display_name?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -36,11 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refreshUser(); }, [refreshUser]);
 
-  const login = async (email: string, password: string, totp_code?: string) => {
-    const res = await authApi.login(email, password, totp_code);
+  const login = async (email: string, password: string, totp_code?: string, remember?: boolean) => {
+    const res = await authApi.login(email, password, totp_code, remember);
     if ((res as any).requires2FA) throw new Error('2FA_REQUIRED');
     setTokens(res.accessToken, res.refreshToken);
     localStorage.setItem('kreatix_user', JSON.stringify(res.user));
+    localStorage.removeItem('kreatix_skip_autologin');
     setUser(res.user);
     await refreshUser();
   };
@@ -56,6 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try { await authApi.logout(); } catch {}
     clearTokens();
+    // Explicit logout must not bounce straight back in via saved-credential
+    // auto-login — the login screen shows the account picker instead
+    localStorage.setItem('kreatix_skip_autologin', '1');
     setUser(null);
     setSettings(null);
   };

@@ -87,6 +87,11 @@ async function refreshAccessToken(): Promise<string | null> {
       const data = await res.json();
       accessToken = data.accessToken;
       localStorage.setItem('kreatix_access_token', data.accessToken);
+      // Server rotates the refresh token on each refresh — persist it
+      if (data.refreshToken) {
+        refreshToken = data.refreshToken;
+        localStorage.setItem('kreatix_refresh_token', data.refreshToken);
+      }
       return data.accessToken;
     } catch {
       clearTokens();
@@ -180,8 +185,8 @@ async function apiDelete<T>(path: string): Promise<T> {
 export const authApi = {
   register: (email: string, password: string, display_name?: string) =>
     apiPost<AuthResponse>('/auth/register', { email, password, display_name }),
-  login: (email: string, password: string, totp_code?: string) =>
-    apiPost<AuthResponse>('/auth/login', { email, password, totp_code }),
+  login: (email: string, password: string, totp_code?: string, remember?: boolean) =>
+    apiPost<AuthResponse>('/auth/login', { email, password, totp_code, remember }),
   logout: () => apiPost('/auth/logout', { refreshToken }),
   me: () => apiGet<{ user: User; settings: UserSettings }>('/auth/me'),
   forgotPassword: (email: string) =>

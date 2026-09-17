@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, SlidersHorizontal, CircleHelp, Settings, Bell, LogOut, Shield, Plus, Check, ChevronDown, Trash2, ArrowRight, Mail } from 'lucide-react';
+import { Search, SlidersHorizontal, CircleHelp, Settings, Bell, LogOut, Shield, Plus, Check, ChevronDown, Trash2, ArrowRight, Mail, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../auth-context';
 import { useAccount } from '../account-context';
 import { useToast } from './Toast';
@@ -71,6 +71,8 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
   const [addAcctPassword, setAddAcctPassword] = useState('');
   const [addAcctLoading, setAddAcctLoading] = useState(false);
   const [addAcctError, setAddAcctError] = useState('');
+  const [showAddAcctPw, setShowAddAcctPw] = useState(false);
+  const [showSwitchPw, setShowSwitchPw] = useState(false);
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -276,14 +278,19 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
                     autoFocus
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e4e2', borderRadius: 8, fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }}
                   />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={addAcctPassword}
-                    onChange={(e) => setAddAcctPassword(e.target.value)}
-                    required
-                    style={{ width: '100%', padding: '8px 12px', border: '1px solid #e5e4e2', borderRadius: 8, fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }}
-                  />
+                  <div style={{ position: 'relative', marginBottom: 8 }}>
+                    <input
+                      type={showAddAcctPw ? 'text' : 'password'}
+                      placeholder="Password"
+                      value={addAcctPassword}
+                      onChange={(e) => setAddAcctPassword(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '8px 36px 8px 12px', border: '1px solid #e5e4e2', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }}
+                    />
+                    <button type="button" onClick={() => setShowAddAcctPw(v => !v)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', color: '#9B9B9B', display: 'flex', padding: 2 }} aria-label="Toggle password visibility">
+                      {showAddAcctPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" onClick={() => { setShowAddAccount(false); setAddAcctEmail(''); setAddAcctPassword(''); setAddAcctError(''); }} style={{ flex: 1, padding: '8px 12px', border: '1px solid #e5e4e2', background: 'transparent', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
                     <button type="submit" disabled={addAcctLoading} style={{ flex: 1, padding: '8px 12px', border: 'none', background: '#F2782E', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: addAcctLoading ? 0.6 : 1 }}>{addAcctLoading ? 'Verifying...' : 'Sign in'}</button>
@@ -357,15 +364,20 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#858990', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Password</label>
-                <input
-                  type="password"
-                  value={switchPassword}
-                  onChange={(e) => setSwitchPassword(e.target.value)}
-                  placeholder="••••••••"
-                  style={{ width: '100%', padding: '12px 16px', background: '#f5f4f2', border: '1px solid #e5e4e2', borderRadius: 12, outline: 'none', fontSize: 14, fontWeight: 500, boxSizing: 'border-box' }}
-                  required
-                  autoFocus
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showSwitchPw ? 'text' : 'password'}
+                    value={switchPassword}
+                    onChange={(e) => setSwitchPassword(e.target.value)}
+                    placeholder="••••••••"
+                    style={{ width: '100%', padding: '12px 42px 12px 16px', background: '#f5f4f2', border: '1px solid #e5e4e2', borderRadius: 12, outline: 'none', fontSize: 14, fontWeight: 500, boxSizing: 'border-box' }}
+                    required
+                    autoFocus
+                  />
+                  <button type="button" onClick={() => setShowSwitchPw(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', color: '#9B9B9B', display: 'flex', padding: 2 }} aria-label="Toggle password visibility">
+                    {showSwitchPw ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#45474b', cursor: 'pointer', userSelect: 'none' }}>
                 <input
