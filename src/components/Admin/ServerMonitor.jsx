@@ -318,7 +318,7 @@ function ServiceCard({ service, onRestart, restarting, apiCall }) {
 }
 
 // ── Project Section ──────────────────────────────────────────────────────────
-function ProjectSection({ project, onRestart, restarting, apiCall, projectType }) {
+function ProjectSection({ project, onRestart, onRestartProject, restarting, apiCall, projectType }) {
   const [expanded, setExpanded] = useState(true);
   const healthy = project.services.filter(s => s.overall === 'healthy').length;
   const degraded = project.services.filter(s => s.overall === 'degraded').length;
@@ -339,14 +339,17 @@ function ProjectSection({ project, onRestart, restarting, apiCall, projectType }
 
   return (
     <div>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 mb-3 w-full text-left"
-      >
-        <ProjectIcon className={`h-4 w-4 ${projectColor}`} />
-        <h3 className="text-sm font-bold text-[#0E0E0F] uppercase tracking-wider flex-1">
-          {project.name}
-        </h3>
+      <div className="flex items-center gap-2 mb-3 w-full">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 flex-1 text-left"
+        >
+          <ProjectIcon className={`h-4 w-4 ${projectColor}`} />
+          <h3 className="text-sm font-bold text-[#0E0E0F] uppercase tracking-wider">
+            {project.name}
+          </h3>
+          {expanded ? <ChevronDown className="h-4 w-4 text-[#9B9B9B]" /> : <ChevronRight className="h-4 w-4 text-[#9B9B9B]" />}
+        </button>
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${typeBadge.bg} ${typeBadge.color}`}>
           <TypeIcon className="h-3 w-3" />
           {typeBadge.label}
@@ -356,8 +359,16 @@ function ProjectSection({ project, onRestart, restarting, apiCall, projectType }
           {degraded > 0 && <span className="text-amber-600 ml-1">· {degraded} degraded</span>}
           {down > 0 && <span className="text-red-600 ml-1">· {down} down</span>}
         </span>
-        {expanded ? <ChevronDown className="h-4 w-4 text-[#9B9B9B]" /> : <ChevronRight className="h-4 w-4 text-[#9B9B9B]" />}
-      </button>
+        <button
+          onClick={() => onRestartProject(project.name)}
+          disabled={restarting === `project:${project.name}`}
+          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border border-[#E8E5E0] text-[#6B6F76] hover:border-[#F2782E] hover:text-[#F2782E] transition-colors disabled:opacity-50"
+          title={`Restart all services in ${project.name} (datastores first)`}
+        >
+          {restarting === `project:${project.name}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
+          Restart project
+        </button>
+      </div>
       {expanded && (
         <div className="space-y-3">
           {project.services.map(svc => (
@@ -461,6 +472,7 @@ export default function ServerMonitor({ apiCall }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [restarting, setRestarting] = useState(null);
+  const [restartDiag, setRestartDiag] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [incidents, setIncidents] = useState([]);
@@ -560,11 +572,44 @@ export default function ServerMonitor({ apiCall }) {
 
   const handleRestart = async (serviceId) => {
     setRestarting(serviceId);
+    setRestartDiag(null);
     try {
       const r = await apiCall(`/api/monitoring/restart/${encodeURIComponent(serviceId)}`, { method: 'POST' });
-      if (r.ok) { await fetchHealth(); await fetchIncidents(); }
-      else { const d = await r.json().catch(() => ({})); setError(d.error || 'Restart failed'); }
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.success) {
+        await fetchHealth(); await fetchIncidents();
+      } else {
+        setRestartDiag({
+          serviceId,
+          message: d.message || d.error || 'Restart failed',
+          error: d.error,
+          state: d.state,
+          logs: d.logs || [],
+        });
+        await fetchHealth();
+      }
     } catch (e) { setError('Network error during restart'); }
+    finally { setRestarting(null); }
+  };
+
+  const handleRestartProject = async (projectName) => {
+    if (!window.confirm(`Restart all services in '${projectName}'? Datastores restart first, then apps.`)) return;
+    setRestarting(`project:${projectName}`);
+    setRestartDiag(null);
+    try {
+      const r = await apiCall(`/api/monitoring/restart-project/${encodeURIComponent(projectName)}`, { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.success) {
+        await fetchHealth(); await fetchIncidents();
+      } else {
+        setRestartDiag({
+          serviceId: `project:${projectName}`,
+          message: d.error || `Some services in '${projectName}' did not come up`,
+          results: d.results || [],
+        });
+        await fetchHealth();
+      }
+    } catch (e) { setError('Network error during project restart'); }
     finally { setRestarting(null); }
   };
 
@@ -762,6 +807,38 @@ export default function ServerMonitor({ apiCall }) {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
       )}
 
+      {restartDiag && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-amber-800">{restartDiag.message}</p>
+                {restartDiag.error && <p className="text-xs text-amber-700 mt-1">{restartDiag.error}</p>}
+                {restartDiag.state && <p className="text-xs text-amber-700 mt-0.5">Container state: <span className="font-mono">{restartDiag.state}</span></p>}
+              </div>
+            </div>
+            <button onClick={() => setRestartDiag(null)} className="text-amber-600 hover:text-amber-800 text-xs font-semibold">Dismiss</button>
+          </div>
+          {restartDiag.results?.length > 0 && (
+            <div className="mt-3 space-y-1">
+              {restartDiag.results.map(r => (
+                <div key={r.serviceId} className="flex items-center gap-2 text-xs">
+                  {r.success ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> : <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                  <span className="font-semibold text-[#0E0E0F]">{r.name}</span>
+                  <span className="text-[#6B6F76]">{r.success ? `— ${r.state}` : `— ${r.error || 'failed'}`}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {restartDiag.logs?.length > 0 && (
+            <pre className="mt-3 p-3 bg-[#0E0E0F] text-emerald-300 text-[11px] leading-relaxed rounded-lg overflow-x-auto max-h-48 overflow-y-auto font-mono">
+              {restartDiag.logs.join('\n')}
+            </pre>
+          )}
+        </div>
+      )}
+
       {/* Summary bar */}
       {summary && (
         <div className="flex items-center gap-3 flex-wrap">
@@ -855,7 +932,7 @@ export default function ServerMonitor({ apiCall }) {
               </div>
               <div className="space-y-6">
                 {projectGroups.docker.map(project => (
-                  <ProjectSection key={project.name} project={project} onRestart={handleRestart} restarting={restarting} apiCall={apiCall} projectType="docker" />
+                  <ProjectSection key={project.name} project={project} onRestart={handleRestart} onRestartProject={handleRestartProject} restarting={restarting} apiCall={apiCall} projectType="docker" />
                 ))}
               </div>
             </div>
@@ -871,7 +948,7 @@ export default function ServerMonitor({ apiCall }) {
               </div>
               <div className="space-y-6">
                 {projectGroups.pm2.map(project => (
-                  <ProjectSection key={project.name} project={project} onRestart={handleRestart} restarting={restarting} apiCall={apiCall} projectType="pm2" />
+                  <ProjectSection key={project.name} project={project} onRestart={handleRestart} onRestartProject={handleRestartProject} restarting={restarting} apiCall={apiCall} projectType="pm2" />
                 ))}
               </div>
             </div>
@@ -887,7 +964,7 @@ export default function ServerMonitor({ apiCall }) {
               </div>
               <div className="space-y-6">
                 {projectGroups.mixed.map(project => (
-                  <ProjectSection key={project.name} project={project} onRestart={handleRestart} restarting={restarting} apiCall={apiCall} projectType="mixed" />
+                  <ProjectSection key={project.name} project={project} onRestart={handleRestart} onRestartProject={handleRestartProject} restarting={restarting} apiCall={apiCall} projectType="mixed" />
                 ))}
               </div>
             </div>

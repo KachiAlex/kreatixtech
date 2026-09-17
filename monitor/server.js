@@ -326,25 +326,107 @@ function formatUptime(seconds) {
   return `${mins}m`;
 }
 
-// ── Restart a service (PM2 or Docker) ───────────────────────────────────────
+// ── Docker helpers for restart verification ─────────────────────────────────
+async function dockerInspectOne(name) {
+  try {
+    const { stdout } = await execAsync(`docker inspect ${name}`, { maxBuffer: 2 * 1024 * 1024 });
+    return JSON.parse(stdout)[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function dockerTailLogs(name, n = 25) {
+  try {
+    const { stdout } = await execAsync(`docker logs --tail ${n} ${name} 2>&1`, { maxBuffer: 1024 * 1024 });
+    return (stdout || '').trim().split('\n').filter(Boolean).slice(-n);
+  } catch {
+    return [];
+  }
+}
+
+async function pm2StatusOf(name) {
+  try {
+    const { stdout } = await execAsync('pm2 jlist 2>/dev/null', { maxBuffer: 1024 * 1024 });
+    const procs = JSON.parse(stdout || '[]');
+    return procs.find(p => p.name === name)?.pm2_env?.status || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+// ── Restart a service (PM2 or Docker) and verify it actually came up ────────
+// Returns { success, state, exitCode, error, logs }
 async function restartService(svc, triggeredBy = 'auto', reason = 'auto-restart') {
+  const result = { success: false, state: null, exitCode: null, error: null, logs: null };
   try {
     if (svc.type === 'pm2') {
       await execAsync(`pm2 restart ${svc.pm2Name} 2>&1`);
-      await execAsync('pm2 save 2>&1');
+      await execAsync('pm2 save 2>&1').catch(() => {});
+      await new Promise(r => setTimeout(r, 3000));
+      result.state = await pm2StatusOf(svc.pm2Name);
+      result.success = result.state === 'online';
+      if (!result.success) result.error = `PM2 process is '${result.state}' after restart`;
     } else if (svc.type === 'docker') {
-      await execAsync(`docker restart ${svc.dockerContainer} 2>&1`);
+      const before = await dockerInspectOne(svc.dockerContainer);
+      const beforeStatus = before?.State?.Status;
+      // `docker restart` silently no-ops meaningfully on crash-looping containers
+      // and `docker start` is the correct verb for stopped ones
+      const cmd = ['exited', 'created', 'dead', 'paused'].includes(beforeStatus)
+        ? `docker start ${svc.dockerContainer}`
+        : `docker restart ${svc.dockerContainer}`;
+      try {
+        await execAsync(`${cmd} 2>&1`);
+      } catch (e) {
+        // Docker refused — still return state + logs so the UI shows why
+        const after = await dockerInspectOne(svc.dockerContainer);
+        const st = after?.State || {};
+        result.state = st.Status || beforeStatus || 'unknown';
+        result.exitCode = st.ExitCode ?? null;
+        result.logs = await dockerTailLogs(svc.dockerContainer);
+        result.error = (e.stderr || e.stdout || e.message || '').trim().split('\n').slice(-8).join('\n');
+        return result;
+      }
+
+      await new Promise(r => setTimeout(r, 4000));
+      const after = await dockerInspectOne(svc.dockerContainer);
+      const st = after?.State || {};
+      result.state = st.Restarting ? 'restarting' : (st.Running ? 'running' : (st.Status || 'unknown'));
+      result.exitCode = st.ExitCode ?? null;
+      result.success = !!st.Running && !st.Restarting;
+
+      if (!result.success) {
+        result.logs = await dockerTailLogs(svc.dockerContainer);
+        if (st.OOMKilled) {
+          result.error = 'Container was OOM-killed (out of memory)';
+        } else if (st.Restarting) {
+          result.error = 'Container is crash-looping (restart policy keeps retrying)';
+        } else if (st.Error) {
+          result.error = st.Error;
+        } else {
+          result.error = `Container exited with code ${st.ExitCode ?? 'unknown'}`;
+        }
+      }
     } else {
-      throw new Error(`Cannot restart ${svc.type} services`);
+      result.error = `Cannot restart ${svc.type} services`;
+      return result;
     }
-    logRestart(svc.id, svc.name, reason, triggeredBy);
-    if (triggeredBy === 'auto') {
-      sendRestartNotification(svc, reason, 'auto').catch(() => {});
+
+    if (result.success) {
+      logRestart(svc.id, svc.name, reason, triggeredBy);
+      if (triggeredBy === 'auto') {
+        sendRestartNotification(svc, reason, 'auto').catch(() => {});
+      }
+    } else {
+      console.error(`[monitor] Restart did not bring ${svc.id} up:`, result.error);
     }
-    return true;
+    return result;
   } catch (e) {
     console.error(`[monitor] Failed to restart ${svc.id}:`, e.message);
-    return false;
+    // Node exec errors carry the real output on .stderr/.stdout — e.message
+    // only contains the command string
+    result.error = (e.stderr || e.stdout || e.message || '').trim().split('\n').slice(-8).join('\n');
+    return result;
   }
 }
 
@@ -691,20 +773,54 @@ app.post('/restart/:serviceId', authMiddleware, async (req, res) => {
   if (!svc.pm2Name && !svc.dockerContainer) return res.status(400).json({ error: 'Service cannot be restarted' });
 
   const reason = req.body?.reason || 'Manual restart via dashboard';
-  const success = await restartService(svc, req.user?.email || 'admin', reason);
+  const result = await restartService(svc, req.user?.email || 'admin', reason);
 
-  if (success) {
-    await new Promise(r => setTimeout(r, 3000));
-    if (svc.port) {
-      const url = `http://localhost:${svc.port}${svc.healthPath || '/health'}`;
-      const http = await checkHttp(url, 8000);
-      res.json({ success: true, message: `${svc.name} restarted`, service: { ...svc, http } });
-    } else {
-      res.json({ success: true, message: `${svc.name} restarted`, service: svc });
-    }
-  } else {
-    res.status(500).json({ error: `Failed to restart ${svc.name}` });
+  if (result.success && svc.port) {
+    const url = `http://localhost:${svc.port}${svc.healthPath || '/health'}`;
+    result.http = await checkHttp(url, 8000);
   }
+
+  // Always 200 on a handled outcome so the UI can show diagnostics
+  res.json({
+    success: result.success,
+    message: result.success ? `${svc.name} restarted` : `${svc.name} did not come up`,
+    state: result.state,
+    exitCode: result.exitCode,
+    error: result.error,
+    logs: result.logs,
+    http: result.http || null,
+  });
+});
+
+// Restart every restartable service in a project, in dependency order
+// (db → cache → app/web) so apps aren't restarted while their datastore is down
+app.post('/restart-project/:name', authMiddleware, async (req, res) => {
+  const projectName = req.params.name;
+  const svcs = (lastHealthData?.services || []).filter(s =>
+    s.project === projectName && (s.pm2Name || s.dockerContainer) && !s.skipRestart
+  );
+  if (!svcs.length) return res.status(404).json({ error: `No restartable services in project '${projectName}'` });
+
+  const roleOrder = { db: 0, database: 0, cache: 1, app: 2, api: 2, web: 3 };
+  const ordered = [...svcs].sort((a, b) => (roleOrder[a.role] ?? 4) - (roleOrder[b.role] ?? 4));
+
+  const results = [];
+  for (const svc of ordered) {
+    console.log(`[monitor] Project restart ${projectName}: ${svc.id} (role=${svc.role})`);
+    const r = await restartService(svc, req.user?.email || 'admin', `Project restart: ${projectName}`);
+    results.push({ serviceId: svc.id, name: svc.name, role: svc.role, success: r.success, state: r.state, error: r.error });
+    // give datastores a moment before starting dependents
+    await new Promise(res2 => setTimeout(res2, 2000));
+  }
+
+  await new Promise(r => setTimeout(r, 3000));
+  await runHealthCheck();
+
+  res.json({
+    success: results.every(r => r.success),
+    project: projectName,
+    results,
+  });
 });
 
 app.post('/restart-all', authMiddleware, async (req, res) => {
@@ -715,10 +831,9 @@ app.post('/restart-all', authMiddleware, async (req, res) => {
 
   for (const svc of restartable) {
     console.log(`[monitor] Sequential restart: ${svc.id}`);
-    const success = await restartService(svc, req.user?.email || 'admin', 'Restart all via dashboard');
-    results.push({ serviceId: svc.id, name: svc.name, success });
-    await new Promise(r => setTimeout(r, 5000));
-    if (svc.port) {
+    const r = await restartService(svc, req.user?.email || 'admin', 'Restart all via dashboard');
+    results.push({ serviceId: svc.id, name: svc.name, success: r.success, state: r.state, error: r.error });
+    if (r.success && svc.port) {
       const url = `http://localhost:${svc.port}${svc.healthPath || '/health'}`;
       const http = await checkHttp(url, 8000);
       results[results.length - 1].status = http.status;
