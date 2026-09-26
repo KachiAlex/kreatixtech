@@ -9,7 +9,8 @@ const router = express.Router();
 // ── Public: create service request (no auth required) ───────────────────────
 router.post('/', [
   body('name').trim().isLength({ min: 2, max: 100 }),
-  body('email').trim().isEmail().normalizeEmail(),
+  // No normalizeEmail() — it strips Gmail dots and corrupts the submitted address
+  body('email').trim().isEmail(),
   body('company').trim().optional({ checkFalsy: true }).isLength({ max: 200 }),
   body('phone').trim().optional({ checkFalsy: true }).isLength({ max: 50 }),
   body('title').trim().isLength({ min: 3, max: 200 }),
@@ -57,6 +58,12 @@ router.post('/', [
       });
     }
 
+    // Real client IP: Cloudflare sets CF-Connecting-IP; X-Forwarded-For is the fallback
+    const ipAddress = (req.headers['cf-connecting-ip']
+      || req.headers['x-forwarded-for']?.split(',')[0]
+      || req.ip || '').toString().trim() || null;
+    const userAgent = req.headers['user-agent'] || null;
+
     const request = await prisma.serviceRequest.create({
       data: {
         orgId: publicOrg.id,
@@ -76,6 +83,8 @@ router.post('/', [
             phone: phone || null,
           },
           source: 'public-form',
+          ipAddress,
+          userAgent,
         },
         status: 'SUBMITTED',
       },

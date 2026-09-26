@@ -124,7 +124,7 @@ export default function ForgotPassword() {
 
         <div className="text-center pt-4 border-t border-border">
           <Link to="/" className="text-sm text-grey hover:text-ink">
-            â† Back to main website
+            ← Back to main website
           </Link>
         </div>
       </div>

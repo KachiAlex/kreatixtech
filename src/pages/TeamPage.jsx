@@ -6,21 +6,21 @@ const team = [
   {
     name: 'Chiemele Akoma',
     role: 'Chairman of the Board',
-    image: '/images/team/chiemele.png',
+    image: '/images/team/chiemele.webp',
     bio: 'Strategic visionary and founding leader of Kreatix Technologies. Chiemele drives the company\'s long-term growth, governance, and mission to deliver secure, innovative technology solutions across Africa and beyond.',
     linkedin: null,
   },
   {
     name: 'Onyedikachi Akoma',
     role: 'Business Head',
-    image: '/images/team/onyedikachi.png',
+    image: '/images/team/onyedikachi.webp',
     bio: 'Onyedikachi leads business development, client relations, and strategic partnerships. His deep understanding of enterprise needs ensures Kreatix consistently delivers tailored solutions that drive measurable results.',
     linkedin: null,
   },
   {
     name: 'Lukman Sanni',
     role: 'Chief Technology Officer',
-    image: '/images/team/lukman.png',
+    image: '/images/team/lukman.webp',
     bio: 'Lukman architects the technical backbone of Kreatix Technologies. From secure cloud infrastructure to advanced penetration testing methodologies, he ensures every solution is built on a foundation of engineering excellence.',
     linkedin: null,
   },
@@ -57,10 +57,14 @@ export default function TeamPage() {
                 <img
                   src={member.image}
                   alt={member.name}
+                  width={800}
+                  height={1000}
                   className="w-full h-full object-cover object-top"
                   loading="lazy"
+                  decoding="async"
                   onError={(e) => {
-                    e.target.src = '/images/team/placeholder.jpg';
+                    e.target.onerror = null;
+                    e.target.src = '/images/team/placeholder.webp';
                   }}
                 />
               </div>
