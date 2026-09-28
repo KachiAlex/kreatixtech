@@ -187,7 +187,7 @@ export const authApi = {
     apiPost<AuthResponse>('/auth/register', { email, password, display_name }),
   login: (email: string, password: string, totp_code?: string, remember?: boolean) =>
     apiPost<AuthResponse>('/auth/login', { email, password, totp_code, remember }),
-  logout: () => apiPost('/auth/logout', { refreshToken }),
+  logout: (token?: string) => apiPost('/auth/logout', { refreshToken: token ?? refreshToken }),
   me: () => apiGet<{ user: User; settings: UserSettings }>('/auth/me'),
   forgotPassword: (email: string) =>
     apiPost<{ success: boolean }>('/auth/forgot-password', { email }),

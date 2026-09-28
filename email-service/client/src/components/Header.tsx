@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }) => {
-  const { user, logout, login } = useAuth();
+  const { user, logout, switchUser } = useAuth();
   const { currentEmail, currentName, accounts, primaryEmail, switchAccount, addAccount, removeAccount } = useAccount();
   const { success: toastSuccess, error: toastError, info: toastInfo, prompt: promptDialog, confirm: confirmDialog } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -112,8 +112,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
     setSwitchLoading(true);
     setSwitchError('');
     try {
-      await logout();
-      await login(switchTargetEmail, switchPassword);
+      await switchUser(switchTargetEmail, switchPassword);
       if (rememberAccount) saveAccountCred(switchTargetEmail, switchPassword);
       toastSuccess(`Switched to ${switchTargetEmail}`);
       setShowSwitchLogin(false);
@@ -132,8 +131,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
     if (savedPassword) {
       setSwitchLoading(true);
       try {
-        await logout();
-        await login(email, savedPassword);
+        await switchUser(email, savedPassword);
         toastSuccess(`Switched to ${email}`);
       } catch (err: any) {
         removeSavedAccount(email);

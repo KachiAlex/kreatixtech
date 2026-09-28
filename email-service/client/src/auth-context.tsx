@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { User, UserSettings } from './types';
-import { authApi, setTokens, clearTokens, getAccessToken } from './api';
+import { authApi, setTokens, clearTokens, getAccessToken, getRefreshToken } from './api';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +9,10 @@ interface AuthContextType {
   login: (email: string, password: string, totp_code?: string, remember?: boolean) => Promise<void>;
   register: (email: string, password: string, display_name?: string) => Promise<void>;
   logout: () => Promise<void>;
+  // Atomic account switch: authenticates the new account FIRST and only
+  // swaps session state on success. On failure the current session is left
+  // untouched — the user is never dumped to the login screen mid-switch.
+  switchUser: (email: string, password: string) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -64,8 +68,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSettings(null);
   };
 
+  const switchUser = async (email: string, password: string) => {
+    // Authenticate the new account before touching the current session —
+    // if this throws, the user simply stays signed in as before.
+    const res = await authApi.login(email, password);
+    if ((res as any).requires2FA) throw new Error('2FA_REQUIRED');
+
+    const oldRefresh = getRefreshToken();
+    setTokens(res.accessToken, res.refreshToken);
+    localStorage.setItem('kreatix_user', JSON.stringify(res.user));
+    localStorage.removeItem('kreatix_skip_autologin');
+    setUser(res.user);
+
+    // Retire the previous session server-side (best effort)
+    if (oldRefresh) authApi.logout(oldRefresh).catch(() => {});
+
+    await refreshUser();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, settings, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, settings, loading, login, register, logout, switchUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

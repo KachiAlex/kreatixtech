@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AuthProvider, useAuth } from './auth-context';
 import Header from './components/Header';
 import Rail, { ViewType } from './components/Rail';
@@ -61,8 +61,13 @@ function MailApp() {
     else clearNotificationUser();
   }, [user]);
 
+  // Sequence guard: only the latest fetch may write state, so a slow response
+  // for a previous folder/account can't overwrite fresher data.
+  const fetchSeq = useRef(0);
+
   const fetchEmails = useCallback(async () => {
     if (!user) return;
+    const seq = ++fetchSeq.current;
     setListLoading(true);
     try {
       const params: any = {};
@@ -70,9 +75,9 @@ function MailApp() {
       else if (currentFolder) params.folder_id = currentFolder.id;
       if (debouncedSearch) params.search = debouncedSearch;
       const data = await emailApi.list(params);
-      setEmails(data.emails);
+      if (seq === fetchSeq.current) setEmails(data.emails);
     } catch (e) { console.error('Failed to fetch emails', e); }
-    setListLoading(false);
+    if (seq === fetchSeq.current) setListLoading(false);
   }, [user, currentFolder, showStarred, debouncedSearch]);
 
   useEffect(() => {
@@ -96,6 +101,27 @@ function MailApp() {
     const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
   }, [user, view, lastUnreadCount, fetchEmails, toastSuccess]);
+
+  // Reset all account-scoped UI state when the signed-in user changes, so a
+  // previous account's mail is never shown under a different identity.
+  const prevUserId = useRef<number | null>(null);
+  useEffect(() => {
+    if (user && prevUserId.current !== null && prevUserId.current !== user.id) {
+      setEmails([]);
+      setSelectedEmail(null);
+      setCurrentFolder(null);
+      setShowStarred(false);
+      setSearchQuery('');
+      setDebouncedSearch('');
+      setLastUnreadCount(0);
+      setIsComposeOpen(false);
+      setShowSettings(false);
+      setShowAdmin(false);
+      setView('mail');
+      setListLoading(true);
+    }
+    prevUserId.current = user?.id ?? null;
+  }, [user]);
 
   // Keyboard shortcuts handler (moved after handler definitions below)
 
