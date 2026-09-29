@@ -28,18 +28,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-// CORS — allow kreatixtech.com subdomains, Capacitor native apps, and Electron desktop app
+// ── Whitelabel / deployment config ─────────────────────────────
+// All instance-specific branding and URLs come from env so the same
+// codebase can serve any tenant (e.g. mail.pisairtel.com).
+const BRAND_NAME = process.env.BRAND_NAME || 'Kreatix Mail';
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://mail.kreatixtech.com').replace(/\/+$/, '');
+const MAIL_SENDER_NAME = process.env.MAIL_SENDER_NAME || 'Kreatix Mail';
+const MAIL_SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL || 'hello@kreatixtech.com';
+// Comma-separated origin suffixes allowed for CORS, e.g. "kreatixtech.com" or
+// "pisairtel.com,kreatixtech.com"
+const ALLOWED_ORIGIN_SUFFIXES = (process.env.ALLOWED_ORIGINS || 'kreatixtech.com')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+// CORS — allow the instance's domain(s), Capacitor native apps, and Electron desktop app
 app.use((req, res, next) => {
   const origin = req.headers.origin || '';
   const allowed = [
-    'https://www.kreatixtech.com',
-    'https://kreatixtech.com',
-    'https://mail.kreatixtech.com',
     'http://localhost:5173',
     'http://localhost:3000',
     'null', // Electron loads from file:// which sends origin "null"
   ];
-  if (allowed.includes(origin) || origin.includes('kreatixtech.com') || origin.startsWith('capacitor://') || origin.startsWith('https://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost')) {
+  const domainAllowed = ALLOWED_ORIGIN_SUFFIXES.some(suffix => origin.endsWith(suffix));
+  if (allowed.includes(origin) || domainAllowed || origin.startsWith('capacitor://') || origin.startsWith('https://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost')) {
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-admin-secret');
@@ -335,7 +345,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     env.DB.prepare('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)').bind(user.id, tokenHash, expiresAt).run();
 
     // Build reset link — the SPA handles the /reset-password route
-    const resetUrl = `https://mail.kreatixtech.com/reset-password?token=${resetToken}`;
+    const resetUrl = `${APP_BASE_URL}/reset-password?token=${resetToken}`;
 
     const htmlContent = `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FFF7F1; padding: 40px 0; margin: 0;">
@@ -344,12 +354,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       <div style="width: 56px; height: 56px; background: #F2782E; border-radius: 14px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
         <span style="font-size: 28px;">✉</span>
       </div>
-      <h1 style="font-size: 22px; font-weight: 900; color: #1a1a1a; margin: 0; letter-spacing: -0.5px;">KREATIX <span style="color: #F2782E;">MAIL</span></h1>
+      <h1 style="font-size: 22px; font-weight: 900; color: #1a1a1a; margin: 0; letter-spacing: -0.5px;">${BRAND_NAME.toUpperCase()}</h1>
     </div>
     <h2 style="font-size: 18px; color: #1a1a1a; margin: 0 0 16px;">Reset your password</h2>
     <p style="color: #555; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
       Hi ${user.display_name || user.email},<br/><br/>
-      We received a request to reset your Kreatix Mail password. Click the button below to choose a new password. This link will expire in 30 minutes.
+      We received a request to reset your ${BRAND_NAME} password. Click the button below to choose a new password. This link will expire in 30 minutes.
     </p>
     <a href="${resetUrl}" style="display: inline-block; background: #F2782E; color: #fff; text-decoration: none; font-weight: 700; padding: 14px 32px; border-radius: 12px; font-size: 15px;">Reset Password</a>
     <p style="color: #999; font-size: 13px; line-height: 1.5; margin: 24px 0 0;">
@@ -359,7 +369,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   </div>
 </body></html>`;
 
-    const textContent = `Hi ${user.display_name || user.email},\n\nWe received a request to reset your Kreatix Mail password. Click the link below to choose a new password. This link will expire in 30 minutes.\n\n${resetUrl}\n\nIf you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.`;
+    const textContent = `Hi ${user.display_name || user.email},\n\nWe received a request to reset your ${BRAND_NAME} password. Click the link below to choose a new password. This link will expire in 30 minutes.\n\n${resetUrl}\n\nIf you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.`;
 
     try {
       // Send to the user's recovery email if one is configured — otherwise the
@@ -370,9 +380,9 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         method: 'POST',
         headers: { 'api-key': env.BREVO_API_KEY, 'Content-Type': 'application/json', 'accept': 'application/json' },
         body: JSON.stringify({
-          sender: { name: 'Kreatix Mail', email: 'hello@kreatixtech.com' },
+          sender: { name: MAIL_SENDER_NAME, email: MAIL_SENDER_EMAIL },
           to: [{ email: recipient }],
-          subject: 'Reset your Kreatix Mail password',
+          subject: `Reset your ${BRAND_NAME} password`,
           textContent,
           htmlContent,
         }),
@@ -672,14 +682,14 @@ app.post('/api/send', async (req, res) => {
 
     const dbUser = env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user!.sub).first();
     const senderEmail = from || dbUser.email;
-    const senderName = fromName || dbUser.display_name || 'Kreatix Mail User';
+    const senderName = fromName || dbUser.display_name || `${BRAND_NAME} User`;
 
     const settings = env.DB.prepare('SELECT signature_html, signature_image_url FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
     let signatureHtml = settings?.signature_html || '';
     if (settings?.signature_image_url) {
       signatureHtml = `<img src="${settings.signature_image_url}" alt="Signature" style="max-height: 80px; max-width: 300px; margin-bottom: 8px;" />${signatureHtml}`;
     }
-    const htmlContent = html || buildEmailHtml(body || '', signatureHtml);
+    const htmlContent = html || buildEmailHtml(body || '', signatureHtml, BRAND_NAME);
 
     try {
       const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -1905,7 +1915,7 @@ app.post('/api/2fa/setup', async (req, res) => {
     const secret = generateTotpSecret();
     // Store secret temporarily (not enabled yet)
     env.DB.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').bind(secret, user!.sub).run();
-    const otpauthUrl = generateOtpAuthUrl(secret, u?.email || '');
+    const otpauthUrl = generateOtpAuthUrl(secret, u?.email || '', BRAND_NAME);
     sendResult(res, json({ secret, otpauthUrl }));
   } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
 });
@@ -2245,6 +2255,6 @@ wss.on('connection', async (ws: import('ws').WebSocket, req) => {
 
 const PORT = parseInt(process.env.PORT || '3000');
 httpServer.listen(PORT, '127.0.0.1', () => {
-  console.log(`Kreatix Mail server running on http://127.0.0.1:${PORT}`);
+  console.log(`${BRAND_NAME} server running on http://127.0.0.1:${PORT}`);
   startSyncInterval(env);
 });

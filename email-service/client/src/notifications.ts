@@ -1,6 +1,7 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { getAccessToken } from './api';
+import { wsUrl } from './brand';
 
 let ws: WebSocket | null = null;
 let currentUserEmail: string | null = null;
@@ -8,15 +9,15 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 const WS_URL = (() => {
   if (Capacitor.isNativePlatform()) {
-    return 'wss://mail.kreatixtech.com/ws';
+    return wsUrl();
   }
   if (typeof window !== 'undefined') {
     const isElectron = (window as any).electronAPI?.isElectron || (navigator as any).userAgent?.toLowerCase().includes('electron');
-    if (isElectron) return 'wss://mail.kreatixtech.com/ws';
+    if (isElectron) return wsUrl();
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${window.location.host}/ws`;
   }
-  return 'wss://mail.kreatixtech.com/ws';
+  return wsUrl();
 })();
 
 export async function initNotifications(): Promise<void> {

@@ -146,11 +146,11 @@ export async function updateFolderCounts(env: any, userId: number, folderId: num
 
 // ── HTML email template ──────────────────────────────────────────────────
 
-export function buildEmailHtml(body: string, signatureHtml?: string): string {
+export function buildEmailHtml(body: string, signatureHtml?: string, brandName = 'Kreatix Technologies', brandColor = '#F2782E'): string {
   return `
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; color: #111213; line-height: 1.6;">
-      <div style="background-color: #F2782E; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <span style="color: white; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">KREATIX TECHNOLOGIES</span>
+      <div style="background-color: ${brandColor}; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <span style="color: white; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">${brandName.toUpperCase()}</span>
       </div>
       <div style="padding: 30px; background-color: #FAF9F7; border: 1px solid #EAE8E4; border-top: none; border-radius: 0 0 8px 8px;">
         <div style="font-size: 15px; color: #333;">
@@ -159,7 +159,7 @@ export function buildEmailHtml(body: string, signatureHtml?: string): string {
         ${signatureHtml ? `<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #EAE8E4; font-size: 13px; color: #666;">${signatureHtml}</div>` : ''}
       </div>
       <div style="text-align: center; margin-top: 16px; font-size: 11px; color: #9CA0A6;">
-        &copy; 2026 Kreatix Technologies. All rights reserved.
+        &copy; 2026 ${brandName}. All rights reserved.
       </div>
     </div>
   `;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon, ShieldAlert, FileText, Filter, Plane, Key } from 'lucide-react';
 import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi, signatureImageApi } from '../api';
+import { BRAND } from '../brand';
 import SecurityPanel from './SecurityPanel';
 import TwoFactorPanel from './TwoFactorPanel';
 import RulesPanel from './RulesPanel';
@@ -167,7 +168,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Reply-to address</label>
-                  <input type="email" value={settings.reply_to_address || ''} onChange={(e) => setSettings({ ...settings, reply_to_address: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="reply@kreatixtech.com" />
+                  <input type="email" value={settings.reply_to_address || ''} onChange={(e) => setSettings({ ...settings, reply_to_address: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder={`reply@${BRAND.domain}`} />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Recovery email</label>
@@ -210,7 +211,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Signature Text</label>
                   <textarea
-                    placeholder="Enter your signature text as HTML. Example:&#10;Onyedikachi Akoma<br>+234 7039612627<br>akoma@kreatixtech.com"
+                    placeholder={`Enter your signature text as HTML. Example:\nJane Doe<br>+234 800 000 0000<br>jane@${BRAND.domain}`}
                     value={settings.signature_html || ''}
                     onChange={(e) => setSettings({ ...settings, signature_html: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm min-h-[120px] font-mono"
@@ -286,7 +287,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                   </div>
                 ))}
                 <div className="border-t border-gray-100 pt-4 space-y-2">
-                  <input type="email" placeholder="Alias email (e.g. support@kreatixtech.com)" value={newAlias.alias_email} onChange={(e) => setNewAlias({ ...newAlias, alias_email: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                  <input type="email" placeholder={`Alias email (e.g. support@${BRAND.domain})`} value={newAlias.alias_email} onChange={(e) => setNewAlias({ ...newAlias, alias_email: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                   <input type="email" placeholder="Forward to" value={newAlias.forward_to} onChange={(e) => setNewAlias({ ...newAlias, forward_to: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
                   <button onClick={handleCreateAlias} className="flex items-center gap-2 px-4 py-2 bg-orange text-white rounded-lg text-sm font-bold hover:bg-orange-deep"><Plus className="w-4 h-4" /> Add Alias</button>
                 </div>

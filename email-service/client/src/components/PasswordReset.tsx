@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, ArrowRight, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { authApi } from '../api';
+import { BRAND, brandTitle } from '../brand';
 
 const cardStyle: React.CSSProperties = { background: 'linear-gradient(135deg, #FFF7F1 0%, #FAF8F5 50%, #FDF1E8 100%)' };
 
@@ -32,7 +33,7 @@ export const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           <div className="w-16 h-16 bg-orange rounded-2xl flex items-center justify-center mb-4 shadow-lg ring-4 ring-white">
             <Mail className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase">KREATIX <span className="text-orange">MAIL</span></h1>
+          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase">{brandTitle().main} <span className="text-orange">{brandTitle().accent}</span></h1>
         </div>
 
         {sent ? (
@@ -72,7 +73,7 @@ export const ForgotPassword: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@kreatixtech.com"
+                  placeholder={`name@${BRAND.domain}`}
                   className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink"
                 />
               </div>
@@ -148,7 +149,7 @@ export const ResetPassword: React.FC<{ token: string; onDone: () => void }> = ({
           <div className="w-16 h-16 bg-orange rounded-2xl flex items-center justify-center mb-4 shadow-lg ring-4 ring-white">
             <Mail className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase">KREATIX <span className="text-orange">MAIL</span></h1>
+          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase">{brandTitle().main} <span className="text-orange">{brandTitle().accent}</span></h1>
         </div>
 
         {done ? (
@@ -170,7 +171,7 @@ export const ResetPassword: React.FC<{ token: string; onDone: () => void }> = ({
         ) : (
           <>
             <h2 className="text-xl font-bold text-ink mb-2">Set a new password</h2>
-            <p className="text-sm text-gray-500 mb-6">Choose a new password for your Kreatix Mail account.</p>
+            <p className="text-sm text-gray-500 mb-6">Choose a new password for your {BRAND.name} account.</p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (

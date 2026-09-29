@@ -4,6 +4,7 @@ import { useAuth } from '../auth-context';
 import { useAccount } from '../account-context';
 import { useToast } from './Toast';
 import { authApi } from '../api';
+import { BRAND } from '../brand';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
@@ -160,11 +161,11 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
   return (
     <header className="topbar">
       <div className="brand">
-        <svg viewBox="0 0 245 70" role="img" aria-label="Kreatix Technologies" style={{ width: 155, height: 45 }}>
+        <svg viewBox="0 0 245 70" role="img" aria-label={BRAND.company} style={{ width: 155, height: 45 }}>
           <rect x="0" y="5" width="58" height="58" rx="12" fill="#F2782E" />
           <path d="M15 18h19v9l13-9v16L35 42l12 10H31L15 39z" fill="#fff" />
-          <text x="75" y="43" fontFamily="Arial,sans-serif" fontSize="34" fontWeight="800" fill="#0E0E0F">kreatix</text>
-          <text x="76" y="59" fontFamily="Arial,sans-serif" fontSize="10" letterSpacing="1.6" fill="#858990">TECHNOLOGIES</text>
+          <text x="75" y="43" fontFamily="Arial,sans-serif" fontSize="34" fontWeight="800" fill="#0E0E0F">{BRAND.logoMain}</text>
+          <text x="76" y="59" fontFamily="Arial,sans-serif" fontSize="10" letterSpacing="1.6" fill="#858990">{BRAND.logoSub}</text>
         </svg>
         <span className="product">Mail</span>
       </div>

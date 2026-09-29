@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mail, ArrowRight, Shield, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../auth-context';
 import { ForgotPassword } from './PasswordReset';
+import { BRAND, brandTitle } from '../brand';
 
 const SAVED_KEY = 'kreatix_saved_accounts';
 const SKIP_KEY = 'kreatix_skip_autologin';
@@ -136,7 +137,7 @@ const Login: React.FC = () => {
           <div className="w-16 h-16 bg-orange rounded-2xl flex items-center justify-center mb-4 shadow-lg ring-4 ring-white">
             <Mail className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase">KREATIX <span className="text-orange">MAIL</span></h1>
+          <h1 className="text-3xl font-black text-ink tracking-tighter uppercase">{brandTitle().main} <span className="text-orange">{brandTitle().accent}</span></h1>
           <p className="text-gray-500 mt-2 font-medium">Enterprise Communication Portal</p>
         </div>
 
@@ -213,7 +214,7 @@ const Login: React.FC = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@kreatixtech.com"
+              placeholder={`name@${BRAND.domain}`}
               className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink"
             />
           </div>
@@ -327,7 +328,7 @@ const Login: React.FC = () => {
         <div className="mt-6 pt-6 border-t border-border text-center">
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-loose">
             Secure enterprise email for<br/>
-            Kreatix Technologies &copy; 2026
+            {BRAND.company} &copy; 2026
           </p>
         </div>
       </div>

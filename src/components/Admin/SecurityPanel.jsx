@@ -939,9 +939,12 @@ export default function SecurityPanel({ apiCall }) {
                 {scanResult.firewallAudit && (
                   <SystemStatusCard title="Firewall Audit" icon={Shield}>
                     <StatusRow label="Status" value={scanResult.firewallAudit.status || 'Unknown'} status={scanResult.firewallAudit.status?.includes('active') ? 'ok' : 'bad'} />
-                    {(scanResult.firewallAudit.rules || []).slice(0, 5).map((r, i) => (
-                      <StatusRow key={i} label={r.split(' ')[0]} value={r} status="ok" />
-                    ))}
+                    {(scanResult.firewallAudit.rules || []).slice(0, 5).map((r, i) => {
+                      const text = typeof r === 'string'
+                        ? r
+                        : [r.port, r.action, r.source].filter(Boolean).join(' ').replace(/\[\s*\d+\]\s*/g, '').trim();
+                      return <StatusRow key={i} label={text.split(' ')[0]} value={text} status="ok" />;
+                    })}
                   </SystemStatusCard>
                 )}
                 {scanResult.dockerAudit && (
@@ -1211,9 +1214,14 @@ export default function SecurityPanel({ apiCall }) {
                     value={latestReport.ufwStatus || 'Unknown'}
                     status={latestReport.ufwStatus?.includes('active') ? 'ok' : 'bad'}
                   />
-                  {ufwRules.map((rule, i) => (
-                    <StatusRow key={i} label={rule.split(' ')[0]} value={rule} status="ok" />
-                  ))}
+                  {ufwRules.map((rule, i) => {
+                    // Rules arrive as strings from stored reports, or objects
+                    // {port, action, source, direction} from the monitor agent
+                    const text = typeof rule === 'string'
+                      ? rule
+                      : [rule.port, rule.action, rule.source].filter(Boolean).join(' ').replace(/\[\s*\d+\]\s*/g, '').trim();
+                    return <StatusRow key={i} label={text.split(' ')[0]} value={text} status="ok" />;
+                  })}
                 </SystemStatusCard>
 
                 {/* SSH Config */}

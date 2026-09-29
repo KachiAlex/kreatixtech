@@ -1,0 +1,12 @@
+{
+  "name": "mail-smtp-receiver",
+  "version": "1.0.0",
+  "description": "Inbound SMTP receiver: accepts mail for configured domains on port 25 and forwards to the mail server's /api/inbound-email endpoint.",
+  "type": "module",
+  "scripts": {
+    "start": "node receiver.mjs"
+  },
+  "dependencies": {
+    "smtp-server": "^3.13.3"
+  }
+}
