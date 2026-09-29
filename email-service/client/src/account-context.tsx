@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { LinkedAccount } from './types';
 import { linkedAccountsApi } from './api';
 import { useAuth } from './auth-context';
@@ -32,6 +32,10 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [currentEmail, setCurrentEmail] = useState('');
   const [currentName, setCurrentName] = useState('');
 
+  // The "current account" selection is scoped per signed-in user so a
+  // previous user's choice can never leak into a different session.
+  const currentEmailKey = (uid: number) => `kreatix_current_email:${uid}`;
+
   const refreshAccounts = useCallback(async () => {
     if (!user) return;
     try {
@@ -40,7 +44,10 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setPrimaryEmail(data.primaryEmail || user.email);
       setPrimaryName(data.primaryName || user.display_name);
 
-      const saved = localStorage.getItem('kreatix_current_email');
+      // Drop the legacy unscoped key — selection is tracked per user now
+      localStorage.removeItem('kreatix_current_email');
+
+      const saved = localStorage.getItem(currentEmailKey(user.id));
       if (saved && (saved === data.primaryEmail || data.accounts.some(a => a.email === saved))) {
         setCurrentEmail(saved);
         const acct = data.accounts.find(a => a.email === saved);
@@ -55,13 +62,29 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user]);
 
+  // When the signed-in user changes, stop displaying the previous account
+  // immediately — before the async refresh resolves.
+  const prevUserId = useRef<number | null>(null);
   useEffect(() => {
-    if (user) refreshAccounts();
+    if (!user) {
+      prevUserId.current = null;
+      setAccounts([]);
+      setCurrentEmail('');
+      setCurrentName('');
+      return;
+    }
+    if (prevUserId.current !== null && prevUserId.current !== user.id) {
+      setAccounts([]);
+      setCurrentEmail(user.email);
+      setCurrentName(user.display_name);
+    }
+    prevUserId.current = user.id;
+    refreshAccounts();
   }, [user, refreshAccounts]);
 
   const switchAccount = (email: string) => {
     setCurrentEmail(email);
-    localStorage.setItem('kreatix_current_email', email);
+    if (user) localStorage.setItem(currentEmailKey(user.id), email);
     const acct = accounts.find(a => a.email === email);
     setCurrentName(acct?.display_name || primaryName);
   };
