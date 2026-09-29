@@ -14,7 +14,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }) => {
   const { user, logout, switchUser } = useAuth();
-  const { currentEmail, currentName, accounts, primaryEmail, switchAccount, addAccount, removeAccount } = useAccount();
+  const { currentEmail, currentName, accounts, deviceAccounts, primaryEmail, switchAccount, addAccount, removeAccount, forgetDeviceAccount } = useAccount();
   const { success: toastSuccess, error: toastError, info: toastInfo, prompt: promptDialog, confirm: confirmDialog } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [acctMenuOpen, setAcctMenuOpen] = useState(false);
@@ -103,9 +103,14 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
   };
 
   const handleRemoveAccount = async (id: number, email: string) => {
-    const ok = await confirmDialog(`Remove ${email} from your linked accounts?`);
+    const ok = await confirmDialog(`Remove ${email} from your accounts?`);
     if (!ok) return;
-    try { await removeAccount(id); toastSuccess('Account removed'); } catch (e: any) { toastError('Failed to remove account'); }
+    try {
+      if (id > 0) await removeAccount(id);
+      forgetDeviceAccount(email);
+      removeSavedAccount(email);
+      toastSuccess('Account removed');
+    } catch (e: any) { toastError('Failed to remove account'); }
   };
 
   const handleSwitchLogin = async (e: React.FormEvent) => {
@@ -153,9 +158,17 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
     }
   };
 
+  const seen = new Set([primaryEmail, ...accounts.map(a => a.email)]);
   const allAccounts = [
     { id: 0, email: primaryEmail, display_name: user?.display_name, is_primary: true },
     ...accounts.map(a => ({ ...a, is_primary: false })),
+    ...deviceAccounts
+      .filter(d => !seen.has(d.email))
+      .map((d, i) => ({
+        id: -(i + 1), user_id: user?.id ?? 0, email: d.email,
+        display_name: d.display_name, is_default: 0, is_active: 1,
+        created_at: '', is_primary: false,
+      })),
   ];
 
   return (

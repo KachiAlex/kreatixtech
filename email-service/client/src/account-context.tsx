@@ -3,15 +3,22 @@ import type { LinkedAccount } from './types';
 import { linkedAccountsApi } from './api';
 import { useAuth } from './auth-context';
 
+export interface DeviceAccount {
+  email: string;
+  display_name: string;
+}
+
 interface AccountContextType {
   currentEmail: string;
   currentName: string;
   accounts: LinkedAccount[];
+  deviceAccounts: DeviceAccount[];
   primaryEmail: string;
   primaryName: string;
   switchAccount: (email: string) => void;
   addAccount: (email: string, display_name?: string) => Promise<void>;
   removeAccount: (id: number) => Promise<void>;
+  forgetDeviceAccount: (email: string) => void;
   setDefaultAccount: (id: number) => Promise<void>;
   refreshAccounts: () => Promise<void>;
 }
@@ -31,10 +38,38 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [primaryName, setPrimaryName] = useState('');
   const [currentEmail, setCurrentEmail] = useState('');
   const [currentName, setCurrentName] = useState('');
+  const [deviceAccounts, setDeviceAccounts] = useState<DeviceAccount[]>([]);
 
   // The "current account" selection is scoped per signed-in user so a
   // previous user's choice can never leak into a different session.
   const currentEmailKey = (uid: number) => `kreatix_current_email:${uid}`;
+
+  // Device-level account list: every account signed in on this browser,
+  // independent of the per-user server-side linked_accounts. Powers the
+  // Gmail-style "all signed-in accounts" switcher.
+  const DEVICE_KEY = 'kreatix_device_accounts';
+  const loadDeviceAccounts = (): DeviceAccount[] => {
+    try {
+      const raw = localStorage.getItem(DEVICE_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list.filter(a => a && a.email) : [];
+    } catch { return []; }
+  };
+
+  const upsertDeviceAccount = useCallback((email: string, display_name?: string) => {
+    const norm = email.toLowerCase();
+    const list = loadDeviceAccounts().filter(a => a.email !== norm);
+    const existing = loadDeviceAccounts().find(a => a.email === norm);
+    list.push({ email: norm, display_name: display_name || existing?.display_name || norm });
+    localStorage.setItem(DEVICE_KEY, JSON.stringify(list));
+    setDeviceAccounts(list);
+  }, []);
+
+  const forgetDeviceAccount = useCallback((email: string) => {
+    const list = loadDeviceAccounts().filter(a => a.email !== email.toLowerCase());
+    localStorage.setItem(DEVICE_KEY, JSON.stringify(list));
+    setDeviceAccounts(list);
+  }, []);
 
   const refreshAccounts = useCallback(async () => {
     if (!user) return;
@@ -79,8 +114,10 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setCurrentName(user.display_name);
     }
     prevUserId.current = user.id;
+    setDeviceAccounts(loadDeviceAccounts());
+    upsertDeviceAccount(user.email, user.display_name);
     refreshAccounts();
-  }, [user, refreshAccounts]);
+  }, [user, refreshAccounts, upsertDeviceAccount]);
 
   const switchAccount = (email: string) => {
     setCurrentEmail(email);
@@ -91,6 +128,7 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addAccount = async (email: string, display_name?: string) => {
     await linkedAccountsApi.create(email, display_name);
+    upsertDeviceAccount(email, display_name);
     await refreshAccounts();
   };
 
@@ -106,8 +144,8 @@ export const AccountProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   return (
     <AccountContext.Provider value={{
-      currentEmail, currentName, accounts, primaryEmail, primaryName,
-      switchAccount, addAccount, removeAccount, setDefaultAccount, refreshAccounts,
+      currentEmail, currentName, accounts, deviceAccounts, primaryEmail, primaryName,
+      switchAccount, addAccount, removeAccount, forgetDeviceAccount, setDefaultAccount, refreshAccounts,
     }}>
       {children}
     </AccountContext.Provider>
