@@ -2254,7 +2254,8 @@ wss.on('connection', async (ws: import('ws').WebSocket, req) => {
 });
 
 const PORT = parseInt(process.env.PORT || '3000');
-httpServer.listen(PORT, '127.0.0.1', () => {
-  console.log(`${BRAND_NAME} server running on http://127.0.0.1:${PORT}`);
+const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
+httpServer.listen(PORT, BIND_HOST, () => {
+  console.log(`${BRAND_NAME} server running on http://${BIND_HOST}:${PORT}`);
   startSyncInterval(env);
 });
