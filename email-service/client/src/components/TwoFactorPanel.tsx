@@ -9,6 +9,7 @@ const TwoFactorPanel: React.FC = () => {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
 
   useEffect(() => {
     loadStatus();
@@ -79,6 +80,39 @@ const TwoFactorPanel: React.FC = () => {
             <CheckCircle style={{ width: 18, height: 18, color: '#16a34a' }} />
             <span style={{ fontSize: 13, fontWeight: 600, color: '#16a34a' }}>2FA is enabled</span>
           </div>
+
+          {/* Recovery codes — shown once, stored hashed server-side */}
+          <div style={{ marginBottom: 16, padding: '12px 14px', border: '1px solid #e5e4e2', borderRadius: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Recovery codes</div>
+            <p style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>
+              Single-use codes that let you sign in if you lose your authenticator. Generating new codes invalidates any previously issued ones.
+            </p>
+            {recoveryCodes ? (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontFamily: 'monospace', fontSize: 13, background: '#f9f8f7', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                  {recoveryCodes.map(c => <div key={c}>{c}</div>)}
+                </div>
+                <div style={{ fontSize: 12, color: '#b45309', fontWeight: 600, marginBottom: 8 }}>
+                  Save these now — they will not be shown again.
+                </div>
+                <button onClick={() => setRecoveryCodes(null)} style={{ padding: '6px 14px', background: '#f5f4f2', border: '1px solid #e5e4e2', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Done</button>
+              </div>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    setError('');
+                    const data = await twoFactorApi.recoveryCodes();
+                    setRecoveryCodes(data.codes);
+                  } catch (e: any) { setError(e.message); }
+                }}
+                style={{ padding: '6px 14px', background: '#F2782E', border: 'none', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Generate recovery codes
+              </button>
+            )}
+          </div>
+
           <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Enter your current 6-digit code to disable 2FA.</p>
           <input
             type="text"

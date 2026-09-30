@@ -5,6 +5,7 @@ import { useAccount } from '../account-context';
 import { useToast } from './Toast';
 import { authApi } from '../api';
 import { BRAND } from '../brand';
+import { saveAccountToken, getAccountToken, removeSavedAccount } from '../saved-accounts';
 
 interface HeaderProps {
   onSearch: (query: string) => void;
@@ -13,7 +14,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }) => {
-  const { user, logout, switchUser } = useAuth();
+  const { user, logout, switchUser, switchUserWithToken } = useAuth();
   const { currentEmail, currentName, accounts, deviceAccounts, primaryEmail, switchAccount, addAccount, removeAccount, forgetDeviceAccount } = useAccount();
   const { success: toastSuccess, error: toastError, info: toastInfo, prompt: promptDialog, confirm: confirmDialog } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -24,40 +25,12 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
   const [switchPassword, setSwitchPassword] = useState('');
   const [switchLoading, setSwitchLoading] = useState(false);
   const [switchError, setSwitchError] = useState('');
-  const [rememberAccount, setRememberAccount] = useState(true);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const acctRef = useRef<HTMLDivElement>(null);
 
-  // ── Saved credentials helpers ────────────────────────────────────────────
-  const SAVED_CRED_KEY = 'kreatix_saved_accounts';
-
-  const getSavedAccounts = (): Record<string, string> => {
-    try {
-      const raw = localStorage.getItem(SAVED_CRED_KEY);
-      if (!raw) return {};
-      const decoded = atob(raw);
-      return JSON.parse(decoded);
-    } catch { return {}; }
-  };
-
-  const saveAccountCred = (email: string, password: string) => {
-    const saved = getSavedAccounts();
-    saved[email.toLowerCase()] = btoa(password);
-    localStorage.setItem(SAVED_CRED_KEY, btoa(JSON.stringify(saved)));
-  };
-
-  const removeSavedAccount = (email: string) => {
-    const saved = getSavedAccounts();
-    delete saved[email.toLowerCase()];
-    localStorage.setItem(SAVED_CRED_KEY, btoa(JSON.stringify(saved)));
-  };
-
-  const getSavedPassword = (email: string): string | null => {
-    const saved = getSavedAccounts();
-    const encoded = saved[email.toLowerCase()];
-    if (!encoded) return null;
-    try { return atob(encoded); } catch { return null; }
-  };
+  // ── Saved account tokens (never passwords) ──────────────────────────────
+  const getSavedToken = getAccountToken;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -86,11 +59,11 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
         setAddAcctError('This account requires 2FA. Please sign in from the login page.');
         return;
       }
-      // Login succeeded — account exists and credentials are valid
+      // Login succeeded — account exists and credentials are valid. The probe
+      // session's refresh token doubles as this account's switch token.
       const displayName = res.user?.display_name || addAcctEmail;
       await addAccount(addAcctEmail, displayName);
-      // Save credentials for quick switching
-      saveAccountCred(addAcctEmail, addAcctPassword);
+      if (res.refreshToken) saveAccountToken(addAcctEmail, res.refreshToken);
       toastSuccess(`Account ${addAcctEmail} added`);
       setAddAcctEmail('');
       setAddAcctPassword('');
@@ -119,7 +92,6 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
     setSwitchError('');
     try {
       await switchUser(switchTargetEmail, switchPassword);
-      if (rememberAccount) saveAccountCred(switchTargetEmail, switchPassword);
       toastSuccess(`Switched to ${switchTargetEmail}`);
       setShowSwitchLogin(false);
       setSwitchPassword('');
@@ -133,18 +105,16 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
 
   const openSwitchLogin = async (email: string) => {
     setAcctMenuOpen(false);
-    const savedPassword = getSavedPassword(email);
-    if (savedPassword) {
+    if (getSavedToken(email)) {
       setSwitchLoading(true);
       try {
-        await switchUser(email, savedPassword);
+        await switchUserWithToken(email);
         toastSuccess(`Switched to ${email}`);
       } catch (err: any) {
         removeSavedAccount(email);
         setSwitchTargetEmail(email);
         setSwitchPassword('');
-        setSwitchError(err.message === '2FA_REQUIRED' ? 'This account requires 2FA. Please sign in from the login page.' : 'Saved credentials expired. Please re-enter.');
-        setRememberAccount(true);
+        setSwitchError(err.message === '2FA_REQUIRED' ? 'This account requires 2FA. Please sign in from the login page.' : 'Saved session expired. Please re-enter your password.');
         setShowSwitchLogin(true);
       } finally {
         setSwitchLoading(false);
@@ -153,7 +123,6 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
       setSwitchTargetEmail(email);
       setSwitchPassword('');
       setSwitchError('');
-      setRememberAccount(true);
       setShowSwitchLogin(true);
     }
   };
@@ -391,15 +360,6 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onOpenSettings, onOpenAdmin }
                   </button>
                 </div>
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#45474b', cursor: 'pointer', userSelect: 'none' }}>
-                <input
-                  type="checkbox"
-                  checked={rememberAccount}
-                  onChange={(e) => setRememberAccount(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: '#F2782E', cursor: 'pointer' }}
-                />
-                Remember this account (skip password next time)
-              </label>
               <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
                 <button
                   type="button"

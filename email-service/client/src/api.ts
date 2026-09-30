@@ -187,8 +187,11 @@ async function apiDelete<T>(path: string): Promise<T> {
 export const authApi = {
   register: (email: string, password: string, display_name?: string) =>
     apiPost<AuthResponse>('/auth/register', { email, password, display_name }),
-  login: (email: string, password: string, totp_code?: string, remember?: boolean) =>
-    apiPost<AuthResponse>('/auth/login', { email, password, totp_code, remember }),
+  login: (email: string, password: string, totp_code?: string, remember?: boolean, recovery_code?: string) =>
+    apiPost<AuthResponse>('/auth/login', { email, password, totp_code, remember, recovery_code }),
+  // Exchange a saved per-account refresh token for a fresh session (switch-account path)
+  refreshWithToken: (token: string) =>
+    apiPost<{ accessToken: string; refreshToken: string }>('/auth/refresh', { refreshToken: token }),
   logout: (token?: string) => apiPost('/auth/logout', { refreshToken: token ?? refreshToken }),
   me: () => apiGet<{ user: User; settings: UserSettings }>('/auth/me'),
   forgotPassword: (email: string) =>
@@ -427,6 +430,7 @@ export const twoFactorApi = {
   setup: () => apiPost<{ secret: string; otpauthUrl: string }>('/2fa/setup'),
   verify: (code: string) => apiPost('/2fa/verify', { code }),
   disable: (code: string) => apiPost('/2fa/disable', { code }),
+  recoveryCodes: () => apiPost<{ codes: string[] }>('/2fa/recovery-codes'),
 };
 
 // ── Email Templates API ─────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, Reply, ReplyAll, Forward, Trash2, Archive, Clock3, MoreHorizontal, Paperclip, FileText, AlertCircle, ChevronDown, ChevronRight, Image as ImageIcon, Eye, CheckCircle, X, Lock, ArrowLeft } from 'lucide-react';
 import { emailApi, attachmentApi, threadApi, receiptApi, snoozeApi, deliveryApi } from '../api';
 import { decryptMessage, isEncrypted, unwrapEncrypted } from '../crypto-utils';
+import { sanitizeHtml, textToSafeHtml } from '../sanitize';
 import type { Email } from '../types';
 
 interface EmailViewProps {
@@ -292,7 +293,7 @@ const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onReplyAll, onFor
             </div>
           </div>
         ) : (
-          <div className="body-copy" dangerouslySetInnerHTML={{ __html: email.html || email.text?.replace(/\n/g, '<br>') || '' }} />
+          <div className="body-copy" dangerouslySetInnerHTML={{ __html: email.html ? sanitizeHtml(email.html) : textToSafeHtml(email.text || '') }} />
         )}
 
         {email.snooze_until && (

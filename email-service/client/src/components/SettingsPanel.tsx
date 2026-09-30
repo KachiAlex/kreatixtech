@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, Tag, Mail, Shield, Monitor, Upload, ImageIcon, ShieldAlert, FileText, Filter, Plane, Key } from 'lucide-react';
 import { settingsApi, signatureApi, aliasApi, sessionApi, labelApi, signatureImageApi } from '../api';
 import { BRAND } from '../brand';
+import { sanitizeHtml } from '../sanitize';
 import SecurityPanel from './SecurityPanel';
 import TwoFactorPanel from './TwoFactorPanel';
 import RulesPanel from './RulesPanel';
@@ -226,7 +227,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                       {settings.signature_image_url && (
                         <img src={settings.signature_image_url} alt="Signature" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 8, display: 'block' }} />
                       )}
-                      <div dangerouslySetInnerHTML={{ __html: settings.signature_html || '' }} />
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(settings.signature_html || '') }} />
                     </div>
                   </div>
                 )}

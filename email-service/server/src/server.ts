@@ -10,7 +10,7 @@ import {
   hashPassword, generateSalt, verifyPassword,
   signJwt, verifyJwt, authMiddleware, requireAdmin, setJwtSecret,
   generateSessionId, hashToken, getExpiry,
-  REFRESH_EXPIRES_IN, auditLog,
+  REFRESH_EXPIRES_IN, auditLog, setEnv,
   type JwtPayload,
 } from './auth.js';
 import {
@@ -28,6 +28,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
+// Behind nginx: trust one proxy hop so req.ip reflects the real client and
+// rate limits cannot be bypassed by spoofing X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // ── Whitelabel / deployment config ─────────────────────────────
 // All instance-specific branding and URLs come from env so the same
 // codebase can serve any tenant (e.g. mail.pisairtel.com).
@@ -40,23 +44,53 @@ const MAIL_SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL || 'hello@kreatixtech.co
 const ALLOWED_ORIGIN_SUFFIXES = (process.env.ALLOWED_ORIGINS || 'kreatixtech.com')
   .split(',').map(s => s.trim()).filter(Boolean);
 
-// CORS — allow the instance's domain(s), Capacitor native apps, and Electron desktop app
+// CORS — allow the instance's domain(s), Capacitor native apps, and Electron desktop app.
+// Hostname matching is exact or dot-boundary subdomain — origin.endsWith() would
+// also match attacker-controlled domains like evil-kreatixtech.com.
 app.use((req, res, next) => {
   const origin = req.headers.origin || '';
-  const allowed = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'null', // Electron loads from file:// which sends origin "null"
-  ];
-  const domainAllowed = ALLOWED_ORIGIN_SUFFIXES.some(suffix => origin.endsWith(suffix));
-  if (allowed.includes(origin) || domainAllowed || origin.startsWith('capacitor://') || origin.startsWith('https://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://localhost')) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  let allowed = false;
+  if (origin === 'null' || origin.startsWith('capacitor://') || origin.startsWith('https://localhost')) {
+    allowed = true;
+  } else if (origin) {
+    let host = '';
+    try { host = new URL(origin).hostname.toLowerCase(); } catch { /* malformed origin */ }
+    allowed = !!host && (host === 'localhost' || host === '127.0.0.1'
+      || ALLOWED_ORIGIN_SUFFIXES.some(s => host === s || host.endsWith('.' + s)));
+  }
+  if (allowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-admin-secret');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Max-Age', '86400');
   }
   if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
+// ── Security headers ─────────────────────────────────────────────────────
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' ws: wss: https:",
+  "font-src 'self' data:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', CSP);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
   next();
 });
 
@@ -71,6 +105,7 @@ const env: any = {
   R2_BUCKET: storage,
   BREVO_API_KEY: process.env.BREVO_API_KEY || '',
 };
+setEnv(env); // lets authMiddleware do live account-status lookups
 
 // Configure the JWT secret for this process from the environment.
 setJwtSecret(process.env.JWT_SECRET || '');
@@ -79,6 +114,18 @@ setJwtSecret(process.env.JWT_SECRET || '');
 // There is deliberately NO hard-coded fallback: without it the admin API
 // (user create / delete / password reset) is disabled.
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+
+// Minimum password length for all set-password paths (register, reset, admin).
+const MIN_PASSWORD_LENGTH = 8;
+
+// Sanitize a user-controlled filename for use in a Content-Disposition header:
+// strips quotes/CR/LF/backslashes (header-injection) and provides an RFC 5987
+// filename* fallback for non-ASCII names.
+function contentDisposition(filename: string): string {
+  const raw = String(filename || 'attachment');
+  const clean = raw.replace(/[\r\n"\\]/g, '_').replace(/[^\x20-\x7E]/g, '_').slice(0, 200) || 'attachment';
+  return `attachment; filename="${clean}"; filename*=UTF-8''${encodeURIComponent(raw.slice(0, 200))}`;
+}
 
 // ── Database migrations ──────────────────────────────────────────────────
 try {
@@ -118,6 +165,10 @@ try {
 } catch (e) { /* column already exists */ }
 
 try {
+  env.DB.prepare(`ALTER TABLE users ADD COLUMN totp_recovery TEXT`).run();
+} catch (e) { /* column already exists */ }
+
+try {
   env.DB.prepare(`ALTER TABLE emails ADD COLUMN d1_id INTEGER`).run();
 } catch (e) { /* column already exists */ }
 
@@ -125,8 +176,20 @@ try {
   env.DB.prepare(`UPDATE emails SET d1_id = id WHERE d1_id IS NULL`).run();
 } catch (e) { /* d1_id not yet added */ }
 
+// Constant-time string comparison that never throws on length mismatch.
+export function timingSafeStrEq(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) {
+    crypto.timingSafeEqual(bb, bb); // burn comparable time
+    return false;
+  }
+  return crypto.timingSafeEqual(ab, bb);
+}
+
 function adminAuthCheck(req: any): boolean {
-  return req.headers['x-admin-secret'] === ADMIN_SECRET;
+  const provided = String(req.headers['x-admin-secret'] || '');
+  return !!ADMIN_SECRET && timingSafeStrEq(provided, ADMIN_SECRET);
 }
 
 async function adminAuth(req: any): Promise<{ user: JwtPayload | null; error?: any }> {
@@ -177,6 +240,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, display_name } = req.body;
     if (!email || !password) return sendResult(res, errorResp('Email and password are required', 400));
+    if (password.length < MIN_PASSWORD_LENGTH) return sendResult(res, errorResp(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400));
 
     const existing = env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email.toLowerCase()).first();
     if (existing) return sendResult(res, errorResp('Email already registered', 409));
@@ -206,7 +270,7 @@ app.post('/api/auth/register', async (req, res) => {
     const tokenHash = await hashToken(refreshToken);
     env.DB.prepare(
       'INSERT INTO sessions (id, user_id, token_hash, device_info, ip_address, expires_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(sessionId, userId, tokenHash, req.headers['user-agent'] || null, req.headers['x-forwarded-for'] || req.socket.remoteAddress || null, getExpiry(REFRESH_EXPIRES_IN)).run();
+    ).bind(sessionId, userId, tokenHash, req.headers['user-agent'] || null, req.ip || null, getExpiry(REFRESH_EXPIRES_IN)).run();
 
     env.DB.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").bind(userId).run();
 
@@ -214,12 +278,12 @@ app.post('/api/auth/register', async (req, res) => {
       user: { id: userId, email: email.toLowerCase(), display_name: display_name || '', role: 'user' },
       accessToken, refreshToken, inboxFolderId: inboxFolder?.id,
     }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const ip = req.ip || 'unknown';
     if (!rateLimit(`login:${ip}`, 10, 60000)) return sendResult(res, errorResp('Too many login attempts. Please try again later.', 429));
 
     const { email, password } = req.body;
@@ -238,11 +302,27 @@ app.post('/api/auth/login', async (req, res) => {
       return sendResult(res, errorResp('Invalid email or password', 401));
     }
 
-    // 2FA check
+    // 2FA check — accepts a live TOTP code or a single-use recovery code.
     if (user.totp_enabled === 1 && user.totp_secret) {
-      const { totp_code } = req.body;
-      if (!totp_code) return sendResult(res, json({ requires2FA: true, message: 'Two-factor authentication code required' }, 200));
-      if (!verifyTotp(user.totp_secret, totp_code)) return sendResult(res, errorResp('Invalid 2FA code', 401));
+      const { totp_code, recovery_code } = req.body;
+      if (!totp_code && !recovery_code) return sendResult(res, json({ requires2FA: true, message: 'Two-factor authentication code required' }, 200));
+      // Per-account brute-force cap on top of the per-IP login limit
+      if (!rateLimit(`2fa:${user.id}`, 5, 5 * 60000)) return sendResult(res, errorResp('Too many 2FA attempts. Please try again later.', 429));
+      let ok = false;
+      if (recovery_code) {
+        const stored: string[] = JSON.parse(user.totp_recovery || '[]');
+        const digest = crypto.createHash('sha256').update(String(recovery_code).replace(/\s/g, '').toUpperCase()).digest('hex');
+        const idx = stored.findIndex(h => timingSafeStrEq(h, digest));
+        if (idx >= 0) {
+          stored.splice(idx, 1);
+          env.DB.prepare('UPDATE users SET totp_recovery = ? WHERE id = ?').bind(JSON.stringify(stored), user.id).run();
+          await auditLog(env, user.id, 'recovery_code_used', 'user', String(user.id), req);
+          ok = true;
+        }
+      } else if (/^\d{6}$/.test(String(totp_code))) {
+        ok = verifyTotp(user.totp_secret, String(totp_code));
+      }
+      if (!ok) return sendResult(res, errorResp('Invalid 2FA code', 401));
     }
 
     // "Remember me" gets a longer session (90d vs 30d); refresh slides expiry
@@ -264,11 +344,12 @@ app.post('/api/auth/login', async (req, res) => {
       user: { id: user.id, email: user.email, display_name: user.display_name, role: user.role, avatar_url: user.avatar_url },
       accessToken, refreshToken, inboxFolderId: inboxFolder?.id,
     }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/auth/refresh', async (req, res) => {
   try {
+    if (!rateLimit(`refresh:${req.ip || 'unknown'}`, 30, 60000)) return sendResult(res, errorResp('Too many requests', 429));
     const { refreshToken } = req.body;
     if (!refreshToken) return sendResult(res, errorResp('Refresh token required', 400));
 
@@ -288,7 +369,7 @@ app.post('/api/auth/refresh', async (req, res) => {
       .bind(newTokenHash, getExpiry(REFRESH_EXPIRES_IN), session.id).run();
 
     sendResult(res, json({ accessToken: newAccessToken, refreshToken: newRefreshToken }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/auth/logout', async (req, res) => {
@@ -304,7 +385,7 @@ app.post('/api/auth/logout', async (req, res) => {
 
     await auditLog(env, user!.sub, 'logout', 'user', String(user!.sub), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/auth/me', async (req, res) => {
@@ -317,13 +398,13 @@ app.get('/api/auth/me', async (req, res) => {
 
     const settings = env.DB.prepare('SELECT * FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
     sendResult(res, json({ user: dbUser, settings }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ── POST /api/auth/forgot-password ──────────────────────────────
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const ip = req.ip || 'unknown';
     if (!rateLimit(`forgot:${ip}`, 5, 60000)) return sendResult(res, errorResp('Too many password reset requests. Please try again later.', 429));
 
     const { email } = req.body;
@@ -393,7 +474,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
     await auditLog(env, user.id, 'password_reset_request', 'user', String(user.id), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ── POST /api/auth/reset-password ───────────────────────────────
@@ -401,7 +482,8 @@ app.post('/api/auth/reset-password', async (req, res) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) return sendResult(res, errorResp('Token and new password are required', 400));
-    if (password.length < 6) return sendResult(res, errorResp('Password must be at least 6 characters', 400));
+    if (password.length < MIN_PASSWORD_LENGTH) return sendResult(res, errorResp(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400));
+    if (!rateLimit(`resetpw:${req.ip || 'unknown'}`, 10, 60000)) return sendResult(res, errorResp('Too many attempts. Please try again later.', 429));
 
     const tokenHash = await hashToken(token);
     const resetRecord = env.DB.prepare('SELECT * FROM password_reset_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > datetime(\'now\')').bind(tokenHash).first();
@@ -420,7 +502,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
     await auditLog(env, user.id, 'password_reset', 'user', String(user.id), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -486,7 +568,7 @@ app.get('/api/emails', async (req, res) => {
       emails: emailsWithLabels,
       pagination: { page, limit, total: countResult?.total || 0, totalPages: Math.ceil((countResult?.total || 0) / limit) },
     }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/emails/:id', async (req, res) => {
@@ -512,7 +594,7 @@ app.get('/api/emails/:id', async (req, res) => {
     }
 
     sendResult(res, json({ ...emailData, is_read: 1, attachments: attachments.results, labels: labels.results, thread: thread?.results || null }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/emails/:id/read', async (req, res) => {
@@ -524,7 +606,7 @@ app.post('/api/emails/:id/read', async (req, res) => {
     const emailData = env.DB.prepare('SELECT folder_id FROM emails WHERE id = ?').bind(id).first();
     if (emailData?.folder_id) await updateFolderCounts(env, user!.sub, emailData.folder_id);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/emails/:id/unread', async (req, res) => {
@@ -536,7 +618,7 @@ app.post('/api/emails/:id/unread', async (req, res) => {
     const emailData = env.DB.prepare('SELECT folder_id FROM emails WHERE id = ?').bind(id).first();
     if (emailData?.folder_id) await updateFolderCounts(env, user!.sub, emailData.folder_id);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/emails/:id/star', async (req, res) => {
@@ -547,7 +629,7 @@ app.post('/api/emails/:id/star', async (req, res) => {
     const { starred } = req.body;
     env.DB.prepare("UPDATE emails SET is_starred = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?").bind(starred ? 1 : 0, id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/emails/bulk', async (req, res) => {
@@ -631,7 +713,7 @@ app.post('/api/emails/bulk', async (req, res) => {
     if (action === 'move' && folder_id) await updateFolderCounts(env, user!.sub, folder_id);
 
     sendResult(res, json({ success: true, affected: ids.length }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/emails/:id', async (req, res) => {
@@ -655,7 +737,7 @@ app.delete('/api/emails/:id', async (req, res) => {
     if (trashFolder) await updateFolderCounts(env, user!.sub, trashFolder.id);
 
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -666,23 +748,44 @@ app.post('/api/send', async (req, res) => {
   try {
     const { user, error: authError } = await authMiddleware(req);
     if (authError) return sendResult(res, authError);
+    if (!rateLimit(`send:${user!.sub}`, 30, 60000)) return sendResult(res, errorResp('Sending too fast — please slow down', 429));
 
     const { to, cc, bcc, subject, body, html, from, fromName, replyToId, attachments: clientAttachments } = req.body;
     if (!to || !subject) return sendResult(res, errorResp('To and subject are required', 400));
+    if (String(subject).length > 500 || /[\r\n]/.test(String(subject))) return sendResult(res, errorResp('Invalid subject', 400));
 
+    const EMAIL_RE = /^[^\s@,;'"<>]{1,64}@[^\s@,;'"<>]{1,255}$/;
     const splitEmails = (val: any): string[] | null => {
       if (!val) return null;
-      if (Array.isArray(val)) return val;
-      return val.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const list = (Array.isArray(val) ? val : String(val).split(',')).map((s: string) => s.trim()).filter(Boolean);
+      return list.every((e: string) => EMAIL_RE.test(e)) ? list : null;
     };
 
     const toList = splitEmails(to);
     const ccList = splitEmails(cc);
     const bccList = splitEmails(bcc);
+    if (!toList || toList.length === 0 || (cc && !ccList) || (bcc && !bccList)) {
+      return sendResult(res, errorResp('Invalid recipient address', 400));
+    }
+    if (toList.length + (ccList?.length || 0) + (bccList?.length || 0) > 50) {
+      return sendResult(res, errorResp('Too many recipients (max 50)', 400));
+    }
+    if (clientAttachments && (!Array.isArray(clientAttachments) || clientAttachments.length > 20)) {
+      return sendResult(res, errorResp('Too many attachments (max 20)', 400));
+    }
 
     const dbUser = env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user!.sub).first();
-    const senderEmail = from || dbUser.email;
-    const senderName = fromName || dbUser.display_name || `${BRAND_NAME} User`;
+    // The "from" address must be the user's own mailbox or a linked account —
+    // arbitrary senders would let users spoof any address through our Brevo sender.
+    let senderEmail = dbUser.email;
+    if (from && String(from).toLowerCase() !== dbUser.email.toLowerCase()) {
+      const linked = env.DB.prepare('SELECT id FROM linked_accounts WHERE user_id = ? AND email = ? AND is_active = 1')
+        .bind(user!.sub, String(from).toLowerCase()).first();
+      if (!linked) return sendResult(res, errorResp('Sender address not authorized', 403));
+      senderEmail = String(from).toLowerCase();
+    }
+    if (/[\r\n]/.test(String(fromName || ''))) return sendResult(res, errorResp('Invalid sender name', 400));
+    const senderName = (fromName || dbUser.display_name || `${BRAND_NAME} User`).slice(0, 100);
 
     const settings = env.DB.prepare('SELECT signature_html, signature_image_url FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
     let signatureHtml = settings?.signature_html || '';
@@ -777,9 +880,10 @@ app.post('/api/send', async (req, res) => {
         `INSERT INTO outbox (user_id, to_address, cc_address, bcc_address, subject, body, html, from_address, from_name, reply_to_id, attachments, error_message, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'failed')`
       ).bind(user!.sub, toList!.join(','), ccList?.join(',') || null, bccList?.join(',') || null, subject, body || '', htmlContent, senderEmail, senderName, replyToId || null, clientAttachments ? JSON.stringify(clientAttachments) : null, e.message).run();
-      sendResult(res, json({ error: e.message, saved_to_outbox: true }, 500));
+      console.error('Send failed:', e);
+      sendResult(res, json({ error: 'Failed to send message', saved_to_outbox: true }, 500));
     }
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -792,7 +896,7 @@ app.get('/api/outbox', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM outbox WHERE user_id = ? AND status = ? ORDER BY created_at DESC').bind(user!.sub, 'failed').all();
     sendResult(res, json({ outbox: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/outbox/:id/retry', async (req, res) => {
@@ -873,9 +977,9 @@ app.post('/api/outbox/:id/retry', async (req, res) => {
       sendResult(res, json({ success: true, id: sentEmailId, messageId: brevoResult.messageId }));
     } catch (e: any) {
       env.DB.prepare("UPDATE outbox SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?").bind(e.message, id).run();
-      sendResult(res, json({ error: e.message }, 500));
+      sendResult(res, json({ error: 'Failed to send message' }, 500));
     }
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/outbox/:id', async (req, res) => {
@@ -885,7 +989,7 @@ app.delete('/api/outbox/:id', async (req, res) => {
     const id = req.params.id;
     env.DB.prepare('DELETE FROM outbox WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -905,7 +1009,7 @@ app.post('/api/settings/signature-image', upload.single('file'), async (req: any
     const imageUrl = `/api/signature-image/${user!.sub}/${fileId}.${ext}`;
     env.DB.prepare('UPDATE user_settings SET signature_image_url = ?, updated_at = datetime(\'now\') WHERE user_id = ?').bind(imageUrl, user!.sub).run();
     sendResult(res, json({ success: true, url: imageUrl }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/settings/signature-image', async (req, res) => {
@@ -914,7 +1018,7 @@ app.delete('/api/settings/signature-image', async (req, res) => {
     if (authError) return sendResult(res, authError);
     env.DB.prepare('UPDATE user_settings SET signature_image_url = NULL, updated_at = datetime(\'now\') WHERE user_id = ?').bind(user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/signature-image/:userId/:filename', async (req, res) => {
@@ -924,7 +1028,7 @@ app.get('/api/signature-image/:userId/:filename', async (req, res) => {
     if (!obj) return res.status(404).send('Not found');
     res.set('Content-Type', obj.httpMetadata?.contentType || 'image/png');
     res.send(obj.body);
-  } catch (e: any) { res.status(500).send(e.message); }
+  } catch (e: any) { res.status(500).send('Internal server error'); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -937,7 +1041,7 @@ app.get('/api/folders', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM folders WHERE user_id = ? ORDER BY sort_order ASC').bind(user!.sub).all();
     sendResult(res, json({ folders: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/folders', async (req, res) => {
@@ -950,7 +1054,7 @@ app.post('/api/folders', async (req, res) => {
     const result = env.DB.prepare('INSERT INTO folders (user_id, name, type, icon, color, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
       .bind(user!.sub, name, 'custom', icon || 'folder', color || '#5f6368', (maxOrder?.max || 0) + 1).run();
     sendResult(res, json({ id: result.meta?.last_row_id, name, type: 'custom', icon: icon || 'folder', color: color || '#5f6368' }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.patch('/api/folders/:id', async (req, res) => {
@@ -970,7 +1074,7 @@ app.patch('/api/folders/:id', async (req, res) => {
     params.push(id, user!.sub);
     env.DB.prepare(`UPDATE folders SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).bind(...params).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/folders/:id', async (req, res) => {
@@ -983,7 +1087,7 @@ app.delete('/api/folders/:id', async (req, res) => {
     if (folder.type !== 'custom') return sendResult(res, errorResp('Cannot delete system folders', 400));
     env.DB.prepare('DELETE FROM folders WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -996,7 +1100,7 @@ app.get('/api/labels', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM labels WHERE user_id = ? ORDER BY name ASC').bind(user!.sub).all();
     sendResult(res, json({ labels: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/labels', async (req, res) => {
@@ -1009,7 +1113,7 @@ app.post('/api/labels', async (req, res) => {
       const result = env.DB.prepare('INSERT INTO labels (user_id, name, color) VALUES (?, ?, ?)').bind(user!.sub, name, color || '#6B7280').run();
       sendResult(res, json({ id: result.meta?.last_row_id, name, color: color || '#6B7280' }, 201));
     } catch (e: any) { sendResult(res, errorResp('Label already exists', 409)); }
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/emails/:emailId/labels', async (req, res) => {
@@ -1024,7 +1128,7 @@ app.post('/api/emails/:emailId/labels', async (req, res) => {
       env.DB.prepare('INSERT OR IGNORE INTO email_labels (email_id, label_id) VALUES (?, ?)').bind(emailId, labelId).run();
     }
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/labels/:id', async (req, res) => {
@@ -1034,7 +1138,7 @@ app.delete('/api/labels/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare('DELETE FROM labels WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1047,7 +1151,7 @@ app.get('/api/drafts', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM drafts WHERE user_id = ? ORDER BY updated_at DESC').bind(user!.sub).all();
     sendResult(res, json({ drafts: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/drafts', async (req, res) => {
@@ -1058,7 +1162,7 @@ app.post('/api/drafts', async (req, res) => {
     const result = env.DB.prepare('INSERT INTO drafts (user_id, to_address, cc_address, bcc_address, subject, text, html, in_reply_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(user!.sub, to_address || null, cc_address || null, bcc_address || null, subject || null, text || null, html || null, in_reply_to || null).run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.put('/api/drafts/:id', async (req, res) => {
@@ -1070,7 +1174,7 @@ app.put('/api/drafts/:id', async (req, res) => {
     env.DB.prepare('UPDATE drafts SET to_address = ?, cc_address = ?, bcc_address = ?, subject = ?, text = ?, html = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
       .bind(to_address || null, cc_address || null, bcc_address || null, subject || null, text || null, html || null, id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/drafts/:id', async (req, res) => {
@@ -1080,7 +1184,7 @@ app.delete('/api/drafts/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare('DELETE FROM drafts WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1097,7 +1201,7 @@ app.get('/api/settings', async (req, res) => {
       settings = env.DB.prepare('SELECT * FROM user_settings WHERE user_id = ?').bind(user!.sub).first();
     }
     sendResult(res, json(settings));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.put('/api/settings', async (req, res) => {
@@ -1116,7 +1220,7 @@ app.put('/api/settings', async (req, res) => {
     params.push(user!.sub);
     env.DB.prepare(`UPDATE user_settings SET ${updates.join(', ')} WHERE user_id = ?`).bind(...params).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1134,7 +1238,7 @@ app.get('/api/contacts', async (req, res) => {
     query += ' ORDER BY display_name ASC, email ASC LIMIT 100';
     const { results } = env.DB.prepare(query).bind(...params).all();
     sendResult(res, json({ contacts: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1151,9 +1255,9 @@ app.get('/api/attachments/:id', async (req, res) => {
     const obj = await env.R2_BUCKET.get(attachment.r2_key);
     if (!obj) return sendResult(res, errorResp('File not found in storage', 404));
     res.setHeader('Content-Type', attachment.mime_type);
-    res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
+    res.setHeader('Content-Disposition', contentDisposition(attachment.filename));
     res.send(obj.body);
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1166,7 +1270,7 @@ app.get('/api/admin/users', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT id, email, display_name, role, is_active, avatar_url, storage_quota, storage_used, created_at, last_login_at FROM users ORDER BY created_at DESC').all();
     sendResult(res, json({ users: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/admin/users', async (req, res) => {
@@ -1175,6 +1279,7 @@ app.post('/api/admin/users', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { email, password, display_name, role } = req.body;
     if (!email || !password) return sendResult(res, errorResp('Email and password required', 400));
+    if (password.length < MIN_PASSWORD_LENGTH) return sendResult(res, errorResp(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400));
     const existing = env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email.toLowerCase()).first();
     if (existing) return sendResult(res, errorResp('Email already registered', 409));
     const salt = generateSalt();
@@ -1186,7 +1291,7 @@ app.post('/api/admin/users', async (req, res) => {
     env.DB.prepare('INSERT INTO user_settings (user_id) VALUES (?)').bind(userId).run();
     await auditLog(env, user!.sub, 'create_user', 'user', String(userId), req, { email });
     sendResult(res, json({ id: userId, email: email.toLowerCase(), display_name: display_name || '', role: role || 'user' }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.patch('/api/admin/users/:id', async (req, res) => {
@@ -1202,6 +1307,7 @@ app.patch('/api/admin/users/:id', async (req, res) => {
     if (display_name !== undefined) { updates.push('display_name = ?'); params.push(display_name); }
     if (storage_quota !== undefined) { updates.push('storage_quota = ?'); params.push(storage_quota); }
     if (password) {
+      if (password.length < MIN_PASSWORD_LENGTH) return sendResult(res, errorResp(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400));
       const salt = generateSalt();
       const hash = await hashPassword(password, salt);
       updates.push('password_hash = ?', 'password_salt = ?');
@@ -1212,7 +1318,7 @@ app.patch('/api/admin/users/:id', async (req, res) => {
     env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
     await auditLog(env, user!.sub, 'update_user', 'user', String(id), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/admin/users/:id', async (req, res) => {
@@ -1224,7 +1330,7 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
     await auditLog(env, user!.sub, 'delete_user', 'user', String(id), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/admin/audit', async (req, res) => {
@@ -1236,7 +1342,7 @@ app.get('/api/admin/audit', async (req, res) => {
     const offset = (page - 1) * limit;
     const { results } = env.DB.prepare('SELECT a.*, u.email as user_email FROM audit_logs a LEFT JOIN users u ON a.user_id = u.id ORDER BY a.created_at DESC LIMIT ? OFFSET ?').bind(limit, offset).all();
     sendResult(res, json({ logs: results, page }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/admin/stats', async (req, res) => {
@@ -1253,7 +1359,7 @@ app.get('/api/admin/stats', async (req, res) => {
       totalEmails: totalEmails?.count || 0,
       totalStorageUsed: totalStorage?.total || 0,
     }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1266,7 +1372,7 @@ app.get('/api/signatures', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM signatures WHERE user_id = ?').bind(user!.sub).all();
     sendResult(res, json({ signatures: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/signatures', async (req, res) => {
@@ -1277,7 +1383,7 @@ app.post('/api/signatures', async (req, res) => {
     if (is_default) env.DB.prepare('UPDATE signatures SET is_default = 0 WHERE user_id = ?').bind(user!.sub).run();
     const result = env.DB.prepare('INSERT INTO signatures (user_id, name, html, is_default) VALUES (?, ?, ?, ?)').bind(user!.sub, name || 'Default', html || '', is_default ? 1 : 0).run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/signatures/:id', async (req, res) => {
@@ -1287,7 +1393,7 @@ app.delete('/api/signatures/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare('DELETE FROM signatures WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1300,7 +1406,7 @@ app.get('/api/aliases', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM aliases WHERE user_id = ?').bind(user!.sub).all();
     sendResult(res, json({ aliases: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/aliases', async (req, res) => {
@@ -1313,7 +1419,7 @@ app.post('/api/aliases', async (req, res) => {
       const result = env.DB.prepare('INSERT INTO aliases (user_id, alias_email, forward_to) VALUES (?, ?, ?)').bind(user!.sub, alias_email, forward_to).run();
       sendResult(res, json({ id: result.meta?.last_row_id }, 201));
     } catch (e: any) { sendResult(res, errorResp('Alias already exists', 409)); }
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/aliases/:id', async (req, res) => {
@@ -1323,7 +1429,7 @@ app.delete('/api/aliases/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare('DELETE FROM aliases WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1336,7 +1442,7 @@ app.get('/api/sessions', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare("SELECT id, device_info, ip_address, created_at, expires_at FROM sessions WHERE user_id = ? AND expires_at > datetime('now') ORDER BY created_at DESC").bind(user!.sub).all();
     sendResult(res, json({ sessions: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/sessions/:id', async (req, res) => {
@@ -1346,7 +1452,7 @@ app.delete('/api/sessions/:id', async (req, res) => {
     const id = req.params.id;
     env.DB.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1362,7 +1468,7 @@ app.post('/api/emails/:id/snooze', async (req, res) => {
     if (!snooze_until) return sendResult(res, errorResp('snooze_until required', 400));
     env.DB.prepare("UPDATE emails SET snooze_until = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?").bind(snooze_until, id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/emails/:id/unsnooze', async (req, res) => {
@@ -1372,7 +1478,7 @@ app.post('/api/emails/:id/unsnooze', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare("UPDATE emails SET snooze_until = NULL, updated_at = datetime('now') WHERE id = ? AND user_id = ?").bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1391,7 +1497,7 @@ app.get('/api/calendar/events', async (req, res) => {
     q += ' ORDER BY start_time ASC';
     const { results } = env.DB.prepare(q).bind(...p).all();
     sendResult(res, json({ events: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/calendar/events', async (req, res) => {
@@ -1403,7 +1509,7 @@ app.post('/api/calendar/events', async (req, res) => {
     const result = env.DB.prepare('INSERT INTO calendar_events (user_id, title, description, location, start_time, end_time, all_day, color, reminder_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(user!.sub, title, description || null, location || null, start_time, end_time, all_day || 0, color || '#F2782E', reminder_minutes || 15).run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.put('/api/calendar/events/:id', async (req, res) => {
@@ -1415,7 +1521,7 @@ app.put('/api/calendar/events/:id', async (req, res) => {
     env.DB.prepare("UPDATE calendar_events SET title=?, description=?, location=?, start_time=?, end_time=?, all_day=?, color=?, reminder_minutes=?, updated_at=datetime('now') WHERE id=? AND user_id=?")
       .bind(title, description || null, location || null, start_time, end_time, all_day || 0, color || '#F2782E', reminder_minutes || 15, id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/calendar/events/:id', async (req, res) => {
@@ -1425,7 +1531,7 @@ app.delete('/api/calendar/events/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare('DELETE FROM calendar_events WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1438,7 +1544,7 @@ app.get('/api/chat/conversations', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM chat_conversations WHERE user_id = ? ORDER BY last_message_at DESC NULLS LAST').bind(user!.sub).all();
     sendResult(res, json({ conversations: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/chat/conversations', async (req, res) => {
@@ -1449,7 +1555,7 @@ app.post('/api/chat/conversations', async (req, res) => {
     if (!participant_email) return sendResult(res, errorResp('participant_email required', 400));
     const result = env.DB.prepare('INSERT INTO chat_conversations (user_id, participant_email, participant_name) VALUES (?, ?, ?)').bind(user!.sub, participant_email, participant_name || null).run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/chat/conversations/:convId/messages', async (req, res) => {
@@ -1459,7 +1565,7 @@ app.get('/api/chat/conversations/:convId/messages', async (req, res) => {
     const convId = parseInt(req.params.convId);
     const { results } = env.DB.prepare('SELECT * FROM chat_messages WHERE conversation_id = ? AND user_id = ? ORDER BY created_at ASC').bind(convId, user!.sub).all();
     sendResult(res, json({ messages: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/chat/conversations/:convId/messages', async (req, res) => {
@@ -1473,7 +1579,7 @@ app.post('/api/chat/conversations/:convId/messages', async (req, res) => {
       .bind(convId, user!.sub, sender_email || '', sender_name || '', body, direction || 'outbound').run();
     env.DB.prepare("UPDATE chat_conversations SET last_message = ?, last_message_at = datetime('now') WHERE id = ?").bind(body.substring(0, 100), convId).run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/chat/conversations/:id', async (req, res) => {
@@ -1483,7 +1589,7 @@ app.delete('/api/chat/conversations/:id', async (req, res) => {
     const id = parseInt(req.params.id);
     env.DB.prepare('DELETE FROM chat_conversations WHERE id = ? AND user_id = ?').bind(id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1496,7 +1602,7 @@ app.get('/api/files', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT id, filename, mime_type, size, folder, is_starred, created_at FROM files WHERE user_id = ? ORDER BY created_at DESC').bind(user!.sub).all();
     sendResult(res, json({ files: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/files/upload', upload.single('file'), async (req: any, res) => {
@@ -1514,7 +1620,7 @@ app.post('/api/files/upload', upload.single('file'), async (req: any, res) => {
       .bind(fileId, user!.sub, file.originalname, file.mimetype, file.size, r2Key).run();
     env.DB.prepare('UPDATE users SET storage_used = storage_used + ? WHERE id = ?').bind(file.size, user!.sub).run();
     sendResult(res, json({ id: fileId, filename: file.originalname, size: file.size }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/files/:fileId/download', async (req, res) => {
@@ -1527,9 +1633,9 @@ app.get('/api/files/:fileId/download', async (req, res) => {
     const obj = await env.R2_BUCKET.get(file.r2_key);
     if (!obj) return sendResult(res, errorResp('File not in storage', 404));
     res.setHeader('Content-Type', file.mime_type);
-    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+    res.setHeader('Content-Disposition', contentDisposition(file.filename));
     res.send(obj.body);
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/files/:fileId', async (req, res) => {
@@ -1543,7 +1649,7 @@ app.delete('/api/files/:fileId', async (req, res) => {
     env.DB.prepare('DELETE FROM files WHERE id = ? AND user_id = ?').bind(fileId, user!.sub).run();
     env.DB.prepare('UPDATE users SET storage_used = MAX(0, storage_used - ?) WHERE id = ?').bind(file.size, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1556,7 +1662,7 @@ app.get('/api/storage', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const userData = env.DB.prepare('SELECT storage_quota, storage_used FROM users WHERE id = ?').bind(user!.sub).first();
     sendResult(res, json({ quota: userData?.storage_quota || 0, used: userData?.storage_used || 0 }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1570,7 +1676,7 @@ app.get('/api/emails/unread-count', async (req, res) => {
     const { results: folders } = env.DB.prepare('SELECT id, name, type, unread_count, total_count FROM folders WHERE user_id = ? ORDER BY sort_order ASC').bind(user!.sub).all();
     const totalUnread = env.DB.prepare('SELECT COUNT(*) as count FROM emails WHERE user_id = ? AND is_read = 0 AND folder_id IN (SELECT id FROM folders WHERE user_id = ? AND type = ?)').bind(user!.sub, user!.sub, 'inbox').first();
     sendResult(res, json({ folders, totalUnread: totalUnread?.count || 0 }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1578,14 +1684,16 @@ app.get('/api/emails/unread-count', async (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 
 app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), async (req, res) => {
-  // Verify shared secret from Worker
+  // Verify shared secret from Worker/SMTP receiver — fail CLOSED if unset.
   const inboundSecret = process.env.INBOUND_EMAIL_SECRET;
-  if (inboundSecret) {
-    const provided = req.headers['x-inbound-secret'] as string;
-    if (provided !== inboundSecret) {
-      console.error('Inbound email secret mismatch');
-      return res.status(401).json({ error: 'Invalid secret' });
-    }
+  if (!inboundSecret) {
+    console.error('Inbound email rejected: INBOUND_EMAIL_SECRET is not configured');
+    return res.status(503).json({ error: 'Inbound email endpoint is disabled' });
+  }
+  const provided = String(req.headers['x-inbound-secret'] || '');
+  if (!timingSafeStrEq(provided, inboundSecret)) {
+    console.error('Inbound email secret mismatch');
+    return res.status(401).json({ error: 'Invalid secret' });
   }
   try {
     const rawEmail = req.body as Buffer;
@@ -1765,7 +1873,7 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
     res.status(200).json({ status: 'stored', emailId });
   } catch (e: any) {
     console.error('Inbound email error:', e);
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: 'Failed to process inbound email' });
   }
 });
 
@@ -1780,7 +1888,7 @@ app.get('/api/linked-accounts', async (req, res) => {
     const { results } = env.DB.prepare('SELECT * FROM linked_accounts WHERE user_id = ? ORDER BY is_default DESC, created_at ASC').bind(user!.sub).all();
     const dbUser = env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user!.sub).first();
     sendResult(res, json({ accounts: results, primaryEmail: dbUser?.email, primaryName: dbUser?.display_name }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/linked-accounts', async (req, res) => {
@@ -1798,7 +1906,7 @@ app.post('/api/linked-accounts', async (req, res) => {
     ).bind(user!.sub, email.toLowerCase(), display_name || null).run();
 
     sendResult(res, json({ id: result.meta?.last_row_id, email: email.toLowerCase(), display_name: display_name || null }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/linked-accounts/:id', async (req, res) => {
@@ -1807,7 +1915,7 @@ app.delete('/api/linked-accounts/:id', async (req, res) => {
     if (authError) return sendResult(res, authError);
     env.DB.prepare('DELETE FROM linked_accounts WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.patch('/api/linked-accounts/:id/default', async (req, res) => {
@@ -1817,7 +1925,7 @@ app.patch('/api/linked-accounts/:id/default', async (req, res) => {
     env.DB.prepare('UPDATE linked_accounts SET is_default = 0 WHERE user_id = ?').bind(user!.sub).run();
     env.DB.prepare('UPDATE linked_accounts SET is_default = 1 WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1830,7 +1938,7 @@ app.get('/api/security/blocked', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM blocked_senders WHERE user_id = ? ORDER BY blocked_at DESC').bind(user!.sub).all();
     sendResult(res, json({ blocked: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/security/block', async (req, res) => {
@@ -1841,7 +1949,7 @@ app.post('/api/security/block', async (req, res) => {
     if (!email_address) return sendResult(res, errorResp('Email address is required', 400));
     env.DB.prepare('INSERT OR IGNORE INTO blocked_senders (user_id, email_address, reason) VALUES (?, ?, ?)').bind(user!.sub, email_address.toLowerCase(), reason || 'manual').run();
     sendResult(res, json({ success: true }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/security/blocked/:id', async (req, res) => {
@@ -1850,7 +1958,7 @@ app.delete('/api/security/blocked/:id', async (req, res) => {
     if (authError) return sendResult(res, authError);
     env.DB.prepare('DELETE FROM blocked_senders WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/security/trusted', async (req, res) => {
@@ -1859,7 +1967,7 @@ app.get('/api/security/trusted', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM trusted_senders WHERE user_id = ? ORDER BY added_at DESC').bind(user!.sub).all();
     sendResult(res, json({ trusted: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/security/trust', async (req, res) => {
@@ -1872,7 +1980,7 @@ app.post('/api/security/trust', async (req, res) => {
     // Remove from blocked if present
     env.DB.prepare('DELETE FROM blocked_senders WHERE user_id = ? AND email_address = ?').bind(user!.sub, email_address.toLowerCase()).run();
     sendResult(res, json({ success: true }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/security/trusted/:id', async (req, res) => {
@@ -1881,7 +1989,7 @@ app.delete('/api/security/trusted/:id', async (req, res) => {
     if (authError) return sendResult(res, authError);
     env.DB.prepare('DELETE FROM trusted_senders WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/security/log', async (req, res) => {
@@ -1891,7 +1999,7 @@ app.get('/api/security/log', async (req, res) => {
     const limit = parseInt(req.query.limit as string || '50');
     const { results } = env.DB.prepare('SELECT * FROM security_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').bind(user!.sub, limit).all();
     sendResult(res, json({ events: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1904,7 +2012,7 @@ app.get('/api/2fa/status', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const u = env.DB.prepare('SELECT totp_enabled FROM users WHERE id = ?').bind(user!.sub).first();
     sendResult(res, json({ enabled: u?.totp_enabled === 1 }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/2fa/setup', async (req, res) => {
@@ -1917,13 +2025,14 @@ app.post('/api/2fa/setup', async (req, res) => {
     env.DB.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').bind(secret, user!.sub).run();
     const otpauthUrl = generateOtpAuthUrl(secret, u?.email || '', BRAND_NAME);
     sendResult(res, json({ secret, otpauthUrl }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/2fa/verify', async (req, res) => {
   try {
     const { user, error: authError } = await authMiddleware(req);
     if (authError) return sendResult(res, authError);
+    if (!rateLimit(`2fa-setup:${user!.sub}`, 10, 60000)) return sendResult(res, errorResp('Too many attempts. Please try again later.', 429));
     const { code } = req.body;
     if (!code) return sendResult(res, errorResp('Verification code is required', 400));
     const u = env.DB.prepare('SELECT totp_secret FROM users WHERE id = ?').bind(user!.sub).first();
@@ -1932,7 +2041,7 @@ app.post('/api/2fa/verify', async (req, res) => {
     env.DB.prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').bind(user!.sub).run();
     await auditLog(env, user!.sub, 'enable_2fa', 'user', String(user!.sub), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/2fa/disable', async (req, res) => {
@@ -1942,10 +2051,30 @@ app.post('/api/2fa/disable', async (req, res) => {
     const { code } = req.body;
     const u = env.DB.prepare('SELECT totp_secret FROM users WHERE id = ?').bind(user!.sub).first();
     if (u?.totp_secret && !verifyTotp(u.totp_secret, code || '')) return sendResult(res, errorResp('Invalid verification code', 401));
-    env.DB.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').bind(user!.sub).run();
+    env.DB.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_recovery = NULL WHERE id = ?').bind(user!.sub).run();
     await auditLog(env, user!.sub, 'disable_2fa', 'user', String(user!.sub), req);
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
+});
+
+// Generate 10 single-use recovery codes — returned once, stored hashed.
+app.post('/api/2fa/recovery-codes', async (req, res) => {
+  try {
+    const { user, error: authError } = await authMiddleware(req);
+    if (authError) return sendResult(res, authError);
+    const u = env.DB.prepare('SELECT totp_enabled FROM users WHERE id = ?').bind(user!.sub).first();
+    if (u?.totp_enabled !== 1) return sendResult(res, errorResp('Enable 2FA before generating recovery codes', 400));
+    const codes: string[] = [];
+    const hashes: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const code = crypto.randomBytes(5).toString('hex').toUpperCase();
+      codes.push(`${code.slice(0, 5)}-${code.slice(5)}`);
+      hashes.push(crypto.createHash('sha256').update(code).digest('hex'));
+    }
+    env.DB.prepare('UPDATE users SET totp_recovery = ? WHERE id = ?').bind(JSON.stringify(hashes), user!.sub).run();
+    await auditLog(env, user!.sub, 'recovery_codes_generated', 'user', String(user!.sub), req);
+    sendResult(res, json({ codes }));
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1958,7 +2087,7 @@ app.get('/api/templates', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM email_templates WHERE user_id = ? ORDER BY updated_at DESC').bind(user!.sub).all();
     sendResult(res, json({ templates: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/templates', async (req, res) => {
@@ -1969,7 +2098,7 @@ app.post('/api/templates', async (req, res) => {
     if (!name) return sendResult(res, errorResp('Template name is required', 400));
     const result = env.DB.prepare('INSERT INTO email_templates (user_id, name, subject, body, html, category) VALUES (?, ?, ?, ?, ?, ?)').bind(user!.sub, name, subject || null, body || null, html || null, category || 'general').run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.put('/api/templates/:id', async (req, res) => {
@@ -1979,7 +2108,7 @@ app.put('/api/templates/:id', async (req, res) => {
     const { name, subject, body, html, category } = req.body;
     env.DB.prepare('UPDATE email_templates SET name = ?, subject = ?, body = ?, html = ?, category = ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').bind(name, subject, body, html, category || 'general', req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/templates/:id', async (req, res) => {
@@ -1988,7 +2117,7 @@ app.delete('/api/templates/:id', async (req, res) => {
     if (authError) return sendResult(res, authError);
     env.DB.prepare('DELETE FROM email_templates WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2001,7 +2130,7 @@ app.get('/api/rules', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM email_rules WHERE user_id = ? ORDER BY priority ASC, created_at ASC').bind(user!.sub).all();
     sendResult(res, json({ rules: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.post('/api/rules', async (req, res) => {
@@ -2012,7 +2141,7 @@ app.post('/api/rules', async (req, res) => {
     if (!name || !condition_field || !condition_op || !condition_value || !action) return sendResult(res, errorResp('Missing required fields', 400));
     const result = env.DB.prepare('INSERT INTO email_rules (user_id, name, condition_field, condition_op, condition_value, action, action_value, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(user!.sub, name, condition_field, condition_op, condition_value, action, action_value || null, priority || 0).run();
     sendResult(res, json({ id: result.meta?.last_row_id }, 201));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.put('/api/rules/:id', async (req, res) => {
@@ -2022,7 +2151,7 @@ app.put('/api/rules/:id', async (req, res) => {
     const { name, condition_field, condition_op, condition_value, action, action_value, priority, is_active } = req.body;
     env.DB.prepare('UPDATE email_rules SET name = ?, condition_field = ?, condition_op = ?, condition_value = ?, action = ?, action_value = ?, priority = ?, is_active = ? WHERE id = ? AND user_id = ?').bind(name, condition_field, condition_op, condition_value, action, action_value || null, priority || 0, is_active !== undefined ? is_active : 1, req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.delete('/api/rules/:id', async (req, res) => {
@@ -2031,7 +2160,7 @@ app.delete('/api/rules/:id', async (req, res) => {
     if (authError) return sendResult(res, authError);
     env.DB.prepare('DELETE FROM email_rules WHERE id = ? AND user_id = ?').bind(req.params.id, user!.sub).run();
     sendResult(res, json({ success: true }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2044,7 +2173,7 @@ app.get('/api/emails/:id/receipts', async (req, res) => {
     if (authError) return sendResult(res, authError);
     const { results } = env.DB.prepare('SELECT * FROM read_receipts WHERE email_id = ? AND user_id = ? ORDER BY read_at DESC').bind(req.params.id, user!.sub).all();
     sendResult(res, json({ receipts: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 app.get('/api/emails/:id/delivery', async (req, res) => {
@@ -2056,7 +2185,7 @@ app.get('/api/emails/:id/delivery', async (req, res) => {
     if (!email) return sendResult(res, errorResp('Email not found', 404));
     const { results: events } = env.DB.prepare('SELECT id, recipient, event_type, event_data, created_at FROM delivery_events WHERE email_id = ? ORDER BY created_at ASC').bind(emailId).all();
     sendResult(res, json({ delivery_status: email.delivery_status, message_id: email.message_id, events }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2069,14 +2198,17 @@ async function handleBrevoWebhook(req: any, res: any) {
   try {
     const rawBody = req.body.toString('utf8');
 
-    // Optional shared-secret verification (Brevo has no native signing)
+    // Shared-secret verification (Brevo has no native signing) — fail CLOSED.
     const webhookSecret = process.env.BREVO_WEBHOOK_SECRET || '';
-    if (webhookSecret) {
-      const provided = (req.query.secret as string) || (req.headers['x-webhook-secret'] as string) || '';
-      if (provided !== webhookSecret) {
-        console.error('Brevo webhook secret mismatch');
-        return res.status(401).json({ error: 'Invalid webhook secret' });
-      }
+    if (!webhookSecret) {
+      console.error('Brevo webhook rejected: BREVO_WEBHOOK_SECRET is not configured');
+      return res.status(503).json({ error: 'Webhook endpoint is disabled' });
+    }
+    if (!rateLimit(`brevo:${req.ip || 'unknown'}`, 60, 60000)) return res.status(429).json({ error: 'Too many requests' });
+    const provided = String(req.headers['x-webhook-secret'] || req.query.secret || '');
+    if (!timingSafeStrEq(provided, webhookSecret)) {
+      console.error('Brevo webhook secret mismatch');
+      return res.status(401).json({ error: 'Invalid webhook secret' });
     }
 
     const parsed = JSON.parse(rawBody);
@@ -2160,7 +2292,7 @@ app.get('/api/track/open/:emailId/:userId', async (req, res) => {
     const email = env.DB.prepare('SELECT from_address, subject FROM emails WHERE id = ? AND user_id = ?').bind(emailId, userId).first() as any;
     if (email) {
       env.DB.prepare('INSERT INTO read_receipts (user_id, email_id, recipient, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').bind(
-        userId, emailId, email.from_address, req.headers['x-forwarded-for'] || req.socket.remoteAddress || null, req.headers['user-agent'] || null
+        userId, emailId, email.from_address, req.ip || null, req.headers['user-agent'] || null
       ).run();
     }
     // Return 1x1 transparent GIF
@@ -2188,7 +2320,7 @@ app.get('/api/emails/:id/thread', async (req, res) => {
     if (!emailData?.thread_id) return sendResult(res, json({ thread: [] }));
     const { results } = env.DB.prepare('SELECT id, from_address, from_name, to_address, subject, snippet, text, html, received_at, is_read, direction, has_attachments FROM emails WHERE thread_id = ? AND user_id = ? ORDER BY received_at ASC').bind(emailData.thread_id, user!.sub).all();
     sendResult(res, json({ thread: results }));
-  } catch (e: any) { sendResult(res, errorResp(e.message, 500)); }
+  } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -2236,9 +2368,22 @@ wss.on('connection', async (ws: import('ws').WebSocket, req) => {
     if (!token || !email) { ws.close(1008, 'Missing credentials'); return; }
 
     const payload = await verifyJwt(token) as JwtPayload | null;
-    if (!payload) { ws.close(1008, 'Invalid token'); return; }
+    // Access tokens only — a refresh token must never open a live channel
+    if (!payload || payload.type !== 'access') { ws.close(1008, 'Invalid token'); return; }
 
-    const userKey = email.toLowerCase();
+    // The requested mailbox must be the token user's own address or one of
+    // their linked accounts — otherwise any user could subscribe to another
+    // user's live notifications.
+    const wanted = String(email).toLowerCase();
+    let authorized = wanted === String(payload.email).toLowerCase();
+    if (!authorized) {
+      const linked = env.DB.prepare('SELECT id FROM linked_accounts WHERE user_id = ? AND email = ? AND is_active = 1')
+        .bind(payload.sub, wanted).first();
+      authorized = !!linked;
+    }
+    if (!authorized) { ws.close(1008, 'Mailbox not authorized'); return; }
+
+    const userKey = wanted;
     if (!wsClients.has(userKey)) wsClients.set(userKey, new Set());
     wsClients.get(userKey)!.add(ws);
 

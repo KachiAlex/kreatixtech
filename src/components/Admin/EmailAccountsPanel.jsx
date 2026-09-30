@@ -5,25 +5,18 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-const WORKER_API_URL = 'https://mail.kreatixtech.com/api/admin';
-// The mail admin secret is configured by the operator (VITE_MAIL_ADMIN_SECRET).
-// There is deliberately NO hard-coded fallback: without it the panel cannot
-// perform admin actions on the mail service.
-const ADMIN_SECRET = import.meta.env.VITE_MAIL_ADMIN_SECRET || '';
+// Mail admin calls go through the portal backend (/api/mail-admin), which
+// attaches the mail service's admin secret server-side — it never ships in
+// this bundle.
+const API_BASE = import.meta.env.VITE_API_URL || '';
+const WORKER_API_URL = `${API_BASE}/api/mail-admin`;
 
 function authHeaders(extra = {}) {
-  return { 'X-Admin-Secret': ADMIN_SECRET, ...extra };
+  const token = localStorage.getItem('portalToken');
+  return { Authorization: `Bearer ${token}`, ...extra };
 }
 
 export default function EmailAccountsPanel() {
-  if (!ADMIN_SECRET) {
-    return (
-      <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm">
-        <Shield className="inline h-4 w-4 mr-1 -mt-0.5" />
-        Mail admin is not configured: set the <code className="font-mono">VITE_MAIL_ADMIN_SECRET</code> environment variable.
-      </div>
-    );
-  }
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

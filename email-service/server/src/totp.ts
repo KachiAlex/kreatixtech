@@ -52,11 +52,14 @@ export function generateTotp(secret: string, timestamp: number = Date.now()): st
 }
 
 export function verifyTotp(secret: string, token: string): boolean {
+  // Guard length/charset first — timingSafeEqual throws on length mismatch
+  if (!/^\d{6}$/.test(token)) return false;
+  const tokenBuf = Buffer.from(token);
   const now = Date.now();
   // Check current, previous, and next 30-second windows
   for (let offset = -1; offset <= 1; offset++) {
     const expected = generateTotp(secret, now + offset * 30000);
-    if (crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected))) return true;
+    if (crypto.timingSafeEqual(tokenBuf, Buffer.from(expected))) return true;
   }
   return false;
 }

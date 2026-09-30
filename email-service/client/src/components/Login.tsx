@@ -3,36 +3,14 @@ import { Mail, ArrowRight, Shield, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../auth-context';
 import { ForgotPassword } from './PasswordReset';
 import { BRAND, brandTitle } from '../brand';
+import { listSavedAccounts, removeSavedAccount } from '../saved-accounts';
 
-const SAVED_KEY = 'kreatix_saved_accounts';
 const SKIP_KEY = 'kreatix_skip_autologin';
 
-const getSavedAccounts = (): Record<string, string> => {
-  try {
-    const raw = localStorage.getItem(SAVED_KEY);
-    if (!raw) return {};
-    return JSON.parse(atob(raw));
-  } catch { return {}; }
-};
-
-const saveCred = (email: string, password: string) => {
-  try {
-    const saved = getSavedAccounts();
-    saved[email.toLowerCase()] = btoa(password);
-    localStorage.setItem(SAVED_KEY, btoa(JSON.stringify(saved)));
-  } catch { /* ignore */ }
-};
-
-const removeCred = (email: string) => {
-  try {
-    const saved = getSavedAccounts();
-    delete saved[email.toLowerCase()];
-    localStorage.setItem(SAVED_KEY, btoa(JSON.stringify(saved)));
-  } catch { /* ignore */ }
-};
+const removeCred = removeSavedAccount;
 
 const Login: React.FC = () => {
-  const { login, register } = useAuth();
+  const { login, register, switchUserWithToken } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -41,6 +19,8 @@ const Login: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [needs2FA, setNeeds2FA] = useState(false);
   const [totpCode, setTotpCode] = useState('');
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -48,14 +28,12 @@ const Login: React.FC = () => {
   const [picker, setPicker] = useState(false);
 
   const autoLogin = async (savedEmail: string) => {
-    const saved = getSavedAccounts();
-    const savedPassword = saved[savedEmail];
-    if (!savedPassword) { setPicker(false); return; }
     setEmail(savedEmail);
     setLoading(true);
     setError('');
     try {
-      await login(savedEmail, atob(savedPassword), undefined, true);
+      // Saved entries are refresh tokens — never passwords
+      await switchUserWithToken(savedEmail);
     } catch {
       // Saved credential is stale — drop it so it stops failing silently
       removeCred(savedEmail);
@@ -70,7 +48,7 @@ const Login: React.FC = () => {
 
   // On mount: seamless sign-in when possible
   useEffect(() => {
-    const emails = Object.keys(getSavedAccounts());
+    const emails = listSavedAccounts();
     setSavedEmails(emails);
     if (emails.length === 0) return;
 
@@ -94,12 +72,8 @@ const Login: React.FC = () => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
       if (mode === 'login') {
-        await login(normalizedEmail, password, totpCode || undefined, rememberMe);
-        if (rememberMe) {
-          saveCred(normalizedEmail, password);
-        } else {
-          removeCred(normalizedEmail);
-        }
+        // login() persists/drops the account's refresh token based on rememberMe
+        await login(normalizedEmail, password, totpCode || undefined, rememberMe, recoveryCode || undefined);
       } else {
         await register(normalizedEmail, password, displayName);
       }
@@ -286,22 +260,40 @@ const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5 mt-4">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-blue-600 text-xs font-bold flex items-center gap-2">
               <Shield className="w-4 h-4" />
-              Enter your 6-digit authenticator code
+              {useRecoveryCode ? 'Enter one of your recovery codes' : 'Enter your 6-digit authenticator code'}
             </div>
             <div>
-              <label className="block text-xs font-bold text-ink/50 uppercase tracking-widest mb-1.5 ml-1">2FA Code</label>
-              <input
-                type="text"
-                required
-                value={totpCode}
-                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
-                placeholder="000000"
-                className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink text-center text-2xl tracking-widest"
-              />
+              <label className="block text-xs font-bold text-ink/50 uppercase tracking-widest mb-1.5 ml-1">{useRecoveryCode ? 'Recovery Code' : '2FA Code'}</label>
+              {useRecoveryCode ? (
+                <input
+                  type="text"
+                  required
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value.substring(0, 12))}
+                  placeholder="XXXXX-XXXXX"
+                  className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink text-center text-xl tracking-widest"
+                />
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 bg-offwhite border border-border rounded-xl outline-none focus:ring-2 focus:ring-orange focus:border-transparent transition-all font-medium text-ink text-center text-2xl tracking-widest"
+                />
+              )}
             </div>
             <button
+              type="button"
+              onClick={() => setUseRecoveryCode(v => !v)}
+              className="w-full text-center text-xs text-gray-500 hover:text-orange font-semibold transition-colors"
+            >
+              {useRecoveryCode ? 'Use authenticator code instead' : 'Lost your device? Use a recovery code'}
+            </button>
+            <button
               type="submit"
-              disabled={loading || totpCode.length !== 6}
+              disabled={loading || (useRecoveryCode ? recoveryCode.trim().length < 10 : totpCode.length !== 6)}
               className="w-full flex items-center justify-center gap-2 py-4 bg-orange text-white rounded-xl font-bold hover:bg-orange-deep transition-all shadow-md hover:shadow-lg disabled:opacity-50 group"
             >
               {loading ? (

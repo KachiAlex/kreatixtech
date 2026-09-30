@@ -59,6 +59,7 @@ await Promise.all([
   tryImport('emails',         './routes/emails.js'),
   tryImport('security',       './routes/security.js'),
   tryImport('monitoring',      './routes/monitoring.js'),
+  tryImport('mailAdmin',       './routes/mail-admin.js'),
   tryImport('publicServiceRequests', './routes/public-service-requests.js'),
   tryImport('authMiddleware','./middleware/auth.js'),
 ]);
@@ -88,6 +89,7 @@ const analyticsRoutes       = get('analytics')?.default;
 const emailRoutes           = get('emails')?.default;
 const securityRoutes        = get('security')?.default;
 const monitoringRoutes      = get('monitoring')?.default;
+const mailAdminRoutes       = get('mailAdmin')?.default;
 const publicServiceRequestRoutes = get('publicServiceRequests')?.default;
 const authMiddleware     = get('authMiddleware');
 const authenticateToken  = authMiddleware?.authenticateToken;
@@ -194,6 +196,7 @@ if (analyticsRoutes)      app.use('/api/analytics',          analyticsRoutes);
 if (emailRoutes)          app.use('/api/emails',             emailRoutes);
 if (securityRoutes)      app.use('/api/security',           securityRoutes);
 if (monitoringRoutes)    app.use('/api/monitoring',          monitoringRoutes);
+if (mailAdminRoutes)     app.use('/api/mail-admin',          authenticateToken, mailAdminRoutes);
 if (publicServiceRequestRoutes) app.use('/api/public/service-requests', publicServiceRequestRoutes);
 
 // Log mounted routes

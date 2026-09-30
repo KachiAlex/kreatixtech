@@ -31,7 +31,9 @@ export function generateSalt(): string {
 
 export async function verifyPassword(password: string, salt: string, hash: string): Promise<boolean> {
   const computed = await hashPassword(password, salt);
-  return computed === hash;
+  const a = Buffer.from(computed), b = Buffer.from(hash);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 // ── JWT (HMAC-SHA256) ────────────────────────────────────────────────────
@@ -76,14 +78,25 @@ export async function verifyJwt(token: string): Promise<JwtPayload | null> {
     const [headerB64, payloadB64, sigB64] = token.split('.');
     if (!headerB64 || !payloadB64 || !sigB64) return null;
 
+    // Reject anything that is not exactly HS256 — prevents alg-confusion attacks
+    const header = JSON.parse(base64UrlDecode(headerB64));
+    if (header.alg !== 'HS256' || header.typ !== 'JWT') return null;
+
     assertSecret();
     const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(`${headerB64}.${payloadB64}`).digest();
     const sigData = Buffer.from(base64UrlDecode(sigB64), 'binary');
-    if (!crypto.timingSafeEqual(expectedSig, sigData)) return null;
+    // timingSafeEqual throws on length mismatch — guard explicitly
+    if (sigData.length !== expectedSig.length || !crypto.timingSafeEqual(expectedSig, sigData)) return null;
 
     const payload: JwtPayload = JSON.parse(base64UrlDecode(payloadB64));
     const now = Math.floor(Date.now() / 1000);
-    if (payload.exp < now) return null;
+    // Validate required claims and types, not just exp
+    if (!payload || typeof payload.exp !== 'number' || typeof payload.iat !== 'number'
+      || typeof payload.sub !== 'number' || typeof payload.email !== 'string'
+      || (payload.type !== 'access' && payload.type !== 'refresh')) return null;
+    if (payload.exp < now || payload.iat > now + 60) return null;
+    // Reject absurdly long-lived tokens (max 90 days = remember-me ceiling)
+    if (payload.exp - payload.iat > 90 * 24 * 60 * 60) return null;
 
     return payload;
   } catch {
@@ -123,8 +136,19 @@ export async function authMiddleware(req: any): Promise<{ user: JwtPayload | nul
     return { user: null, error: { status: 401, body: { error: 'Invalid token type' } } };
   }
 
+  // Live account check — a deactivated user cannot ride out a valid token
+  const dbUser = envRef?.DB?.prepare('SELECT is_active, role FROM users WHERE id = ?').bind(payload.sub).first();
+  if (dbUser && dbUser.is_active !== 1) {
+    return { user: null, error: { status: 403, body: { error: 'Account disabled' } } };
+  }
+  if (dbUser && dbUser.role) payload.role = dbUser.role;
+
   return { user: payload };
 }
+
+// The DB env is wired lazily by server.ts after the env object is built.
+let envRef: any = null;
+export function setEnv(env: any) { envRef = env; }
 
 export async function requireAdmin(req: any): Promise<{ user: JwtPayload | null; error?: any }> {
   const { user, error } = await authMiddleware(req);
@@ -146,7 +170,7 @@ export async function auditLog(env: any, userId: number | null, action: string, 
       action,
       resource || null,
       resourceId || null,
-      req?.headers['x-forwarded-for'] || req?.socket?.remoteAddress || null,
+      req?.ip || null,
       req?.headers['user-agent'] || null,
       details ? JSON.stringify(details) : null
     ).run();
