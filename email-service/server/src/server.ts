@@ -22,6 +22,7 @@ import { analyzeEmailSecurity } from './spam-detection.js';
 import { generateTotpSecret, verifyTotp, generateOtpAuthUrl } from './totp.js';
 import { prepare } from './db.js';
 import { storage } from './storage.js';
+import { scanBuffer, AV_ENABLED } from './av.js';
 import { startSyncInterval } from './d1-sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -166,6 +167,20 @@ try {
 
 try {
   env.DB.prepare(`ALTER TABLE users ADD COLUMN totp_recovery TEXT`).run();
+} catch (e) { /* column already exists */ }
+
+// ── Attachment malware-scan status ───────────────────────────────────────
+try {
+  env.DB.prepare(`ALTER TABLE attachments ADD COLUMN virus_status TEXT NOT NULL DEFAULT 'unscanned'`).run();
+} catch (e) { /* column already exists */ }
+try {
+  env.DB.prepare(`ALTER TABLE attachments ADD COLUMN virus_signature TEXT`).run();
+} catch (e) { /* column already exists */ }
+try {
+  env.DB.prepare(`ALTER TABLE files ADD COLUMN virus_status TEXT NOT NULL DEFAULT 'unscanned'`).run();
+} catch (e) { /* column already exists */ }
+try {
+  env.DB.prepare(`ALTER TABLE files ADD COLUMN virus_signature TEXT`).run();
 } catch (e) { /* column already exists */ }
 
 try {
@@ -585,7 +600,7 @@ app.get('/api/emails/:id', async (req, res) => {
       if (emailData.folder_id) await updateFolderCounts(env, user!.sub, emailData.folder_id);
     }
 
-    const attachments = env.DB.prepare('SELECT id, filename, mime_type, size, is_inline, content_id, download_url FROM attachments WHERE email_id = ?').bind(id).all();
+    const attachments = env.DB.prepare('SELECT id, filename, mime_type, size, is_inline, content_id, download_url, virus_status, virus_signature FROM attachments WHERE email_id = ?').bind(id).all();
     const labels = env.DB.prepare('SELECT l.* FROM labels l JOIN email_labels el ON l.id = el.label_id WHERE el.email_id = ?').bind(id).all();
 
     let thread = null;
@@ -774,6 +789,21 @@ app.post('/api/send', async (req, res) => {
       return sendResult(res, errorResp('Too many attachments (max 20)', 400));
     }
 
+    // Malware-scan outbound attachments BEFORE anything leaves via Brevo
+    if (clientAttachments?.length && AV_ENABLED) {
+      for (const att of clientAttachments) {
+        const buf = Buffer.from(att.content || '', 'base64');
+        const scan = await scanBuffer(buf);
+        if (!scan.clean) {
+          await auditLog(env, user!.sub, 'virus_blocked_send', 'attachment', att.filename, req, { signature: scan.signature });
+          return sendResult(res, errorResp(
+            scan.signature ? `Attachment "${att.filename}" blocked: malware detected (${scan.signature})` : 'Attachment could not be scanned — try again later',
+            400
+          ));
+        }
+      }
+    }
+
     const dbUser = env.DB.prepare('SELECT email, display_name FROM users WHERE id = ?').bind(user!.sub).first();
     // The "from" address must be the user's own mailbox or a linked account —
     // arbitrary senders would let users spoof any address through our Brevo sender.
@@ -863,8 +893,8 @@ app.post('/api/send', async (req, res) => {
           const r2Key = `attachments/${user!.sub}/${sentEmailId}/${attId}/${att.filename}`;
           const binaryStr = Buffer.from(att.content, 'base64');
           await env.R2_BUCKET.put(r2Key, binaryStr, { httpMetadata: { contentType: att.mimeType } });
-          env.DB.prepare('INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, null)')
-            .bind(attId, sentEmailId, user!.sub, att.filename, att.mimeType, att.content.length, r2Key).run();
+          env.DB.prepare('INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id, virus_status) VALUES (?, ?, ?, ?, ?, ?, ?, 0, null, ?)')
+            .bind(attId, sentEmailId, user!.sub, att.filename, att.mimeType, att.content.length, r2Key, AV_ENABLED ? 'clean' : 'unscanned').run();
         }
       }
 
@@ -963,8 +993,8 @@ app.post('/api/outbox/:id/retry', async (req, res) => {
           const r2Key = `attachments/${user!.sub}/${sentEmailId}/${attId}/${att.filename}`;
           const binaryStr = Buffer.from(att.content, 'base64');
           await env.R2_BUCKET.put(r2Key, binaryStr, { httpMetadata: { contentType: att.mimeType } });
-          env.DB.prepare('INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id) VALUES (?, ?, ?, ?, ?, ?, ?, 0, null)')
-            .bind(attId, sentEmailId, user!.sub, att.filename, att.mimeType, att.content.length, r2Key).run();
+          env.DB.prepare('INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id, virus_status) VALUES (?, ?, ?, ?, ?, ?, ?, 0, null, ?)')
+            .bind(attId, sentEmailId, user!.sub, att.filename, att.mimeType, att.content.length, r2Key, AV_ENABLED ? 'clean' : 'unscanned').run();
         }
       }
 
@@ -1002,6 +1032,10 @@ app.post('/api/settings/signature-image', upload.single('file'), async (req: any
     if (authError) return sendResult(res, authError);
     const file = req.file;
     if (!file) return sendResult(res, errorResp('No file provided', 400));
+    if (AV_ENABLED) {
+      const scan = await scanBuffer(file.buffer);
+      if (!scan.clean) return sendResult(res, errorResp(scan.signature ? `File blocked: malware detected (${scan.signature})` : 'File could not be scanned', 400));
+    }
     const fileId = crypto.randomUUID();
     const ext = file.originalname.split('.').pop() || 'png';
     const r2Key = `signatures/${user!.sub}/${fileId}.${ext}`;
@@ -1252,8 +1286,23 @@ app.get('/api/attachments/:id', async (req, res) => {
     const id = req.params.id;
     const attachment = env.DB.prepare('SELECT * FROM attachments WHERE id = ? AND user_id = ?').bind(id, user!.sub).first();
     if (!attachment) return sendResult(res, errorResp('Attachment not found', 404));
+    if (attachment.virus_status === 'infected') {
+      await auditLog(env, user!.sub, 'virus_download_blocked', 'attachment', id, req, { filename: attachment.filename, signature: attachment.virus_signature });
+      return sendResult(res, errorResp(`Attachment blocked: malware detected${attachment.virus_signature ? ` (${attachment.virus_signature})` : ''}`, 403));
+    }
     const obj = await env.R2_BUCKET.get(attachment.r2_key);
     if (!obj) return sendResult(res, errorResp('File not found in storage', 404));
+
+    // Lazy backfill: scan legacy attachments that predate virus scanning
+    if (AV_ENABLED && attachment.virus_status === 'unscanned') {
+      const scan = await scanBuffer(obj.body);
+      const status = scan.clean && !scan.error ? 'clean' : scan.clean ? 'unscanned' : 'infected';
+      env.DB.prepare('UPDATE attachments SET virus_status = ?, virus_signature = ? WHERE id = ?').bind(status, scan.signature || null, id).run();
+      if (status === 'infected') {
+        await auditLog(env, user!.sub, 'virus_download_blocked', 'attachment', id, req, { filename: attachment.filename, signature: scan.signature });
+        return sendResult(res, errorResp(`Attachment blocked: malware detected (${scan.signature || 'unknown'})`, 403));
+      }
+    }
     res.setHeader('Content-Type', attachment.mime_type);
     res.setHeader('Content-Disposition', contentDisposition(attachment.filename));
     res.send(obj.body);
@@ -1612,12 +1661,24 @@ app.post('/api/files/upload', upload.single('file'), async (req: any, res) => {
 
     const file = req.file;
     if (!file) return sendResult(res, errorResp('No file provided', 400));
+    if (!rateLimit(`upload:${user!.sub}`, 20, 60000)) return sendResult(res, errorResp('Too many uploads — please slow down', 429));
+
+    let virusStatus = 'unscanned';
+    let virusSignature: string | null = null;
+    if (AV_ENABLED) {
+      const scan = await scanBuffer(file.buffer);
+      if (!scan.clean) {
+        await auditLog(env, user!.sub, 'virus_blocked_upload', 'file', file.originalname, req, { signature: scan.signature });
+        return sendResult(res, errorResp(scan.signature ? `File blocked: malware detected (${scan.signature})` : 'File could not be scanned — try again later', 400));
+      }
+      if (!scan.error) virusStatus = 'clean';
+    }
 
     const fileId = crypto.randomUUID();
     const r2Key = `files/${user!.sub}/${fileId}/${file.originalname}`;
     await env.R2_BUCKET.put(r2Key, file.buffer, { httpMetadata: { contentType: file.mimetype } });
-    env.DB.prepare('INSERT INTO files (id, user_id, filename, mime_type, size, r2_key) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(fileId, user!.sub, file.originalname, file.mimetype, file.size, r2Key).run();
+    env.DB.prepare('INSERT INTO files (id, user_id, filename, mime_type, size, r2_key, virus_status, virus_signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(fileId, user!.sub, file.originalname, file.mimetype, file.size, r2Key, virusStatus, virusSignature).run();
     env.DB.prepare('UPDATE users SET storage_used = storage_used + ? WHERE id = ?').bind(file.size, user!.sub).run();
     sendResult(res, json({ id: fileId, filename: file.originalname, size: file.size }, 201));
   } catch (e: any) { console.error(`[${req.method}] ${req.path}:`, e); sendResult(res, errorResp('Internal server error', 500)); }
@@ -1630,8 +1691,15 @@ app.get('/api/files/:fileId/download', async (req, res) => {
     const fileId = req.params.fileId;
     const file = env.DB.prepare('SELECT * FROM files WHERE id = ? AND user_id = ?').bind(fileId, user!.sub).first();
     if (!file) return sendResult(res, errorResp('File not found', 404));
+    if (file.virus_status === 'infected') return sendResult(res, errorResp(`File blocked: malware detected${file.virus_signature ? ` (${file.virus_signature})` : ''}`, 403));
     const obj = await env.R2_BUCKET.get(file.r2_key);
     if (!obj) return sendResult(res, errorResp('File not in storage', 404));
+    if (AV_ENABLED && file.virus_status === 'unscanned') {
+      const scan = await scanBuffer(obj.body);
+      const status = scan.clean && !scan.error ? 'clean' : scan.clean ? 'unscanned' : 'infected';
+      env.DB.prepare('UPDATE files SET virus_status = ?, virus_signature = ? WHERE id = ?').bind(status, scan.signature || null, fileId).run();
+      if (status === 'infected') return sendResult(res, errorResp(`File blocked: malware detected (${scan.signature || 'unknown'})`, 403));
+    }
     res.setHeader('Content-Type', file.mime_type);
     res.setHeader('Content-Disposition', contentDisposition(file.filename));
     res.send(obj.body);
@@ -1816,10 +1884,27 @@ app.post('/api/inbound-email', express.raw({ type: '*/*', limit: '50mb' }), asyn
     for (const attachment of parsed.attachments) {
       const attId = crypto.randomUUID();
       const r2Key = `attachments/${user.id}/${emailId}/${attId}/${attachment.filename}`;
-      await env.R2_BUCKET.put(r2Key, attachment.content, { httpMetadata: { contentType: attachment.mimeType } });
+      const attBuf = Buffer.from(attachment.content as ArrayBuffer);
+
+      // Malware scan — infected files are quarantined: still stored for
+      // forensics but flagged, logged, and refused at download time.
+      let virusStatus = 'unscanned';
+      let virusSignature: string | null = null;
+      if (AV_ENABLED) {
+        const scan = await scanBuffer(attBuf);
+        virusStatus = scan.clean && !scan.error ? 'clean' : scan.clean ? 'unscanned' : 'infected';
+        virusSignature = scan.signature || null;
+        if (!scan.clean) {
+          env.DB.prepare('INSERT INTO security_log (user_id, event_type, email_id, details) VALUES (?, ?, ?, ?)').bind(
+            user.id, 'virus_detected', emailId, JSON.stringify({ from: parsed.fromAddress, subject: parsed.subject, filename: attachment.filename, signature: scan.signature })
+          ).run();
+        }
+      }
+
+      await env.R2_BUCKET.put(r2Key, attBuf, { httpMetadata: { contentType: attachment.mimeType } });
       env.DB.prepare(
-        'INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(attId, emailId, user.id, attachment.filename, attachment.mimeType, attachment.size, r2Key, attachment.isInline ? 1 : 0, attachment.contentId || null).run();
+        'INSERT INTO attachments (id, email_id, user_id, filename, mime_type, size, r2_key, is_inline, content_id, virus_status, virus_signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(attId, emailId, user.id, attachment.filename, attachment.mimeType, attachment.size, r2Key, attachment.isInline ? 1 : 0, attachment.contentId || null, virusStatus, virusSignature).run();
     }
 
     if (inboxFolder) await updateFolderCounts(env, user.id, inboxFolder.id);

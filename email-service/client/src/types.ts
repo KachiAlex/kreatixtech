@@ -60,6 +60,8 @@ export interface Attachment {
   is_inline: number;
   content_id?: string;
   download_url?: string;
+  virus_status?: 'clean' | 'infected' | 'unscanned';
+  virus_signature?: string;
 }
 
 export interface Email {

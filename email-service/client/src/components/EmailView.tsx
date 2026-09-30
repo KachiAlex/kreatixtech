@@ -365,6 +365,17 @@ const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onReplyAll, onFor
           <div style={{ marginTop: 24 }}>
             {email.attachments.map(att => (
               <div key={att.id} style={{ display: 'inline-block', marginRight: 10, marginBottom: 10 }}>
+                {att.virus_status === 'infected' ? (
+                  <div className="attachment" style={{ textDecoration: 'none', color: 'inherit', borderColor: '#dc2626', opacity: 0.85, cursor: 'not-allowed' }}>
+                    <div className="file-icon" style={{ color: '#dc2626' }}>
+                      <AlertCircle />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <strong>{att.filename}</strong>
+                      <small style={{ color: '#dc2626' }}>Blocked: malware detected{att.virus_signature ? ` (${att.virus_signature})` : ''}</small>
+                    </div>
+                  </div>
+                ) : (
                 <a
                   className="attachment"
                   href={attachmentApi.downloadUrl(att.id)}
@@ -380,7 +391,8 @@ const EmailView: React.FC<EmailViewProps> = ({ email, onReply, onReplyAll, onFor
                   </div>
                   <Paperclip />
                 </a>
-                {(isImage(att.mime_type) || isPdf(att.mime_type)) && (
+                )}
+                {att.virus_status !== 'infected' && (isImage(att.mime_type) || isPdf(att.mime_type)) && (
                   <button
                     onClick={() => setPreviewAttachment(att)}
                     style={{ display: 'block', width: '100%', padding: '4px 8px', border: '1px solid #E8E5E0', borderTop: 'none', borderRadius: '0 0 8px 8px', background: '#f8f9fa', cursor: 'pointer', fontSize: 11, color: '#F2782E', textAlign: 'center' }}
