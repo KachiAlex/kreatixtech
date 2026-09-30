@@ -2205,7 +2205,11 @@ async function handleBrevoWebhook(req: any, res: any) {
       return res.status(503).json({ error: 'Webhook endpoint is disabled' });
     }
     if (!rateLimit(`brevo:${req.ip || 'unknown'}`, 60, 60000)) return res.status(429).json({ error: 'Too many requests' });
-    const provided = String(req.headers['x-webhook-secret'] || req.query.secret || '');
+    // Accept X-Webhook-Secret header, ?secret= query, or Brevo's native
+    // auth mechanism — "Authorization: Bearer <token>"
+    const authHeader = String(req.headers.authorization || '');
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const provided = String(req.headers['x-webhook-secret'] || bearer || req.query.secret || '');
     if (!timingSafeStrEq(provided, webhookSecret)) {
       console.error('Brevo webhook secret mismatch');
       return res.status(401).json({ error: 'Invalid webhook secret' });
