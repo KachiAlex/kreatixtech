@@ -6,7 +6,6 @@ import { trackClick } from '../../services/analytics';
 import Logo from '../Logo';
 
 const navLinks = [
-  { label: 'Home', href: '/' },
   { label: 'Work', href: '/portfolio' },
   { label: 'Blog', href: '/blog' },
   { label: 'About', href: '/about' },
@@ -174,6 +173,16 @@ export default function Navbar() {
           'hidden md:flex items-center gap-7 transition-transform duration-300',
           mobileOpen ? 'translate-x-0' : 'translate-x-0'
         )}>
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) => cn(
+              'text-sm font-semibold transition-opacity',
+              isActive ? 'text-ink opacity-100' : 'text-ink opacity-65 hover:opacity-100'
+            )}
+          >
+            Home
+          </NavLink>
           <DropdownItem label="Products" links={productLinks} />
           <DropdownItem label="Services" links={serviceLinks} />
           {navLinks.map((link) => (
@@ -227,6 +236,17 @@ export default function Navbar() {
           'md:hidden fixed top-0 right-0 h-screen w-64 bg-paper flex flex-col justify-start pt-24 px-8 pb-8 gap-6 border-l border-border shadow-xl',
           mobileOpen ? 'translate-x-0' : 'translate-x-full'
         )}>
+          <NavLink
+            to="/"
+            end
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) => cn(
+              'text-sm font-semibold transition-colors',
+              isActive ? 'text-ink' : 'text-ink opacity-65 hover:opacity-100'
+            )}
+          >
+            Home
+          </NavLink>
           <MobileAccordion label="Products" links={productLinks} onClose={() => setMobileOpen(false)} />
           <MobileAccordion label="Services" links={serviceLinks} onClose={() => setMobileOpen(false)} />
           {navLinks.map((link) => (
