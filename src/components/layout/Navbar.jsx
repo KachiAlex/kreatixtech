@@ -16,10 +16,10 @@ const navLinks = [
 
 // Dropdown menus — external product links open in a new tab
 const productLinks = [
-  { label: 'Kreatix Mail', href: 'https://mail.kreatixtech.com', external: true },
-  { label: 'Kreatix VAPT', href: 'https://security.kreatixtech.com', external: true },
-  { label: 'CheckoutPOS', href: 'https://checkoutpos.online', external: true },
-  { label: 'Xsta360', href: 'https://xsta360.com.ng', external: true },
+  { label: 'Kreatix Mail', href: 'https://mail.kreatixtech.com', external: true, desc: 'Secure business webmail for your domain' },
+  { label: 'Kreatix VAPT', href: 'https://security.kreatixtech.com', external: true, desc: 'Vulnerability assessment & pentest portal' },
+  { label: 'CheckoutPOS', href: 'https://checkoutpos.online', external: true, desc: 'Point-of-sale & store operations' },
+  { label: 'Xsta360', href: 'https://xsta360.com.ng', external: true, desc: 'Sales CRM — pipeline, follow-ups & team tracking' },
 ];
 
 const serviceLinks = [
@@ -62,13 +62,19 @@ function DropdownItem({ label, links, onClose }) {
       </button>
       {open && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-56"
+          className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-64"
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
         >
           <div className="bg-paper border border-border rounded-xl shadow-lg py-2">
             {links.map((link) => {
               const cls = 'block px-4 py-2.5 text-sm font-medium text-ink opacity-75 hover:opacity-100 hover:bg-orange/5 transition-colors';
+              const inner = link.desc ? (
+                <>
+                  <span className="block">{link.label}</span>
+                  <span className="block text-[11px] font-normal text-muted opacity-90 mt-0.5">{link.desc}</span>
+                </>
+              ) : link.label;
               if (link.external) {
                 return (
                   <a
@@ -79,13 +85,13 @@ function DropdownItem({ label, links, onClose }) {
                     className={cls}
                     onClick={onClose}
                   >
-                    {link.label}
+                    {inner}
                   </a>
                 );
               }
               return (
                 <Link key={link.label} to={link.href} className={cls} onClick={onClose}>
-                  {link.label}
+                  {inner}
                 </Link>
               );
             })}
@@ -113,6 +119,12 @@ function MobileAccordion({ label, links, onClose }) {
         <div className="flex flex-col gap-1 mt-2 pl-3 border-l border-border">
           {links.map((link) => {
             const cls = 'text-sm font-medium text-ink opacity-65 hover:opacity-100 py-1.5 transition-opacity';
+            const inner = link.desc ? (
+              <>
+                <span className="block">{link.label}</span>
+                <span className="block text-[11px] font-normal text-muted opacity-80">{link.desc}</span>
+              </>
+            ) : link.label;
             if (link.external) {
               return (
                 <a
@@ -123,13 +135,13 @@ function MobileAccordion({ label, links, onClose }) {
                   className={cls}
                   onClick={onClose}
                 >
-                  {link.label}
+                  {inner}
                 </a>
               );
             }
             return (
               <Link key={link.label} to={link.href} className={cls} onClick={onClose}>
-                {link.label}
+                {inner}
               </Link>
             );
           })}
